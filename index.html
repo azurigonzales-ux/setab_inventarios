@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventarios SETAB - Entorno Alpine</title>
+    
+    <!-- 1. Tailwind CSS (con la configuración exacta de colores SETAB) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        guinda: { DEFAULT: '#981A35', dark: '#691C32' },
+                        dorado: { DEFAULT: '#BC955C' },
+                        gris: { fondo: '#F4F6F8', texto: '#333333', borde: '#CCCCCC' }
+                    }
+                }
+            }
+        }
+    </script>
+
+     
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-gris-fondo text-gris-texto p-10 flex items-center justify-center min-h-screen">
+    
+    
+    <div x-data="{ mensaje: 'Entorno de trabajo' }" 
+         class="bg-white p-8 rounded-lg shadow-lg border-t-8 border-guinda text-center max-w-md">
+        
+        <h1 class="text-3xl font-bold text-guinda mb-4"> SETAB</h1>
+        
+        
+        <p x-text="mensaje" class="text-lg font-medium text-gris-texto mb-6"></p>
+        
+        
+        <button @click="mensaje = 'Interfaz'" 
+                class="bg-dorado hover:bg-opacity-80 text-white font-bold py-2 px-6 rounded transition">
+             Clic para probar
+        </button>
+    </div>
+
+</body>
+</html>
