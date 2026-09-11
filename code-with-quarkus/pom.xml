@@ -37,11 +37,11 @@
             <artifactId>quarkus-rest</artifactId>
         </dependency>
         <!-- Motor de plantillas Pebble -->
-    <dependency>
-        <groupId>io.pebbletemplates</groupId>
-        <artifactId>pebble</artifactId>
-        <version>3.2.2</version> 
-    </dependency>
+        <dependency>
+            <groupId>io.pebbletemplates</groupId>
+            <artifactId>pebble</artifactId>
+            <version>3.2.2</version> 
+        </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-rest-jackson</artifactId>
@@ -61,6 +61,36 @@
         <dependency>
             <groupId>io.quarkus</groupId>
             <artifactId>quarkus-hibernate-orm</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-jwt-build</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-smallrye-jwt</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-security</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-elytron-security</artifactId>
+        </dependency>
+        
+        <!-- ========================================== -->
+        <!-- NUEVA DEPENDENCIA: Apache PDFBox (RF-08)   -->
+        <!-- ========================================== -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>2.0.30</version>
+        </dependency>
+        
+        <dependency>
+            <groupId>io.quarkus</groupId>
+            <artifactId>quarkus-oidc</artifactId>
         </dependency>
         <dependency>
             <groupId>io.quarkus</groupId>
