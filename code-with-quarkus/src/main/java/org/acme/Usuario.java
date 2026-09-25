@@ -22,6 +22,7 @@ public class Usuario extends PanacheEntity {
     
     public String cct;
 
+
     public String nivelEducativo;
     
 }

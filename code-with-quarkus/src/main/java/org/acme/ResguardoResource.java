@@ -39,26 +39,23 @@ public class ResguardoResource {
         public Long idEmpleado;
         public double cantidad; 
         public String firmaEmpleadoBase64; 
-        public String latitudGPS;          
-        public String longitudGPS;         
     }
 
     public static class LiberarRequest {
         public double cantidad;
+        public String firmaBase64; // Firma del Director entregando el equipo
+        public String latitudGPS;          
+        public String longitudGPS; 
     }
 
-    public static class DevolucionPdfRequest {
-        public String nombreEmpleado;
-        public String areaEmpleado;
-        public String marcaArticulo;
-        public String numeroSerie;
-        public double cantidadDevuelta;
-        public String firmaEmpleadoBase64; 
-    }
-
-    // --- NUEVAS ESTRUCTURAS PARA BANDEJA DE FIRMAS ---
     public static class FirmarRequest {
         public String firmaBase64;
+        public String latitudGPS;          
+        public String longitudGPS; 
+    }
+    
+    public static class AprobarBajaRequest {
+        public String firmaSuperAdminBase64;
     }
 
     public static class PendienteDTO {
@@ -68,20 +65,39 @@ public class ResguardoResource {
         public LocalDate fechaAsignacion;
         public double cantidadAsignada;
         public String nombreAdminAsignador;
+        public String estadoResguardo; 
+        public String numeroInventario; // NUEVA LÍNEA AÑADIDA
     }
-    // -------------------------------------------------
+
+    public static class ResguardoExtendidoDTO {
+        public Long idResguardo;
+        public Long idArticulo;
+        public String equipoSerie;
+        public String equipoMarca;
+        public Long idEmpleado;
+        public String nombreEmpleado;
+        public String areaDestino;
+        public LocalDate fechaAsignacion;
+        public double cantidadAsignada;
+        public String estadoResguardo; 
+        public String numeroInventario; // NUEVA LÍNEA AÑADIDA
+    }
 
     private String obtenerNombreAdmin() {
-        String adminNombre = "Administrador del Sistema";
-        if (jwt != null && jwt.getName() != null) {
-            Usuario adminUser = Usuario.find("username", jwt.getName()).firstResult();
-            if (adminUser != null && adminUser.nombreCompleto != null && !adminUser.nombreCompleto.isEmpty()) {
-                adminNombre = adminUser.nombreCompleto;
-            } else {
-                adminNombre = jwt.getName();
+        if (jwt != null) {
+            String fullName = jwt.getClaim("name");
+            if (fullName != null && !fullName.trim().isEmpty()) {
+                return fullName;
+            }
+            if (jwt.getName() != null) {
+                Usuario adminUser = Usuario.find("username", jwt.getName()).firstResult();
+                if (adminUser != null && adminUser.nombreCompleto != null) {
+                    return adminUser.nombreCompleto;
+                }
+                return jwt.getName();
             }
         }
-        return adminNombre;
+        return "Administrador del Sistema";
     }
 
     @POST
@@ -111,13 +127,12 @@ public class ResguardoResource {
         resguardo.fechaAsignacion = LocalDate.now();
         resguardo.cantidadAsignada = request.cantidad;
 
-        // El Almacén firma de salida
         resguardo.firmaAdminBase64 = request.firmaEmpleadoBase64; 
-        // Queda nula esperando la firma del Director
         resguardo.firmaEmpleadoBase64 = null; 
-        resguardo.latitudGPS = request.latitudGPS;
-        resguardo.longitudGPS = request.longitudGPS;
+        resguardo.latitudGPS = null; // Se captura cuando el director firme
+        resguardo.longitudGPS = null; // Se captura cuando el director firme
         resguardo.nombreAdminAsignador = obtenerNombreAdmin();
+        resguardo.estadoResguardo = "ACTIVO";
 
         resguardo.persist();
 
@@ -142,10 +157,10 @@ public class ResguardoResource {
     @RolesAllowed("SUPERADMIN")
     public Response resguardosPorEmpleado(@PathParam("idEmpleado") Long idEmpleado) {
         List<Resguardo> resguardos = Resguardo.find("empleado.idEmpleado", idEmpleado).list();
-        List<ResguardoDTO> lista = new ArrayList<>();
+        List<ResguardoExtendidoDTO> lista = new ArrayList<>();
 
         for (Resguardo r : resguardos) {
-            ResguardoDTO dto = new ResguardoDTO();
+            ResguardoExtendidoDTO dto = new ResguardoExtendidoDTO();
             dto.idResguardo = r.id;
             dto.idArticulo = r.articulo.id;
             dto.equipoSerie = r.articulo.numeroSerie;
@@ -155,6 +170,8 @@ public class ResguardoResource {
             dto.areaDestino = r.empleado.area;
             dto.fechaAsignacion = r.fechaAsignacion;
             dto.cantidadAsignada = r.cantidadAsignada;
+            dto.estadoResguardo = r.estadoResguardo != null ? r.estadoResguardo : "ACTIVO";
+            dto.numeroInventario = r.articulo.numeroInventario; // NUEVA LÍNEA AÑADIDA
             lista.add(dto);
         }
         return Response.ok(lista).build();
@@ -173,26 +190,23 @@ public class ResguardoResource {
             return Response.status(Response.Status.NOT_FOUND).entity("No se encontró el perfil de la escuela vinculado a este usuario.").build();
         }
 
-        // Modificamos para que aquí solo vea los que YA FIRMÓ
         List<Resguardo> resguardos = Resguardo.find("empleado.idEmpleado = ?1 and firmaEmpleadoBase64 is not null", empleado.idEmpleado).list();
-        List<ResguardoDTO> lista = new ArrayList<>();
+        List<ResguardoExtendidoDTO> lista = new ArrayList<>();
 
         for (Resguardo r : resguardos) {
-            ResguardoDTO dto = new ResguardoDTO();
+            ResguardoExtendidoDTO dto = new ResguardoExtendidoDTO();
             dto.idResguardo = r.id;
             dto.idArticulo = r.articulo.id;
             dto.equipoSerie = r.articulo.numeroSerie;
             dto.equipoMarca = r.articulo.marca;
             dto.fechaAsignacion = r.fechaAsignacion;
             dto.cantidadAsignada = r.cantidadAsignada;
+            dto.estadoResguardo = r.estadoResguardo != null ? r.estadoResguardo : "ACTIVO";
+            dto.numeroInventario = r.articulo.numeroInventario; // NUEVA LÍNEA AÑADIDA
             lista.add(dto);
         }
         return Response.ok(lista).build();
     }
-
-    // ==============================================================
-    // NUEVOS ENDPOINTS: BANDEJA DE FIRMAS (DIRECTORES)
-    // ==============================================================
 
     @GET
     @Path("/pendientes-firma")
@@ -205,8 +219,7 @@ public class ResguardoResource {
         Empleado empleado = Empleado.find("usuario", jwt.getName()).firstResult();
         if (empleado == null) return Response.status(Response.Status.NOT_FOUND).build();
 
-        // Buscar resguardos donde la firma del Director sea nula
-        List<Resguardo> pendientes = Resguardo.find("empleado.idEmpleado = ?1 and (firmaEmpleadoBase64 is null or firmaEmpleadoBase64 = '')", empleado.idEmpleado).list();
+        List<Resguardo> pendientes = Resguardo.find("empleado.idEmpleado = ?1 and (firmaEmpleadoBase64 is null or firmaEmpleadoBase64 = '' or estadoResguardo = 'BAJA_EN_PROCESO')", empleado.idEmpleado).list();
         
         List<PendienteDTO> lista = new ArrayList<>();
         for (Resguardo r : pendientes) {
@@ -217,6 +230,33 @@ public class ResguardoResource {
             dto.fechaAsignacion = r.fechaAsignacion;
             dto.cantidadAsignada = r.cantidadAsignada;
             dto.nombreAdminAsignador = r.nombreAdminAsignador != null ? r.nombreAdminAsignador : "Almacén Central";
+            dto.estadoResguardo = r.estadoResguardo;
+            dto.numeroInventario = r.articulo.numeroInventario; // NUEVA LÍNEA AÑADIDA
+            lista.add(dto);
+        }
+        return Response.ok(lista).build();
+    }
+
+    @GET
+    @Path("/solicitudes-baja")
+    @RolesAllowed("SUPERADMIN")
+    public Response obtenerSolicitudesBaja() {
+        List<Resguardo> pendientes = Resguardo.find("estadoResguardo", "SOLICITUD_BAJA").list();
+        List<ResguardoExtendidoDTO> lista = new ArrayList<>();
+        
+        for (Resguardo r : pendientes) {
+            ResguardoExtendidoDTO dto = new ResguardoExtendidoDTO();
+            dto.idResguardo = r.id;
+            dto.idArticulo = r.articulo.id;
+            dto.equipoSerie = r.articulo.numeroSerie;
+            dto.equipoMarca = r.articulo.marca;
+            dto.idEmpleado = r.empleado.idEmpleado;
+            dto.nombreEmpleado = r.empleado.nombre;
+            dto.areaDestino = r.empleado.nombreEscuela != null ? r.empleado.nombreEscuela : r.empleado.area;
+            dto.fechaAsignacion = r.fechaAsignacion;
+            dto.cantidadAsignada = r.cantidadAsignada;
+            dto.estadoResguardo = r.estadoResguardo;
+            dto.numeroInventario = r.articulo.numeroInventario; // NUEVA LÍNEA AÑADIDA
             lista.add(dto);
         }
         return Response.ok(lista).build();
@@ -235,7 +275,6 @@ public class ResguardoResource {
         Resguardo resguardo = Resguardo.findById(idResguardo);
         if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).entity("Resguardo no encontrado").build();
 
-        // Validar que no firme equipos de otra escuela
         if (!resguardo.empleado.idEmpleado.equals(empleado.idEmpleado)) {
             return Response.status(Response.Status.FORBIDDEN).entity("No tienes permiso para firmar este resguardo").build();
         }
@@ -245,9 +284,11 @@ public class ResguardoResource {
         }
 
         resguardo.firmaEmpleadoBase64 = request.firmaBase64;
+        resguardo.latitudGPS = request.latitudGPS;
+        resguardo.longitudGPS = request.longitudGPS;
+        resguardo.estadoResguardo = "ACTIVO";
         resguardo.persist();
 
-        // Registrar en Trazabilidad
         HistorialTrazabilidad historial = new HistorialTrazabilidad();
         historial.articulo = resguardo.articulo;
         historial.tipoMovimiento = "FIRMA_RECEPCION";
@@ -258,17 +299,63 @@ public class ResguardoResource {
 
         return Response.ok("{\"mensaje\": \"Firma registrada correctamente\"}").build();
     }
-    // ==============================================================
+
+    @PUT
+    @Path("/solicitar-baja/{idResguardo}")
+    @Transactional
+    @RolesAllowed("Admin")
+    public Response solicitarBaja(@PathParam("idResguardo") Long idResguardo) {
+        Resguardo resguardo = Resguardo.findById(idResguardo);
+        if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
+
+        resguardo.estadoResguardo = "SOLICITUD_BAJA";
+        resguardo.persist();
+
+        HistorialTrazabilidad historial = new HistorialTrazabilidad();
+        historial.articulo = resguardo.articulo;
+        historial.tipoMovimiento = "SOLICITUD_BAJA";
+        historial.detallesModificacion = "La escuela solicitó la baja/devolución del equipo.";
+        historial.fechaMovimiento = java.time.LocalDateTime.now();
+        historial.username = jwt.getName(); 
+        historial.persist();
+
+        return Response.ok("{\"mensaje\": \"Solicitud enviada a Almacén Central\"}").build();
+    }
+
+    @PUT
+    @Path("/aprobar-baja/{idResguardo}")
+    @Transactional
+    @RolesAllowed("SUPERADMIN")
+    public Response aprobarBaja(@PathParam("idResguardo") Long idResguardo, AprobarBajaRequest request) {
+        Resguardo resguardo = Resguardo.findById(idResguardo);
+        if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
+
+        if (request.firmaSuperAdminBase64 == null || request.firmaSuperAdminBase64.isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Firma del Almacén requerida").build();
+        }
+
+        resguardo.estadoResguardo = "BAJA_EN_PROCESO";
+        resguardo.firmaSuperAdminBajaBase64 = request.firmaSuperAdminBase64;
+        resguardo.persist();
+
+        HistorialTrazabilidad historial = new HistorialTrazabilidad();
+        historial.articulo = resguardo.articulo;
+        historial.tipoMovimiento = "APROBACION_BAJA";
+        historial.detallesModificacion = "Almacén Central autorizó la baja. Pendiente firma de entrega del Director.";
+        historial.fechaMovimiento = java.time.LocalDateTime.now();
+        historial.username = obtenerNombreAdmin(); 
+        historial.persist();
+
+        return Response.ok("{\"mensaje\": \"Baja aprobada, esperando firma del Director\"}").build();
+    }
 
     @PUT
     @Path("/liberar/{idResguardo}")
     @Transactional
-    @RolesAllowed("SUPERADMIN")
+    @RolesAllowed({"SUPERADMIN", "Admin"}) 
     public Response liberar(@PathParam("idResguardo") Long idResguardo, LiberarRequest request) {
         Resguardo resguardo = Resguardo.findById(idResguardo);
-        if (resguardo == null) {
-            return Response.status(Response.Status.NOT_FOUND).entity("{\"mensaje\": \"Resguardo no encontrado\"}").build();
-        }
+        if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
 
         Articulo articulo = resguardo.articulo;
 
@@ -282,39 +369,48 @@ public class ResguardoResource {
         }
 
         resguardo.cantidadAsignada -= request.cantidad;
+        
+        if(request.firmaBase64 != null && !request.firmaBase64.isEmpty()) {
+             resguardo.firmaDirectorBajaBase64 = request.firmaBase64;
+        }
+
+        resguardo.estadoResguardo = "DEVUELTO";
+        resguardo.fechaBaja = LocalDate.now();
+        resguardo.latitudGPS = request.latitudGPS;
+        resguardo.longitudGPS = request.longitudGPS;
+        resguardo.persist();
 
         HistorialTrazabilidad historial = new HistorialTrazabilidad();
         historial.articulo = articulo;
-        historial.tipoMovimiento = "DEVOLUCION";
-        historial.detallesModificacion = "Se devolvieron " + request.cantidad + " unidades. Restan en poder del empleado: " + resguardo.cantidadAsignada;
+        historial.tipoMovimiento = "DEVOLUCION_COMPLETADA";
+        historial.detallesModificacion = "Se devolvieron " + request.cantidad + " unidades físicas al almacén.";
         historial.fechaMovimiento = java.time.LocalDateTime.now();
-        historial.username = obtenerNombreAdmin(); 
+        historial.username = jwt.getName(); 
         historial.persist();
 
-        if (resguardo.cantidadAsignada <= 0) {
-            resguardo.delete();
-            return Response.ok("{\"mensaje\": \"Equipo devuelto en su totalidad. Resguardo cerrado.\"}").build();
-        } else {
-            resguardo.persist();
-            return Response.ok("{\"mensaje\": \"Devolución parcial procesada.\"}").build();
-        }
+        return Response.ok("{\"mensaje\": \"Devolución procesada y equipo regresado al stock.\"}").build();
     }
 
     @GET
-    @Path("/pdf/{idResguardo}")
+    @Path("/pdf-asignacion/{idResguardo}")
     @Produces("application/pdf")
-    // ¡AQUÍ ESTÁ LA MAGIA! Ahora permitimos que el Director (Admin) también descargue su PDF
     @RolesAllowed({"SUPERADMIN", "Admin"})
-    public Response generarPdfResguardo(@PathParam("idResguardo") Long idResguardo) {
+    public Response generarPdfAsignacion(@PathParam("idResguardo") Long idResguardo) {
         Resguardo resguardo = Resguardo.findById(idResguardo);
 
-        if (resguardo == null) {
-            return Response.status(Response.Status.NOT_FOUND).entity("Resguardo no encontrado.").type(MediaType.TEXT_PLAIN).build();
-        }
+        if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
 
         String adminNombre = resguardo.nombreAdminAsignador != null ? resguardo.nombreAdminAsignador : "Almacén Central";
+        
+        if ("superadmin".equalsIgnoreCase(adminNombre) || "admin".equalsIgnoreCase(adminNombre)) {
+            Usuario userDb = Usuario.find("username", adminNombre).firstResult();
+            if (userDb != null && userDb.nombreCompleto != null) {
+                adminNombre = userDb.nombreCompleto;
+            }
+        }
+
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy");
-        String fechaHoy = LocalDate.now().format(formatter);
+        String fechaActa = (resguardo.fechaAsignacion != null) ? resguardo.fechaAsignacion.format(formatter) : LocalDate.now().format(formatter);
 
         try (PDDocument document = new PDDocument(); 
              ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
@@ -335,7 +431,7 @@ public class ResguardoResource {
                 contentStream.newLineAtOffset(400, 680);
                 contentStream.showText("Folio: " + resguardo.id);
                 contentStream.newLineAtOffset(0, -15);
-                contentStream.showText("Fecha: " + fechaHoy);
+                contentStream.showText("Fecha: " + fechaActa);
                 contentStream.endText();
 
                 contentStream.beginText();
@@ -386,7 +482,6 @@ public class ResguardoResource {
 
                 int firmaY = 250; 
 
-                // Dibujar Firma del Almacén Central
                 if (resguardo.firmaAdminBase64 != null && resguardo.firmaAdminBase64.contains(",")) {
                     try {
                         String base64Image = resguardo.firmaAdminBase64.split(",")[1];
@@ -396,7 +491,6 @@ public class ResguardoResource {
                     } catch (Exception e) { }
                 }
 
-                // ¡NUEVO! Dibujar la Firma del Director (Si ya firmó)
                 if (resguardo.firmaEmpleadoBase64 != null && resguardo.firmaEmpleadoBase64.contains(",")) {
                     try {
                         String base64Image = resguardo.firmaEmpleadoBase64.split(",")[1];
@@ -427,24 +521,45 @@ public class ResguardoResource {
                 contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
                 contentStream.showText(resguardo.empleado.nombre);
                 contentStream.endText();
+
+                // IMPRIMIR COORDENADAS AL FINAL DEL ACTA
+                if (resguardo.latitudGPS != null && resguardo.longitudGPS != null) {
+                    contentStream.beginText();
+                    contentStream.setFont(PDType1Font.TIMES_ROMAN, 9);
+                    contentStream.newLineAtOffset(50, 100);
+                    contentStream.showText("Ubicacion de firma del Servidor Publico (GPS): Latitud " + resguardo.latitudGPS + ", Longitud " + resguardo.longitudGPS);
+                    contentStream.endText();
+                }
             }
 
             document.save(baos);
             return Response.ok(baos.toByteArray()).header("Content-Disposition", "attachment; filename=\"Acta_Asignacion_" + idResguardo + ".pdf\"").build();
 
         } catch (Exception e) {
-            return Response.serverError().entity("Error interno al generar el acta PDF: " + e.getMessage()).type(MediaType.TEXT_PLAIN).build();
+            return Response.serverError().entity("Error al generar PDF: " + e.getMessage()).build();
         }
     }
 
-    @POST
-    @Path("/pdf/devolucion")
+    @GET
+    @Path("/pdf-baja/{idResguardo}")
     @Produces("application/pdf")
-    @RolesAllowed("SUPERADMIN")
-    public Response generarPdfDevolucion(DevolucionPdfRequest req) {
-        String adminNombre = obtenerNombreAdmin();
+    @RolesAllowed({"SUPERADMIN", "Admin"})
+    public Response generarPdfBaja(@PathParam("idResguardo") Long idResguardo) {
+        Resguardo resguardo = Resguardo.findById(idResguardo);
+
+        if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
+
+        String adminNombre = resguardo.nombreAdminAsignador != null ? resguardo.nombreAdminAsignador : "Almacén Central";
+        
+        if ("superadmin".equalsIgnoreCase(adminNombre) || "admin".equalsIgnoreCase(adminNombre)) {
+            Usuario userDb = Usuario.find("username", adminNombre).firstResult();
+            if (userDb != null && userDb.nombreCompleto != null) {
+                adminNombre = userDb.nombreCompleto;
+            }
+        }
+
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy");
-        String fechaHoy = LocalDate.now().format(formatter);
+        String fechaActa = (resguardo.fechaBaja != null) ? resguardo.fechaBaja.format(formatter) : LocalDate.now().format(formatter);
 
         try (PDDocument document = new PDDocument(); 
              ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
@@ -463,7 +578,7 @@ public class ResguardoResource {
                 contentStream.beginText();
                 contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
                 contentStream.newLineAtOffset(400, 680);
-                contentStream.showText("Fecha: " + fechaHoy);
+                contentStream.showText("Fecha: " + fechaActa);
                 contentStream.endText();
 
                 contentStream.beginText();
@@ -477,9 +592,9 @@ public class ResguardoResource {
                 contentStream.showText("Por medio de la presente, se hace constar oficialmente que el servidor publico");
                 contentStream.newLine();
                 contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
-                contentStream.showText(req.nombreEmpleado != null ? req.nombreEmpleado : "N/A" + ",");
+                contentStream.showText(resguardo.empleado.nombre + ",");
                 contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.showText(" adscrito al area de " + (req.areaEmpleado != null ? req.areaEmpleado : "N/A") + ", hace entrega y ");
+                contentStream.showText(" adscrito al area de " + resguardo.empleado.area + ", hace entrega y ");
                 contentStream.newLine();
                 contentStream.showText("devuelve al almacen central el siguiente material/equipo institucional:");
                 contentStream.newLine();
@@ -488,17 +603,12 @@ public class ResguardoResource {
                 contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
                 contentStream.showText("     • Descripcion / Marca: ");
                 contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.showText(req.marcaArticulo != null ? req.marcaArticulo : "N/A");
+                contentStream.showText(resguardo.articulo.marca != null ? resguardo.articulo.marca : "N/A");
                 contentStream.newLine();
                 contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
                 contentStream.showText("     • Numero de Serie: ");
                 contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.showText(req.numeroSerie != null ? req.numeroSerie : "N/A");
-                contentStream.newLine();
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
-                contentStream.showText("     • Cantidad Devuelta: ");
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.showText(String.valueOf(req.cantidadDevuelta));
+                contentStream.showText(resguardo.articulo.numeroSerie != null ? resguardo.articulo.numeroSerie : "N/A");
                 contentStream.newLine();
                 contentStream.newLine();
 
@@ -515,14 +625,22 @@ public class ResguardoResource {
 
                 int firmaY = 250; 
 
-                if (req.firmaEmpleadoBase64 != null && req.firmaEmpleadoBase64.contains(",")) {
+                if (resguardo.firmaDirectorBajaBase64 != null && resguardo.firmaDirectorBajaBase64.contains(",")) {
                     try {
-                        String base64Image = req.firmaEmpleadoBase64.split(",")[1];
+                        String base64Image = resguardo.firmaDirectorBajaBase64.split(",")[1];
+                        byte[] imageBytes = Base64.getDecoder().decode(base64Image);
+                        PDImageXObject pdImage = PDImageXObject.createFromByteArray(document, imageBytes, "firmaDirector");
+                        contentStream.drawImage(pdImage, 80, firmaY + 5, 120, 60); 
+                    } catch (Exception e) {}
+                }
+
+                if (resguardo.firmaSuperAdminBajaBase64 != null && resguardo.firmaSuperAdminBajaBase64.contains(",")) {
+                    try {
+                        String base64Image = resguardo.firmaSuperAdminBajaBase64.split(",")[1];
                         byte[] imageBytes = Base64.getDecoder().decode(base64Image);
                         PDImageXObject pdImage = PDImageXObject.createFromByteArray(document, imageBytes, "firmaAdmin");
                         contentStream.drawImage(pdImage, 340, firmaY + 5, 120, 60); 
-                    } catch (Exception e) {
-                    }
+                    } catch (Exception e) {}
                 }
 
                 contentStream.beginText();
@@ -533,7 +651,7 @@ public class ResguardoResource {
                 contentStream.showText("Entrego (Servidor Publico)");
                 contentStream.newLineAtOffset(-10, -15);
                 contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
-                contentStream.showText(req.nombreEmpleado != null ? req.nombreEmpleado : "N/A");
+                contentStream.showText(resguardo.empleado.nombre);
                 contentStream.endText();
 
                 contentStream.beginText();
@@ -546,13 +664,22 @@ public class ResguardoResource {
                 contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
                 contentStream.showText(adminNombre);
                 contentStream.endText();
+
+                // IMPRIMIR COORDENADAS AL FINAL DEL ACTA
+                if (resguardo.latitudGPS != null && resguardo.longitudGPS != null) {
+                    contentStream.beginText();
+                    contentStream.setFont(PDType1Font.TIMES_ROMAN, 9);
+                    contentStream.newLineAtOffset(50, 100);
+                    contentStream.showText("Ubicacion de firma del Servidor Publico (GPS): Latitud " + resguardo.latitudGPS + ", Longitud " + resguardo.longitudGPS);
+                    contentStream.endText();
+                }
             }
 
             document.save(baos);
-            return Response.ok(baos.toByteArray()).header("Content-Disposition", "attachment; filename=\"Acta_Devolucion.pdf\"").build();
+            return Response.ok(baos.toByteArray()).header("Content-Disposition", "attachment; filename=\"Acta_Baja_" + idResguardo + ".pdf\"").build();
 
         } catch (Exception e) {
-            return Response.serverError().entity("Error interno al generar el acta PDF de devolucion: " + e.getMessage()).type(MediaType.TEXT_PLAIN).build();
+            return Response.serverError().entity("Error interno al generar el acta PDF de devolucion: " + e.getMessage()).build();
         }
     }
 }
