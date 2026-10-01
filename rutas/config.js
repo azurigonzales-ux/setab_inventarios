@@ -1,6 +1,15 @@
+// Detecta si estás abriendo la página desde tu computadora o desde internet
+const esLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
+
 const SETAB_CONFIG = {
-    backendUrl: 'http://192.168.137.1:8080',
-    keycloakUrl: 'http://localhost:8081', // Regrésalo a localhost
+    // Si es local, usa la IP de Juanluis. Si no, usa su enlace de Render
+    backendUrl: esLocal ? 'http://192.168.137.1:8080' : 'https://AQUI-IRA-LA-API-DE-JUANLUIS.onrender.com',
+
+    // Aquí va la raíz exacta de tu servidor Cloud-IAM
+    keycloakUrl: esLocal ? 'http://localhost:8081' : 'https://lemur-17.cloud-iam.com',
+
+    // Como nombraste tu servidor igual, el reino siempre es el mismo en ambos lados
     realm: 'setab-erp',
+
     clientId: 'setab-frontend'
 };
