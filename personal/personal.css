@@ -1,0 +1,32 @@
+/* Regla indispensable para Alpine.js - Oculta elementos antes de que cargue el script */
+[x-cloak] {
+    display: none !important;
+}
+
+/* Personalización de la barra de desplazamiento para darle toque premium (Opcional pero recomendado) */
+.custom-scrollbar::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    /* gray-100 */
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    /* gray-300 */
+    border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+    /* gray-400 */
+}
+
+/* Transiciones suaves generales */
+html {
+    scroll-behavior: smooth;
+}

@@ -1,0 +1,88 @@
+/* Fondo institucional (Centrado perfecto) */
+body {
+    background-color: #F3F0E5 !important;
+    background-image: none !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    min-height: 100vh !important;
+}
+
+/* Contenedor central (La tarjeta) */
+.login-pf-page .card-pf {
+    border-top: 6px solid #981A35 !important;
+    /* Borde Guinda */
+    border-radius: 12px !important;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+    padding: 40px !important;
+    max-width: 450px !important;
+    /* Esto evita que se vea gigante */
+    width: 100% !important;
+    margin: auto !important;
+    background-color: white !important;
+}
+
+/* Logo SETAB */
+#kc-header-wrapper {
+    background-image: url('https://tabasco.gob.mx/sites/default/files/Logo_cacao_horizontal%20%281%29.png') !important;
+    background-size: contain !important;
+    background-repeat: no-repeat !important;
+    background-position: center !important;
+    height: 90px !important;
+    margin-bottom: 20px !important;
+    font-size: 0 !important;
+    /* Ocultar texto original de Keycloak */
+    color: transparent !important;
+}
+
+/* Títulos */
+#kc-page-title {
+    color: #981A35 !important;
+    /* Guinda */
+    font-weight: 800 !important;
+    text-align: center !important;
+    font-size: 1.5rem !important;
+    margin-bottom: 25px !important;
+}
+
+/* Etiquetas de texto (Username, Password) */
+label {
+    color: #333333 !important;
+    font-weight: 600 !important;
+    font-size: 0.9rem !important;
+}
+
+/* Botón de Iniciar Sesión Blindado */
+#kc-login,
+input[type="submit"],
+.pf-c-button.pf-m-primary {
+    background-color: #981A35 !important;
+    border-color: #691C32 !important;
+    color: white !important;
+    font-weight: bold !important;
+    border-radius: 6px !important;
+    padding: 12px !important;
+    font-size: 16px !important;
+    transition: all 0.3s ease !important;
+    width: 100% !important;
+    margin-top: 15px !important;
+}
+
+#kc-login:hover,
+input[type="submit"]:hover,
+.pf-c-button.pf-m-primary:hover {
+    background-color: #691C32 !important;
+    cursor: pointer !important;
+}
+
+/* Enlaces (¿Olvidaste tu contraseña?) */
+a {
+    color: #BC955C !important;
+    /* Dorado */
+    font-weight: 600 !important;
+}
+
+a:hover {
+    color: #981A35 !important;
+    text-decoration: underline !important;
+}
