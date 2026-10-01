@@ -43,7 +43,7 @@ public class ResguardoResource {
 
     public static class LiberarRequest {
         public double cantidad;
-        public String firmaBase64; // Firma del Director entregando el equipo
+        public String firmaBase64; 
         public String latitudGPS;          
         public String longitudGPS; 
     }
@@ -53,7 +53,7 @@ public class ResguardoResource {
         public String latitudGPS;          
         public String longitudGPS; 
     }
-    
+
     public static class AprobarBajaRequest {
         public String firmaSuperAdminBase64;
     }
@@ -66,7 +66,7 @@ public class ResguardoResource {
         public double cantidadAsignada;
         public String nombreAdminAsignador;
         public String estadoResguardo; 
-        public String numeroInventario; // NUEVA LÍNEA AÑADIDA
+        public String numeroInventario; 
     }
 
     public static class ResguardoExtendidoDTO {
@@ -80,7 +80,7 @@ public class ResguardoResource {
         public LocalDate fechaAsignacion;
         public double cantidadAsignada;
         public String estadoResguardo; 
-        public String numeroInventario; // NUEVA LÍNEA AÑADIDA
+        public String numeroInventario; 
     }
 
     private String obtenerNombreAdmin() {
@@ -129,8 +129,8 @@ public class ResguardoResource {
 
         resguardo.firmaAdminBase64 = request.firmaEmpleadoBase64; 
         resguardo.firmaEmpleadoBase64 = null; 
-        resguardo.latitudGPS = null; // Se captura cuando el director firme
-        resguardo.longitudGPS = null; // Se captura cuando el director firme
+        resguardo.latitudGPS = null; 
+        resguardo.longitudGPS = null; 
         resguardo.nombreAdminAsignador = obtenerNombreAdmin();
         resguardo.estadoResguardo = "ACTIVO";
 
@@ -171,7 +171,7 @@ public class ResguardoResource {
             dto.fechaAsignacion = r.fechaAsignacion;
             dto.cantidadAsignada = r.cantidadAsignada;
             dto.estadoResguardo = r.estadoResguardo != null ? r.estadoResguardo : "ACTIVO";
-            dto.numeroInventario = r.articulo.numeroInventario; // NUEVA LÍNEA AÑADIDA
+            dto.numeroInventario = r.articulo.numeroInventario; 
             lista.add(dto);
         }
         return Response.ok(lista).build();
@@ -179,7 +179,7 @@ public class ResguardoResource {
 
     @GET
     @Path("/mis-equipos")
-    @RolesAllowed("Admin")
+    @RolesAllowed("admin")
     public Response misEquipos() {
         if (jwt == null || jwt.getName() == null) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
@@ -202,7 +202,7 @@ public class ResguardoResource {
             dto.fechaAsignacion = r.fechaAsignacion;
             dto.cantidadAsignada = r.cantidadAsignada;
             dto.estadoResguardo = r.estadoResguardo != null ? r.estadoResguardo : "ACTIVO";
-            dto.numeroInventario = r.articulo.numeroInventario; // NUEVA LÍNEA AÑADIDA
+            dto.numeroInventario = r.articulo.numeroInventario; 
             lista.add(dto);
         }
         return Response.ok(lista).build();
@@ -210,7 +210,7 @@ public class ResguardoResource {
 
     @GET
     @Path("/pendientes-firma")
-    @RolesAllowed("Admin")
+    @RolesAllowed("admin")
     public Response pendientesFirma() {
         if (jwt == null || jwt.getName() == null) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
@@ -220,7 +220,7 @@ public class ResguardoResource {
         if (empleado == null) return Response.status(Response.Status.NOT_FOUND).build();
 
         List<Resguardo> pendientes = Resguardo.find("empleado.idEmpleado = ?1 and (firmaEmpleadoBase64 is null or firmaEmpleadoBase64 = '' or estadoResguardo = 'BAJA_EN_PROCESO')", empleado.idEmpleado).list();
-        
+
         List<PendienteDTO> lista = new ArrayList<>();
         for (Resguardo r : pendientes) {
             PendienteDTO dto = new PendienteDTO();
@@ -231,7 +231,7 @@ public class ResguardoResource {
             dto.cantidadAsignada = r.cantidadAsignada;
             dto.nombreAdminAsignador = r.nombreAdminAsignador != null ? r.nombreAdminAsignador : "Almacén Central";
             dto.estadoResguardo = r.estadoResguardo;
-            dto.numeroInventario = r.articulo.numeroInventario; // NUEVA LÍNEA AÑADIDA
+            dto.numeroInventario = r.articulo.numeroInventario; 
             lista.add(dto);
         }
         return Response.ok(lista).build();
@@ -243,7 +243,7 @@ public class ResguardoResource {
     public Response obtenerSolicitudesBaja() {
         List<Resguardo> pendientes = Resguardo.find("estadoResguardo", "SOLICITUD_BAJA").list();
         List<ResguardoExtendidoDTO> lista = new ArrayList<>();
-        
+
         for (Resguardo r : pendientes) {
             ResguardoExtendidoDTO dto = new ResguardoExtendidoDTO();
             dto.idResguardo = r.id;
@@ -256,7 +256,7 @@ public class ResguardoResource {
             dto.fechaAsignacion = r.fechaAsignacion;
             dto.cantidadAsignada = r.cantidadAsignada;
             dto.estadoResguardo = r.estadoResguardo;
-            dto.numeroInventario = r.articulo.numeroInventario; // NUEVA LÍNEA AÑADIDA
+            dto.numeroInventario = r.articulo.numeroInventario; 
             lista.add(dto);
         }
         return Response.ok(lista).build();
@@ -265,10 +265,10 @@ public class ResguardoResource {
     @PUT
     @Path("/firmar/{idResguardo}")
     @Transactional
-    @RolesAllowed("Admin")
+    @RolesAllowed("admin")
     public Response firmarResguardo(@PathParam("idResguardo") Long idResguardo, FirmarRequest request) {
         if (jwt == null || jwt.getName() == null) return Response.status(Response.Status.UNAUTHORIZED).build();
-        
+
         Empleado empleado = Empleado.find("usuario", jwt.getName()).firstResult();
         if (empleado == null) return Response.status(Response.Status.NOT_FOUND).build();
 
@@ -303,7 +303,7 @@ public class ResguardoResource {
     @PUT
     @Path("/solicitar-baja/{idResguardo}")
     @Transactional
-    @RolesAllowed("Admin")
+    @RolesAllowed({"admin", "SUPERADMIN"})
     public Response solicitarBaja(@PathParam("idResguardo") Long idResguardo) {
         Resguardo resguardo = Resguardo.findById(idResguardo);
         if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
@@ -352,7 +352,7 @@ public class ResguardoResource {
     @PUT
     @Path("/liberar/{idResguardo}")
     @Transactional
-    @RolesAllowed({"SUPERADMIN", "Admin"}) 
+    @RolesAllowed({"SUPERADMIN", "admin"}) 
     public Response liberar(@PathParam("idResguardo") Long idResguardo, LiberarRequest request) {
         Resguardo resguardo = Resguardo.findById(idResguardo);
         if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
@@ -369,7 +369,7 @@ public class ResguardoResource {
         }
 
         resguardo.cantidadAsignada -= request.cantidad;
-        
+
         if(request.firmaBase64 != null && !request.firmaBase64.isEmpty()) {
              resguardo.firmaDirectorBajaBase64 = request.firmaBase64;
         }
@@ -394,14 +394,14 @@ public class ResguardoResource {
     @GET
     @Path("/pdf-asignacion/{idResguardo}")
     @Produces("application/pdf")
-    @RolesAllowed({"SUPERADMIN", "Admin"})
+    @RolesAllowed({"SUPERADMIN", "admin"})
     public Response generarPdfAsignacion(@PathParam("idResguardo") Long idResguardo) {
         Resguardo resguardo = Resguardo.findById(idResguardo);
 
         if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
 
         String adminNombre = resguardo.nombreAdminAsignador != null ? resguardo.nombreAdminAsignador : "Almacén Central";
-        
+
         if ("superadmin".equalsIgnoreCase(adminNombre) || "admin".equalsIgnoreCase(adminNombre)) {
             Usuario userDb = Usuario.find("username", adminNombre).firstResult();
             if (userDb != null && userDb.nombreCompleto != null) {
@@ -522,7 +522,6 @@ public class ResguardoResource {
                 contentStream.showText(resguardo.empleado.nombre);
                 contentStream.endText();
 
-                // IMPRIMIR COORDENADAS AL FINAL DEL ACTA
                 if (resguardo.latitudGPS != null && resguardo.longitudGPS != null) {
                     contentStream.beginText();
                     contentStream.setFont(PDType1Font.TIMES_ROMAN, 9);
@@ -543,14 +542,14 @@ public class ResguardoResource {
     @GET
     @Path("/pdf-baja/{idResguardo}")
     @Produces("application/pdf")
-    @RolesAllowed({"SUPERADMIN", "Admin"})
+    @RolesAllowed({"SUPERADMIN", "admin"})
     public Response generarPdfBaja(@PathParam("idResguardo") Long idResguardo) {
         Resguardo resguardo = Resguardo.findById(idResguardo);
 
         if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
 
         String adminNombre = resguardo.nombreAdminAsignador != null ? resguardo.nombreAdminAsignador : "Almacén Central";
-        
+
         if ("superadmin".equalsIgnoreCase(adminNombre) || "admin".equalsIgnoreCase(adminNombre)) {
             Usuario userDb = Usuario.find("username", adminNombre).firstResult();
             if (userDb != null && userDb.nombreCompleto != null) {
@@ -665,7 +664,6 @@ public class ResguardoResource {
                 contentStream.showText(adminNombre);
                 contentStream.endText();
 
-                // IMPRIMIR COORDENADAS AL FINAL DEL ACTA
                 if (resguardo.latitudGPS != null && resguardo.longitudGPS != null) {
                     contentStream.beginText();
                     contentStream.setFont(PDType1Font.TIMES_ROMAN, 9);

@@ -28,7 +28,7 @@ import jakarta.ws.rs.core.Response;
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
 @RolesAllowed({"SUPERADMIN"})
-public class UsuarioResource {
+public class UsuarioResource { 
 
     @ConfigProperty(name = "keycloak.admin.server-url")
     String keycloakServerUrl;
@@ -55,7 +55,6 @@ public class UsuarioResource {
         public String nivelEducativo;
     }
 
-    // AÑADIDOS APELLIDOS Y EMAIL PARA SATISFACER A KEYCLOAK
     public static class NuevoUsuarioRequest {
         public String nombre;
         public String apellidos;
@@ -110,7 +109,7 @@ public class UsuarioResource {
         }
 
         Keycloak keycloak = null;
-        String rolExactoKeycloak = "Admin"; 
+        String rolExactoKeycloak = "admin"; 
 
         try {
             keycloak = getAdminKeycloakClient();
@@ -119,11 +118,10 @@ public class UsuarioResource {
             UserRepresentation user = new UserRepresentation();
             user.setUsername(request.username);
             
-            // INYECCIÓN DE DATOS OBLIGATORIOS DE KEYCLOAK
             user.setFirstName(request.nombre);
             user.setLastName(request.apellidos);
             user.setEmail(request.email);
-            user.setEmailVerified(true); // Evita la pantalla de "Update Account"
+            user.setEmailVerified(true);
             user.setEnabled(true);
 
             CredentialRepresentation credential = new CredentialRepresentation();
@@ -140,7 +138,7 @@ public class UsuarioResource {
                         .build();
             }
 
-            String userId = kcResponse.getLocation().getPath().replaceAll(".*/([^/]+)$", "$1");
+            String userId = org.keycloak.admin.client.CreatedResponseUtil.getCreatedId(kcResponse);
             
             if (request.rol != null && request.rol.equalsIgnoreCase("SUPERADMIN")) {
                 rolExactoKeycloak = "SUPERADMIN"; 
@@ -150,7 +148,7 @@ public class UsuarioResource {
                 RoleRepresentation realmRole = realmResource.roles().get(rolExactoKeycloak).toRepresentation();
                 realmResource.users().get(userId).roles().realmLevel().add(Collections.singletonList(realmRole));
             } catch (Exception rolEx) {
-                System.err.println("CRÍTICO: No se pudo asignar el rol '" + rolExactoKeycloak + "'. Asegúrate de que exista exactamente con ese nombre.");
+                System.err.println("CRÍTICO: No se pudo asignar el rol '" + rolExactoKeycloak + "'.");
                 rolEx.printStackTrace();
             }
 
@@ -163,7 +161,6 @@ public class UsuarioResource {
             }
         }
 
-        // Unimos el nombre para la BD de PostgreSQL
         String nombreCompletoArmado = request.nombre + " " + request.apellidos;
 
         Usuario nuevo = new Usuario();
@@ -188,8 +185,6 @@ public class UsuarioResource {
 
         return Response.status(Response.Status.CREATED).entity("{\"mensaje\": \"Usuario sincronizado exitosamente\"}").build();
     }
-
-    // ... (Mantén tus métodos resetearPassword y cambiarEstado exactamente igual) ...
 
     @PUT
     @Path("/{id}/reset-password")

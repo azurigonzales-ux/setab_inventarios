@@ -19,6 +19,7 @@ public class CorsFilter implements ContainerRequestFilter, ContainerResponseFilt
         if (requestContext.getMethod().equalsIgnoreCase("OPTIONS")) {
             requestContext.abortWith(Response.ok()
                     .header("Access-Control-Allow-Origin", "*")
+                    .header("Access-Control-Allow-Credentials", "true")
                     .header("Access-Control-Allow-Headers", "origin, content-type, accept, authorization")
                     .header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD")
                     .build());
@@ -28,6 +29,7 @@ public class CorsFilter implements ContainerRequestFilter, ContainerResponseFilt
     @Override
     public void filter(ContainerRequestContext requestContext, ContainerResponseContext responseContext) throws IOException {
         responseContext.getHeaders().putSingle("Access-Control-Allow-Origin", "*");
+        responseContext.getHeaders().putSingle("Access-Control-Allow-Credentials", "true");
         responseContext.getHeaders().putSingle("Access-Control-Allow-Headers", "origin, content-type, accept, authorization");
         responseContext.getHeaders().putSingle("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD");
     }
