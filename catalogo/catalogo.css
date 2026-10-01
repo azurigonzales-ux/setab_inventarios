@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+
+    /* Tarjeta Base: Fondo blanco, rounded-lg, shadow-md, padding amplio y borde superior grueso guinda */
+    .tarjeta-base {
+        @apply bg-white rounded-lg shadow-md border-t-4 border-guinda p-6;
+    }
+
+    /* Input de Formulario: Ancho completo, fondo blanco, texto gris oscuro, borde gris claro, rounded y foco con ring dorado sin outline */
+    .input-formulario {
+        @apply w-full bg-white border border-gris-borde text-gris-texto rounded-lg px-4 py-2 transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-dorado focus:border-dorado placeholder-gray-400;
+    }
+
+    /* Botón Primario: Fondo guinda, texto blanco, font-semibold, rounded y hover con transición al guinda oscuro */
+    .btn-primario {
+        @apply bg-guinda hover:bg-guinda-dark text-white font-semibold py-2 px-4 rounded-lg transition-colors duration-200 ease-in-out shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-guinda focus:ring-offset-2 cursor-pointer inline-flex items-center justify-center;
+    }
+
+    /* Encabezado de Tabla: Fondo gris claro, texto gris oscuro, mayúsculas, text-xs y tracking amplio */
+    .tabla-encabezado {
+        @apply bg-gray-50 text-xs uppercase font-semibold text-gray-600 tracking-wider px-6 py-3.5;
+    }
+
+    /* Fila de Tabla: Borde inferior gris muy claro y hover sutil con transición */
+    .fila-tabla {
+        @apply border-b border-gray-100 hover:bg-gray-50/80 transition-colors duration-150;
+    }
+}

@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer components {
+
+    /* Tarjeta Base: Fondo blanco, bordes redondeados, sombra media, padding interno amplio y borde superior grueso guinda */
+    .tarjeta-base {
+        @apply bg-white rounded-lg shadow-md border-t-4 border-guinda p-6 sm:p-8;
+    }
+
+    /* Input de Formulario: Ancho completo, fondo blanco, texto gris oscuro, borde gris claro, padding, bordes redondeados y foco con resalte dorado */
+    .input-formulario {
+        @apply w-full bg-white border border-gris-borde text-gris-texto rounded-lg px-4 py-2 transition-colors duration-150 ease-in-out focus:outline-none focus:ring-2 focus:ring-dorado focus:border-dorado placeholder-gray-400;
+    }
+
+    /* Botón Primario: Fondo guinda, texto blanco, tipografía semibold, bordes redondeados y hover con transición suave al guinda oscuro */
+    .btn-primario {
+        @apply bg-guinda hover:bg-guinda-dark text-white font-semibold py-2.5 px-4 rounded-lg transition-colors duration-200 ease-in-out shadow-sm hover:shadow focus:outline-none focus:ring-2 focus:ring-guinda focus:ring-offset-2 cursor-pointer;
+    }
+}

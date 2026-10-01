@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciando Sesión - SETAB</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/keycloak-js@25.0.0/dist/keycloak.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- Importamos el archivo de configuración global -->
+    <script src="../rutas/config.js"></script>
+    <style>
+        .loader {
+            border-top-color: #981A35;
+            -webkit-animation: spinner 1.5s linear infinite;
+            animation: spinner 1.5s linear infinite;
+        }
+
+        @keyframes spinner {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        [x-cloak] {
+            display: none !important;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 flex items-center justify-center h-screen" x-data="moduloLogin()">
+
+    <div class="text-center">
+        <img src="https://tabasco.gob.mx/sites/default/files/users/setabasco/img_sep.png" alt="SEP Tabasco"
+            class="h-20 mx-auto mb-8 drop-shadow-sm">
+
+        <div x-show="!error" class="flex flex-col items-center">
+            <div class="loader ease-linear rounded-full border-4 border-gray-200 h-12 w-12 mb-4"></div>
+            <h2 class="text-xl font-semibold text-gray-700" x-text="mensaje">Conectando con el Servidor de Seguridad...
+            </h2>
+            <p class="text-sm text-gray-500 mt-2">Serás redirigido en un momento.</p>
+        </div>
+
+        <div x-show="error" x-cloak
+            class="bg-red-50 text-red-700 p-6 rounded-xl border border-red-200 max-w-md mx-auto shadow-sm mt-4">
+            <svg class="w-12 h-12 mx-auto mb-3 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+                </path>
+            </svg>
+            <h2 class="text-lg font-bold mb-2">Error de Conexión</h2>
+            <p class="text-sm mb-4">No se pudo contactar al servidor IAM de Keycloak. Verifica que los servicios
+                estén corriendo en el servidor.</p>
+            <button @click="iniciarKeycloak()"
+                class="bg-red-700 text-white px-4 py-2 rounded shadow hover:bg-red-800 transition-colors">Reintentar</button>
+        </div>
+    </div>
+
+    <script>
+        function moduloLogin() {
+            return {
+                mensaje: 'Conectando con el Servidor de Seguridad...',
+                error: false,
+                keycloak: null,
+
+                init() {
+                    setTimeout(() => {
+                        this.iniciarKeycloak();
+                    }, 800);
+                },
+
+                iniciarKeycloak() {
+                    this.error = false;
+                    this.mensaje = 'Validando credenciales en IAM...';
+
+                    this.keycloak = new Keycloak({
+                        url: SETAB_CONFIG.keycloakUrl,
+                        realm: SETAB_CONFIG.realm,
+                        clientId: SETAB_CONFIG.clientId
+                    });
+
+                    this.keycloak.init({ onLoad: 'login-required', checkLoginIframe: false }).then((authenticated) => {
+                        if (authenticated) {
+                            this.mensaje = '¡Acceso concedido! Preparando sistema...';
+
+                            sessionStorage.setItem('tokenSETAB', this.keycloak.token);
+                            sessionStorage.setItem('idTokenSETAB', this.keycloak.idToken);
+
+                            // ¡NUEVO!: Extraer el nombre real de Keycloak
+                            let nombreReal = this.keycloak.tokenParsed.name || this.keycloak.tokenParsed.given_name || this.keycloak.tokenParsed.preferred_username;
+                            sessionStorage.setItem('nombreSETAB', nombreReal);
+
+                            let rolPrincipal = 'Usuario';
+                            if (this.keycloak.realmAccess && this.keycloak.realmAccess.roles) {
+                                let roles = this.keycloak.realmAccess.roles;
+                                if (roles.includes('SUPERADMIN')) {
+                                    rolPrincipal = 'SUPERADMIN';
+                                } else if (roles.includes('admin') || roles.includes('Admin')) {
+                                    rolPrincipal = 'admin';
+                                }
+                            }
+
+                            sessionStorage.setItem('rolSETAB', rolPrincipal);
+                            window.location.href = '../catalogo/catalogo.html';
+                        }
+                    }).catch((e) => {
+                        console.error("Error al iniciar Keycloak:", e);
+                        this.error = true;
+                    });
+                }
+            }
+        }
+
+    </script>
+</body>
+
+</html>
