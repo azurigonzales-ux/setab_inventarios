@@ -6,7 +6,7 @@ const SETAB_CONFIG = {
     backendUrl: esLocal ? 'http://192.168.137.1:8080' : 'https://AQUI-IRA-LA-API-DE-JUANLUIS.onrender.com',
 
     // Aquí va la raíz exacta de tu servidor Cloud-IAM
-    keycloakUrl: esLocal ? 'http://localhost:8081' : 'https://lemur-17.cloud-iam.com',
+    keycloakUrl: esLocal ? 'http://localhost:8081' : 'https://lemur-17.cloud-iam.com/auth',
 
     // Como nombraste tu servidor igual, el reino siempre es el mismo en ambos lados
     realm: 'setab-erp',
