@@ -1,0 +1,40 @@
+### 1. Registrar un usuario
+POST http://localhost:8080/api/auth/registrar
+Content-Type: application/json
+
+
+{
+  "username": "raul",
+  "password": "12345",
+  "rol": "Admin",
+  "estado": "Activo"
+}
+
+
+### 2. Probar el Login
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+
+{
+  "username": "raul",
+  "password": "12345"
+}
+
+### 3. Guardar un Bien Informático en el Inventario
+POST http://localhost:8080/api/bienes
+Content-Type: application/json
+
+{
+  "id": "INV-2026-001",
+  "numeroSerie": "SN-XYZ-123",
+  "marca": "Dell",
+  "tipo": "Laptop Latitude",
+  "estado": "Activo"
+}
+
+### 4. Consultar todos los bienes guardados
+GET http://localhost:8080/api/bienes
+Content-Type: application/json
+Authorization: Bearer GET http://localhost:8080/api/bienes
+Authorization: Bearer "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJpc3MiOiJzaXN0ZW1hLWludmVudGFyaW8tc2V0YWIiLCJ1cG4iOiJyYXVsIiwiZ3JvdXBzIjpbIkFkbWluIl0sImlhdCI6MTc4Nzg0OTk2NiwiZXhwIjoxNzg3ODU3MTY2LCJqdGkiOiI1Njg3MTMzMy0yZThiLTQyMDUtOTBjOC0xNjIxZDJkMGFhODcifQ.d-5nprHB2RQYN2n5bRKE6wchqsgpAXvjMAPLgaUe5SRw0AAmC_wkBSfCevyNFyBC1QBgJbshDA00t0iFnhphjNJ8M_LyQ9g_bT5hQncTdKz49O70t4L2Orgz4RJB5iMfEmLUmCdGlsDHf8qaovgXiIdb0qTtqFE_GdO5v1LTl0NepaHNk5YKMn0VSEZ7FecJk40JtwXouR86q4yCj1btzSNz6_pi_2ovpWEhU09WGrapJMLbpMVS_WP4Ozn0RxvLNULZQHkh8sZJQnd2TSjAHLhbZCayYHXRL8tcQnUaTj5YO4ZwgKsP3k7lmyowPqUiUDsWwSd6dH15Tp64l_UTBA"
