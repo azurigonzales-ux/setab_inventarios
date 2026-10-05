@@ -187,7 +187,7 @@ public class ResguardoResource {
 
         Empleado empleado = Empleado.find("usuario", jwt.getName()).firstResult();
         if (empleado == null) {
-            return Response.status(Response.Status.NOT_FOUND).entity("No se encontró el perfil de la escuela vinculado a este usuario.").build();
+            return Response.ok(new ArrayList<>()).build();
         }
 
         List<Resguardo> resguardos = Resguardo.find("empleado.idEmpleado = ?1 and firmaEmpleadoBase64 is not null", empleado.idEmpleado).list();
@@ -217,7 +217,9 @@ public class ResguardoResource {
         }
 
         Empleado empleado = Empleado.find("usuario", jwt.getName()).firstResult();
-        if (empleado == null) return Response.status(Response.Status.NOT_FOUND).build();
+        if (empleado == null) {
+            return Response.ok(new ArrayList<>()).build();
+        }
 
         List<Resguardo> pendientes = Resguardo.find("empleado.idEmpleado = ?1 and (firmaEmpleadoBase64 is null or firmaEmpleadoBase64 = '' or estadoResguardo = 'BAJA_EN_PROCESO')", empleado.idEmpleado).list();
 
