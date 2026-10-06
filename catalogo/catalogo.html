@@ -630,122 +630,245 @@
                 </div>
 
                 <!-- ========================================== -->
-                <!-- MODALES (SUPERADMIN / ALMACÉN)             -->
+                <!-- NUEVO MODAL DE REGISTRO DE ALTAS (ALMACÉN) -->
                 <!-- ========================================== -->
                 <div x-show="modalRegistroAbierto" x-cloak class="relative z-50" aria-labelledby="modal-title"
                     role="dialog" aria-modal="true">
                     <div x-show="modalRegistroAbierto" x-transition.opacity
-                        class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
+                        class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity"></div>
+
                     <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
                         <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
                             <div x-show="modalRegistroAbierto" x-transition:enter="ease-out duration-300"
                                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
                                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
-                                class="relative transform overflow-hidden rounded-xl bg-caqui text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-2xl border-t-4 border-guinda">
+                                class="relative transform overflow-hidden rounded-xl bg-caqui text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-5xl border-t-8 border-guinda">
+
                                 <form @submit.prevent="guardarNuevoArticulo()">
-                                    <div class="bg-caqui px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
-                                        <h3 class="text-xl font-bold leading-6 text-gray-900 mb-5">Alta de Bien
-                                            Institucional</h3>
-                                        <div class="space-y-4">
-                                            <div class="grid grid-cols-2 gap-4">
-                                                <div class="col-span-2">
-                                                    <label
-                                                        class="block text-sm font-semibold text-gray-700 mb-1">Descripción
-                                                        Detallada *</label>
-                                                    <input type="text" x-model="nuevoArticulo.descripcion" required
-                                                        placeholder="Ej. Computadora Portátil 16GB RAM"
-                                                        class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda">
-                                                </div>
-                                                <div>
-                                                    <label class="block text-sm font-semibold text-gray-700 mb-1">Marca
-                                                        *</label>
-                                                    <input type="text" x-model="nuevoArticulo.marca" required
-                                                        class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda">
-                                                </div>
-                                                <div>
-                                                    <label
-                                                        class="block text-sm font-semibold text-gray-700 mb-1">Modelo</label>
-                                                    <input type="text" x-model="nuevoArticulo.modelo"
-                                                        class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda">
-                                                </div>
+                                    <div class="bg-caqui px-6 pb-4 pt-5 sm:p-8">
+                                        <div
+                                            class="flex justify-between items-center mb-6 border-b border-dorado/40 pb-4">
+                                            <div>
+                                                <h3 class="text-2xl font-bold text-gray-900">Registro de Mobiliario y
+                                                    Equipo</h3>
+                                                <p class="text-sm text-gray-600 font-medium mt-1">Formato Universal de
+                                                    Altas - Almacén Central</p>
                                             </div>
-                                            <div class="grid grid-cols-3 gap-4">
-                                                <div>
-                                                    <label class="block text-sm font-semibold text-gray-700 mb-1">Stock
-                                                        Inicial *</label>
-                                                    <input type="number" step="any"
-                                                        x-model="nuevoArticulo.cantidadStock" required min="0.01"
-                                                        class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda">
-                                                </div>
-                                                <div>
-                                                    <label class="block text-sm font-semibold text-gray-700 mb-1">Costo
-                                                        (MXN)</label>
-                                                    <input type="number" step="0.01"
-                                                        x-model="nuevoArticulo.valorInicial" placeholder="$ 0.00"
-                                                        class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda">
-                                                </div>
-                                                <div>
-                                                    <label class="block text-sm font-semibold text-gray-700 mb-1">Valor
-                                                        en UMAs</label>
-                                                    <input type="number" step="0.01" x-model="nuevoArticulo.valorUmas"
-                                                        placeholder="0.00"
-                                                        class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda">
-                                                </div>
+                                            <!-- El número de inventario se genera en el backend -->
+                                            <div
+                                                class="bg-white px-4 py-2 rounded-lg border border-gray-200 text-center shadow-sm">
+                                                <p class="text-xs text-gray-500 uppercase font-bold tracking-wider">No.
+                                                    Inventario</p>
+                                                <p class="text-guinda font-mono font-bold">AUTOGENERADO</p>
                                             </div>
-                                            <div class="grid grid-cols-3 gap-4">
-                                                <div>
-                                                    <label
-                                                        class="block text-sm font-semibold text-gray-700 mb-1">Categoría
-                                                        Oficial</label>
-                                                    <select x-model="nuevoArticulo.categoria"
-                                                        class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda">
-                                                        <option value="Tecnologia">Tecnología / IT</option>
-                                                        <option value="Mobiliario">Mobiliario de Oficina</option>
-                                                        <option value="Vehiculos">Vehículos Terrestres</option>
-                                                        <option value="Insumos">Insumos y Papelería</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label class="block text-sm font-semibold text-gray-700 mb-1">Estado
-                                                        Físico</label>
-                                                    <select x-model="nuevoArticulo.estadoFisico"
-                                                        class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda">
-                                                        <option value="Nuevo">Nuevo</option>
-                                                        <option value="Bueno">Bueno</option>
-                                                        <option value="Regular">Regular</option>
-                                                        <option value="Malo">Malo</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label
-                                                        class="block text-sm font-semibold text-gray-700 mb-1">Depreciación
-                                                        Anual</label>
-                                                    <div class="relative">
-                                                        <input type="number" step="0.1"
-                                                            x-model="nuevoArticulo.porcentajeDepreciacion"
-                                                            class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda">
-                                                        <span
-                                                            class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 font-bold">%</span>
+                                        </div>
+
+                                        <div class="space-y-8 max-h-[60vh] overflow-y-auto custom-scrollbar pr-4">
+
+                                            <!-- SECCIÓN 1: IDENTIFICACIÓN Y CLASIFICACIÓN -->
+                                            <fieldset
+                                                class="bg-white p-5 rounded-lg border border-gray-200 shadow-sm relative">
+                                                <legend
+                                                    class="text-sm font-bold text-guinda bg-white px-3 py-1 rounded-md border border-gray-200 shadow-sm absolute -top-4 left-4 uppercase tracking-wide">
+                                                    Clasificación Técnica</legend>
+                                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
+                                                    <div>
+                                                        <label class="block text-xs font-bold text-gray-700 mb-1">Tipo
+                                                            de Material *</label>
+                                                        <input type="text" x-model="nuevoArticulo.tipoMaterial"
+                                                            placeholder="Ej. 0652 DOBLADORA..." required
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                                    </div>
+                                                    <div>
+                                                        <label
+                                                            class="block text-xs font-bold text-gray-700 mb-1">Sub-Clave</label>
+                                                        <input type="text" x-model="nuevoArticulo.subClave"
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                                    </div>
+                                                    <div class="md:col-span-3">
+                                                        <label
+                                                            class="block text-xs font-bold text-gray-700 mb-1">Descripción
+                                                            Detallada *</label>
+                                                        <input type="text" x-model="nuevoArticulo.descripcion"
+                                                            placeholder="Describa el bien físico..." required
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
                                                     </div>
                                                 </div>
-                                            </div>
-                                            <p class="text-xs text-dorado font-medium mt-2">Nota: El Folio Fiscal y
-                                                Número de Inventario de 22 dígitos se generarán automáticamente al
-                                                guardar.</p>
+                                            </fieldset>
+
+                                            <!-- SECCIÓN 2: CARACTERÍSTICAS FÍSICAS -->
+                                            <fieldset
+                                                class="bg-white p-5 rounded-lg border border-gray-200 shadow-sm relative">
+                                                <legend
+                                                    class="text-sm font-bold text-guinda bg-white px-3 py-1 rounded-md border border-gray-200 shadow-sm absolute -top-4 left-4 uppercase tracking-wide">
+                                                    Características Físicas</legend>
+                                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-3">
+                                                    <div>
+                                                        <label class="block text-xs font-bold text-gray-700 mb-1">Marca
+                                                            *</label>
+                                                        <input type="text" x-model="nuevoArticulo.marca" required
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                                    </div>
+                                                    <div>
+                                                        <label
+                                                            class="block text-xs font-bold text-gray-700 mb-1">Modelo</label>
+                                                        <input type="text" x-model="nuevoArticulo.modelo"
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-xs font-bold text-gray-700 mb-1">Número
+                                                            de Serie *</label>
+                                                        <input type="text" x-model="nuevoArticulo.serie" required
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase font-mono">
+                                                    </div>
+                                                    <div>
+                                                        <label
+                                                            class="block text-xs font-bold text-gray-700 mb-1">Color</label>
+                                                        <input type="text" x-model="nuevoArticulo.color"
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                                    </div>
+                                                    <div class="md:col-span-4">
+                                                        <label class="block text-xs font-bold text-gray-700 mb-1">Estado
+                                                            del Bien *</label>
+                                                        <select x-model="nuevoArticulo.estadoFisico"
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda">
+                                                            <option value="NUEVO">NUEVO</option>
+                                                            <option value="BUENO">BUENO</option>
+                                                            <option value="REGULAR">REGULAR</option>
+                                                            <option value="MALO">MALO</option>
+                                                        </select>
+                                                    </div>
+                                                </div>
+                                            </fieldset>
+
+                                            <!-- SECCIÓN 3: DATOS FINANCIEROS Y ADQUISICIÓN -->
+                                            <fieldset
+                                                class="bg-white p-5 rounded-lg border border-gray-200 shadow-sm relative">
+                                                <legend
+                                                    class="text-sm font-bold text-dorado bg-white px-3 py-1 rounded-md border border-gray-200 shadow-sm absolute -top-4 left-4 uppercase tracking-wide">
+                                                    Adquisición y Finanzas</legend>
+                                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-3">
+                                                    <div class="md:col-span-2">
+                                                        <label
+                                                            class="block text-xs font-bold text-gray-700 mb-1">Proveedor
+                                                            *</label>
+                                                        <input type="text" x-model="nuevoArticulo.proveedor" required
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                                    </div>
+                                                    <div>
+                                                        <label
+                                                            class="block text-xs font-bold text-gray-700 mb-1">Factura
+                                                            N°</label>
+                                                        <input type="text" x-model="nuevoArticulo.factura"
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda font-mono uppercase">
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-xs font-bold text-gray-700 mb-1">Fecha
+                                                            Factura</label>
+                                                        <input type="date" x-model="nuevoArticulo.fechaFactura"
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda">
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-xs font-bold text-gray-700 mb-1">Precio
+                                                            Unitario (MXN) *</label>
+                                                        <input type="number" step="0.01" x-model="nuevoArticulo.precio"
+                                                            required placeholder="0.00"
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda">
+                                                    </div>
+                                                    <div>
+                                                        <label
+                                                            class="block text-xs font-bold text-gray-700 mb-1">Naturaleza
+                                                            del Gasto</label>
+                                                        <input type="text" x-model="nuevoArticulo.naturalezaGasto"
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                                    </div>
+                                                    <div>
+                                                        <label
+                                                            class="block text-xs font-bold text-gray-700 mb-1">Partida
+                                                            Presupuestal</label>
+                                                        <input type="text" x-model="nuevoArticulo.partida"
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-xs font-bold text-gray-700 mb-1">No.
+                                                            Pedido / Req.</label>
+                                                        <input type="text" x-model="nuevoArticulo.pedido"
+                                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                                    </div>
+                                                </div>
+                                            </fieldset>
+
+                                            <!-- SECCIÓN 4: VEHÍCULOS (OPCIONAL) -->
+                                            <fieldset
+                                                class="bg-gray-50 p-5 rounded-lg border border-gray-200 border-dashed relative">
+                                                <legend
+                                                    class="text-xs font-bold text-gray-500 bg-gray-50 px-3 py-1 rounded-md border border-gray-200 border-dashed absolute -top-4 left-4 uppercase tracking-wide">
+                                                    Campos Vehiculares (Si aplica)</legend>
+                                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-3">
+                                                    <div>
+                                                        <label class="block text-xs font-bold text-gray-700 mb-1">Número
+                                                            de Motor</label>
+                                                        <input type="text" x-model="nuevoArticulo.motor"
+                                                            class="w-full bg-white rounded border-gray-300 py-2 px-3 text-sm focus:ring-gray-400 focus:border-gray-400 uppercase">
+                                                    </div>
+                                                    <div>
+                                                        <label
+                                                            class="block text-xs font-bold text-gray-700 mb-1">Placa</label>
+                                                        <input type="text" x-model="nuevoArticulo.placa"
+                                                            class="w-full bg-white rounded border-gray-300 py-2 px-3 text-sm focus:ring-gray-400 focus:border-gray-400 uppercase">
+                                                    </div>
+                                                    <div>
+                                                        <label class="block text-xs font-bold text-gray-700 mb-1">Póliza
+                                                            de Seguro</label>
+                                                        <input type="text" x-model="nuevoArticulo.poliza"
+                                                            class="w-full bg-white rounded border-gray-300 py-2 px-3 text-sm focus:ring-gray-400 focus:border-gray-400 uppercase">
+                                                    </div>
+                                                    <div>
+                                                        <label
+                                                            class="block text-xs font-bold text-gray-700 mb-1">Vigencia
+                                                            Póliza</label>
+                                                        <input type="date" x-model="nuevoArticulo.vigenciaPoliza"
+                                                            class="w-full bg-white rounded border-gray-300 py-2 px-3 text-sm focus:ring-gray-400 focus:border-gray-400">
+                                                    </div>
+                                                </div>
+                                            </fieldset>
+
                                         </div>
                                     </div>
+
+                                    <!-- FOOTER DEL MODAL -->
                                     <div
-                                        class="bg-caqui-dark/30 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 border-t border-dorado/30">
-                                        <button type="submit"
-                                            class="inline-flex w-full justify-center rounded-md bg-guinda px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-guinda-dark sm:ml-3 sm:w-auto transition-colors"
-                                            :disabled="guardando">
+                                        class="bg-caqui-dark/30 px-6 py-4 flex flex-col sm:flex-row sm:justify-between sm:items-center border-t border-dorado/30 rounded-b-xl gap-4">
+                                        <div
+                                            class="text-xs text-gray-600 font-bold uppercase tracking-wide flex items-center gap-2">
+                                            <span>Elaboró:</span>
                                             <span
-                                                x-text="guardando ? 'Verificando con BD...' : 'Asignar Folio y Guardar'"></span>
-                                        </button>
-                                        <button @click="cerrarModalRegistro()" type="button"
-                                            class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-guinda shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto transition-colors">Cancelar</button>
+                                                class="text-guinda bg-white px-3 py-1.5 rounded-full border border-gray-200 shadow-sm"
+                                                x-text="nombreUsuario"></span>
+                                        </div>
+                                        <div class="flex flex-col sm:flex-row gap-3">
+                                            <button @click="cerrarModalRegistro()" type="button"
+                                                class="w-full sm:w-auto px-5 py-2.5 bg-white border border-gray-300 rounded-lg text-sm font-bold text-gray-700 hover:bg-gray-50 transition-colors shadow-sm">
+                                                Cancelar
+                                            </button>
+                                            <button type="submit"
+                                                class="w-full sm:w-auto px-6 py-2.5 bg-guinda text-white rounded-lg text-sm font-bold hover:bg-guinda-dark transition-colors shadow-md flex items-center justify-center gap-2"
+                                                :disabled="guardando">
+                                                <svg x-show="guardando" class="animate-spin h-4 w-4 text-white"
+                                                    fill="none" viewBox="0 0 24 24">
+                                                    <circle class="opacity-25" cx="12" cy="12" r="10"
+                                                        stroke="currentColor" stroke-width="4"></circle>
+                                                    <path class="opacity-75" fill="currentColor"
+                                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                                                    </path>
+                                                </svg>
+                                                <span
+                                                    x-text="guardando ? 'Registrando Bien...' : 'Guardar y Generar Código QR'"></span>
+                                            </button>
+                                        </div>
                                     </div>
                                 </form>
+
                             </div>
                         </div>
                     </div>
@@ -853,7 +976,7 @@
                     <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
                         <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
                             <div x-show="modalResguardoAbierto"
-                                class="relative transform overflow-hidden rounded-xl bg-caqui text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-lg border-t-4 border-guinda">
+                                class="relative transform overflow-hidden rounded-xl bg-caqui text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-lg border-t-4 border-guinda">
                                 <div class="bg-caqui px-4 pb-4 pt-5 sm:p-6 sm:pb-4">
                                     <h3 class="text-xl font-bold leading-6 text-gray-900 mb-2">Asignar Equipo (Paso 1/2)
                                     </h3>
@@ -931,7 +1054,6 @@
                                                 Recuadro</button>
                                         </div>
                                     </div>
-                                    <!-- SE ELIMINÓ EL BOTÓN DE OBTENER GPS DE AQUÍ -->
                                 </div>
                                 <div class="bg-gray-100 px-6 py-4 sm:flex sm:flex-row-reverse">
                                     <button type="button" @click="procesarResguardo()"
@@ -1072,7 +1194,6 @@
                                         </div>
                                     </div>
 
-                                    <!-- AQUI ESTÁ EL BOTÓN DEL GPS PARA EL DIRECTOR -->
                                     <div
                                         class="bg-gray-50 p-4 rounded-lg border border-gray-200 flex items-center justify-between mt-6">
                                         <div>
@@ -1188,6 +1309,7 @@
         </template>
     </div>
 
+    <!-- SCRIPT DE ALPINE.JS -->
     <script>
         function inventarioAvanzado() {
             return {
@@ -1207,7 +1329,16 @@
                 //  MODAL DE SEGURIDAD
                 modalSeguridadAbierto: false, textoConfirmacion: '', idBajaPendiente: null,
 
-                articuloSeleccionado: {}, nuevoArticulo: { descripcion: '', marca: '', modelo: '', categoria: 'Tecnologia', areaUbicacion: 'TI', cantidadStock: 1, valorInicial: null, valorUmas: null, porcentajeDepreciacion: 10, estadoFisico: 'Nuevo', estado: 'Activo' },
+                articuloSeleccionado: {},
+                // NUEVA ESTRUCTURA DEL FORMULARIO DE ALMACÉN
+                nuevoArticulo: {
+                    tipoMaterial: '', subClave: '', descripcion: '',
+                    marca: '', modelo: '', serie: '', color: '', estadoFisico: 'NUEVO',
+                    proveedor: '', factura: '', fechaFactura: '', precio: null,
+                    pedido: '', requisicion: '', naturalezaGasto: '', partida: '',
+                    motor: '', placa: '', poliza: '', vigenciaPoliza: '',
+                    centroTrabajo: '', responsable: '', boletaSalida: '', cantidadStock: 1
+                },
                 busquedaEmpleado: '', datosResguardo: { idEmpleado: '', cantidad: 1, firmaBase64: null, latitud: null, longitud: null },
 
                 historialArticulo: [], cargandoHistorial: false, canvas: null, ctx: null, isDrawing: false,
@@ -1332,15 +1463,24 @@
                     finally { this.cargando = false; }
                 },
 
-                abrirModalRegistro() { this.nuevoArticulo = { descripcion: '', marca: '', modelo: '', categoria: 'Tecnologia', areaUbicacion: 'TI', cantidadStock: 1, valorInicial: null, valorUmas: null, porcentajeDepreciacion: 10, estadoFisico: 'Nuevo', estado: 'Activo' }; this.modalRegistroAbierto = true; },
+                abrirModalRegistro() {
+                    this.nuevoArticulo = {
+                        tipoMaterial: '', subClave: '', descripcion: '',
+                        marca: '', modelo: '', serie: '', color: '', estadoFisico: 'NUEVO',
+                        proveedor: '', factura: '', fechaFactura: '', precio: null,
+                        pedido: '', requisicion: '', naturalezaGasto: '', partida: '',
+                        motor: '', placa: '', poliza: '', vigenciaPoliza: '',
+                        centroTrabajo: '', responsable: '', boletaSalida: '', cantidadStock: 1
+                    };
+                    this.modalRegistroAbierto = true;
+                },
                 cerrarModalRegistro() { this.modalRegistroAbierto = false; },
 
                 async guardarNuevoArticulo() {
                     this.guardando = true;
                     try {
-                        this.nuevoArticulo.cantidadStock = parseFloat(this.nuevoArticulo.cantidadStock);
-                        if (this.nuevoArticulo.valorInicial) this.nuevoArticulo.valorInicial = parseFloat(this.nuevoArticulo.valorInicial);
-                        if (this.nuevoArticulo.valorUmas) this.nuevoArticulo.valorUmas = parseFloat(this.nuevoArticulo.valorUmas);
+                        if (this.nuevoArticulo.precio) this.nuevoArticulo.precio = parseFloat(this.nuevoArticulo.precio);
+                        this.nuevoArticulo.cantidadStock = 1; // Por defecto siempre inicia en 1 al dar de alta
 
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(this.nuevoArticulo) });
 
