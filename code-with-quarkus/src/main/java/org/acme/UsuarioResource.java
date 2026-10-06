@@ -103,7 +103,9 @@ public class UsuarioResource {
     @POST
     @Transactional
     public Response crearUsuario(NuevoUsuarioRequest request) {
-        if (Usuario.count("username", request.username) > 0) {
+        String usernameNormalizado = request.username != null ? request.username.toLowerCase() : "";
+
+        if (Usuario.count("username", usernameNormalizado) > 0) {
             return Response.status(Response.Status.BAD_REQUEST)
                            .entity("{\"mensaje\": \"El nombre de usuario ya existe en el sistema local\"}").build();
         }
@@ -116,7 +118,7 @@ public class UsuarioResource {
             RealmResource realmResource = keycloak.realm("setab-erp");
 
             UserRepresentation user = new UserRepresentation();
-            user.setUsername(request.username);
+            user.setUsername(usernameNormalizado);
             
             user.setFirstName(request.nombre);
             user.setLastName(request.apellidos);
@@ -165,7 +167,7 @@ public class UsuarioResource {
 
         Usuario nuevo = new Usuario();
         nuevo.nombreCompleto = nombreCompletoArmado;
-        nuevo.username = request.username;
+        nuevo.username = usernameNormalizado;
         nuevo.password = request.password; 
         nuevo.rol = rolExactoKeycloak; 
         nuevo.estado = "Activo";
@@ -177,7 +179,7 @@ public class UsuarioResource {
         nuevoEmpleado.nombre = nombreCompletoArmado;
         nuevoEmpleado.rfc = "S/N"; 
         nuevoEmpleado.cct = request.cct;
-        nuevoEmpleado.usuario = request.username;
+        nuevoEmpleado.usuario = usernameNormalizado;
         nuevoEmpleado.nombreEscuela = request.nombreEscuela; 
         nuevoEmpleado.cargo = "Director";
         nuevoEmpleado.area = (request.nivelEducativo != null) ? request.nivelEducativo : "Educación Básica";
