@@ -1,5 +1,7 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" x-data="{ temaOscuro: localStorage.getItem('tema') === 'dark' }"
+    x-init="$watch('temaOscuro', val => localStorage.setItem('tema', val ? 'dark' : 'light'))"
+    :class="{ 'dark': temaOscuro }">
 
 <head>
     <meta charset="UTF-8">
@@ -9,6 +11,7 @@
     <script src="../rutas/config.js"></script>
     <script>
         tailwind.config = {
+            darkMode: 'class',
             theme: {
                 extend: {
                     colors: {
