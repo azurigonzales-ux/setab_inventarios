@@ -57,10 +57,29 @@
         }
     </style>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap"
-        rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
 
+        *,
+        html,
+        body,
+        p,
+        div,
+        span,
+        a,
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        input,
+        button,
+        select,
+        table {
+            font-family: 'Montserrat', sans-serif !important;
+        }
+    </style>
 </head>
 
 <body class="bg-gray-50 text-gray-800" x-data="moduloPersonal()">
@@ -72,8 +91,9 @@
         <aside :class="sidebarAbierto ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
             class="fixed inset-y-0 left-0 z-50 w-64 bg-caqui border-r border-caqui-dark transition-transform duration-300 flex flex-col justify-between shadow-sm">
             <div class="px-4 pt-2">
-                <div class="mb-2 flex justify-center">
-                    <img src="../img/BANNER_LOGO.png" alt="SEP Tabasco" class="w-full px-1 object-contain">
+                <div class="flex justify-center pt-4 pb-2">
+
+                    <img src="../img/BANNER_LOGO.png" alt="Logo SETAB" class="w-40 object-contain mx-auto mt-2">
                 </div>
 
                 <div class="mt-2 mx-4 pb-4 border-b border-dorado/30 text-center">
