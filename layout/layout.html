@@ -115,7 +115,6 @@
                                 class="w-full flex items-center justify-between p-3 transition-colors font-bold"
                                 :class="menuAbierto === 'archivos' ? 'text-guinda' : 'text-gray-800 hover:bg-white/60'">
                                 <div class="flex items-center gap-3">
-
                                     <i class="fas fa-folder-open w-5"
                                         :class="menuAbierto === 'archivos' ? 'text-guinda' : 'text-dorado'"></i>
                                     Archivos
@@ -125,119 +124,111 @@
                             </button>
                             <ul x-show="menuAbierto === 'archivos'" x-collapse
                                 class="bg-white/50 px-2 py-2 space-y-1 text-sm border-t border-gray-100">
-
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('catalogos_lista', '../catalogo/catalogos_lista.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'catalogos_lista' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Catálogos</a>
+                                </li>
+                                <li><a href="#" @click.prevent="cambiarVista('catalogo', '../catalogo/catalogo.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'catalogo' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Registrar
+                                        Mobiliario y Equipo</a></li>
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('resguardos_nuevos', '../personal/resguardos_nuevos.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'resguardos_nuevos' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Resguardos
+                                        Nuevos</a></li>
+                                <li><a href="#" @click.prevent="cambiarVista('resguardos', '../personal/personal.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'resguardos' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Cambio
+                                        de Resguardos</a></li>
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('solicitudes', '../personal/personal.html')"
+                                        class="flex justify-between p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'solicitudes' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Trámite
+                                        de Bajas <span x-show="solicitudesBaja.length > 0"
+                                            class="bg-red-500 text-white text-[10px] px-2 rounded-full font-bold flex items-center"
+                                            x-text="solicitudesBaja.length"></span></a></li>
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('cambio_resguardos_bajas', '../personal/cambio_resguardos_bajas.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'cambio_resguardos_bajas' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Cambio
+                                        de Resguardos Bajas</a></li>
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('asignar_acta_bajas', '../personal/asignar_acta_bajas.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'asignar_acta_bajas' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Asignar
+                                        Acta de Bajas</a></li>
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('cambio_resguardos_bode', '../personal/cambio_resguardos_bode.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'cambio_resguardos_bode' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Cambio
+                                        de Resguardos Bode</a></li>
                             </ul>
                         </li>
-                        </button>
-                        <ul x-show="menuAbierto === 'archivos'" x-collapse
-                            class="bg-white/20 px-2 py-2 space-y-1 text-sm">
-                            <li><a href="#"
-                                    @click.prevent="cambiarVista('catalogos_lista', '../catalogo/catalogos_lista.html')"
-                                    class="block p-2 rounded transition-colors"
-                                    :class="vistaActiva === 'catalogos_lista' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Catálogos</a>
-                            </li>
-                            <li><a href="#" @click.prevent="cambiarVista('catalogo', '../catalogo/catalogo.html')"
-                                    class="block p-2 rounded transition-colors"
-                                    :class="vistaActiva === 'catalogo' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Registrar
-                                    Mobiliario y Equipo</a></li>
-                            <li><a href="#"
-                                    @click.prevent="cambiarVista('resguardos_nuevos', '../personal/resguardos_nuevos.html')"
-                                    class="block p-2 rounded transition-colors"
-                                    :class="vistaActiva === 'resguardos_nuevos' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Resguardos
-                                    Nuevos</a></li>
-                            <li><a href="#" @click.prevent="cambiarVista('resguardos', '../personal/personal.html')"
-                                    class="block p-2 rounded transition-colors"
-                                    :class="vistaActiva === 'resguardos' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Cambio
-                                    de Resguardos</a></li>
-                            <li><a href="#" @click.prevent="cambiarVista('solicitudes', '../personal/personal.html')"
-                                    class="flex justify-between p-2 rounded transition-colors"
-                                    :class="vistaActiva === 'solicitudes' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Trámite
-                                    de Bajas <span x-show="solicitudesBaja.length > 0"
-                                        class="bg-red-500 text-white text-[10px] px-2 rounded-full font-bold flex items-center"
-                                        x-text="solicitudesBaja.length"></span></a></li>
-                            <li><a href="#"
-                                    @click.prevent="cambiarVista('cambio_resguardos_bajas', '../personal/cambio_resguardos_bajas.html')"
-                                    class="block p-2 rounded transition-colors"
-                                    :class="vistaActiva === 'cambio_resguardos_bajas' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Cambio
-                                    de Resguardos Bajas</a></li>
-                            <li><a href="#"
-                                    @click.prevent="cambiarVista('asignar_acta_bajas', '../personal/asignar_acta_bajas.html')"
-                                    class="block p-2 rounded transition-colors"
-                                    :class="vistaActiva === 'asignar_acta_bajas' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Asignar
-                                    Acta de Bajas</a></li>
-                            <li><a href="#"
-                                    @click.prevent="cambiarVista('cambio_resguardos_bode', '../personal/cambio_resguardos_bode.html')"
-                                    class="block p-2 rounded transition-colors"
-                                    :class="vistaActiva === 'cambio_resguardos_bode' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Cambio
-                                    de Resguardos Bode</a></li>
-                        </ul>
-                        </li>
-                        <li class="rounded-lg overflow-hidden border transition-colors duration-300"
-                            :class="menuAbierto === 'archivos' ? 'bg-white border-guinda shadow-sm' : 'bg-white/40 border-dorado/20'">
-                            <button @click="menuAbierto = menuAbierto === 'archivos' ? '' : 'archivos'"
-                                class="w-full flex items-center justify-between p-3 transition-colors font-bold"
-                                :class="menuAbierto === 'archivos' ? 'text-guinda' : 'text-gray-800 hover:bg-white/60'">
-                                <div class="flex items-center gap-3">
 
-                                    <i class="fas fa-folder-open w-5"
-                                        :class="menuAbierto === 'archivos' ? 'text-guinda' : 'text-dorado'"></i>
+                        <!-- 2. ACTUALIZAR -->
+                        <li class="rounded-lg overflow-hidden border transition-colors duration-300"
+                            :class="menuAbierto === 'actualizar' ? 'bg-white border-guinda shadow-sm' : 'bg-white/40 border-dorado/20'">
+                            <button @click="menuAbierto = menuAbierto === 'actualizar' ? '' : 'actualizar'"
+                                class="w-full flex items-center justify-between p-3 transition-colors font-bold"
+                                :class="menuAbierto === 'actualizar' ? 'text-guinda' : 'text-gray-800 hover:bg-white/60'">
+                                <div class="flex items-center gap-3">
+                                    <i class="fas fa-edit w-5"
+                                        :class="menuAbierto === 'actualizar' ? 'text-guinda' : 'text-dorado'"></i>
                                     Actualizar
                                 </div>
                                 <i class="fas fa-chevron-down transition-transform duration-300"
-                                    :class="menuAbierto === 'archivos' ? 'rotate-180 text-guinda' : 'text-gray-400'"></i>
+                                    :class="menuAbierto === 'actualizar' ? 'rotate-180 text-guinda' : 'text-gray-400'"></i>
                             </button>
-                            <ul x-show="menuAbierto === 'archivos'" x-collapse
+                            <ul x-show="menuAbierto === 'actualizar'" x-collapse
                                 class="bg-white/50 px-2 py-2 space-y-1 text-sm border-t border-gray-100">
-
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('centros_trabajo', '../actualizar/centros_trabajo.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'centros_trabajo' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Centros
+                                        de Trabajo</a></li>
+                                <li><a href="#" @click.prevent="cambiarVista('usuarios', '../usuarios/usuarios.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'usuarios' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Responsables</a>
+                                </li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Tipos
+                                        de Artículos</a></li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Proveedores</a>
+                                </li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Naturaleza
+                                        del Gasto</a></li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Fundamento
+                                        Legal y Jefes</a></li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Tipos
+                                        de Vialidades</a></li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Tipos
+                                        de Asentamientos</a></li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Localidades</a>
+                                </li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Unidades
+                                        Responsables</a></li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">SubDirecciones</a>
+                                </li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Departamentos</a>
+                                </li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Partidas</a>
+                                </li>
                             </ul>
                         </li>
-                        </button>
-                        <ul x-show="menuAbierto === 'actualizar'" x-collapse
-                            class="bg-white/20 px-2 py-2 space-y-1 text-sm">
-                            <li><a href="#"
-                                    @click.prevent="cambiarVista('centros_trabajo', '../actualizar/centros_trabajo.html')"
-                                    class="block p-2 rounded transition-colors"
-                                    :class="vistaActiva === 'centros_trabajo' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Centros
-                                    de Trabajo</a></li>
-                            <li><a href="#" @click.prevent="cambiarVista('usuarios', '../usuarios/usuarios.html')"
-                                    class="block p-2 rounded transition-colors"
-                                    :class="vistaActiva === 'usuarios' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Responsables</a>
-                            </li>
-                            <li><a href="#"
-                                    class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Tipos
-                                    de Artículos</a></li>
-                            <li><a href="#"
-                                    class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Proveedores</a>
-                            </li>
-                            <li><a href="#"
-                                    class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Naturaleza
-                                    del Gasto</a></li>
-                            <li><a href="#"
-                                    class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Fundamento
-                                    Legal y Jefes</a></li>
-                            <li><a href="#"
-                                    class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Tipos
-                                    de Vialidades</a></li>
-                            <li><a href="#"
-                                    class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Tipos
-                                    de Asentamientos</a></li>
-                            <li><a href="#"
-                                    class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Localidades</a>
-                            </li>
-                            <li><a href="#"
-                                    class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Unidades
-                                    Responsables</a></li>
-                            <li><a href="#"
-                                    class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">SubDirecciones</a>
-                            </li>
-                            <li><a href="#"
-                                    class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Departamentos</a>
-                            </li>
-                            <li><a href="#"
-                                    class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Partidas</a>
-                            </li>
-                        </ul>
-                        </li>
+
+                        <!-- 3. REPORTES -->
                         <li class="rounded-lg overflow-hidden border transition-colors duration-300"
                             :class="menuAbierto === 'reportes' ? 'bg-white border-guinda shadow-sm' : 'bg-white/40 border-dorado/20'">
                             <button @click="menuAbierto = menuAbierto === 'reportes' ? '' : 'reportes'"
@@ -259,6 +250,7 @@
                             </ul>
                         </li>
 
+                        <!-- 4. UTILERÍAS -->
                         <li class="rounded-lg overflow-hidden border transition-colors duration-300"
                             :class="menuAbierto === 'utilerias' ? 'bg-white border-guinda shadow-sm' : 'bg-white/40 border-dorado/20'">
                             <button @click="menuAbierto = menuAbierto === 'utilerias' ? '' : 'utilerias'"
