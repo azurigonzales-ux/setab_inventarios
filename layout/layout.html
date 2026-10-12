@@ -1,0 +1,1145 @@
+<!DOCTYPE html>
+<html lang="es" x-data="{ temaOscuro: localStorage.getItem('tema') === 'dark' }"
+    x-init="$watch('temaOscuro', val => localStorage.setItem('tema', val ? 'dark' : 'light'))"
+    :class="{ 'dark': temaOscuro }">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Central - INVENTARIOS SETAB</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="../rutas/config.js"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        guinda: { DEFAULT: '#981A35', dark: '#691C32' },
+                        dorado: { DEFAULT: '#BC955C' },
+                        caqui: { DEFAULT: '#F3F0E5', dark: '#E5DFD1' }
+                    }
+                }
+            }
+        }
+    </script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        select[size] {
+            height: auto;
+            max-height: 150px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        .canvas-firma {
+            border: 2px dashed #cbd5e1;
+            border-radius: 0.5rem;
+            background-color: #f8fafc;
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+
+        *,
+        html,
+        body,
+        p,
+        div,
+        span,
+        a,
+        h1,
+        h2,
+        h3,
+        h4,
+        h5,
+        h6,
+        input,
+        button,
+        select,
+        table {
+            font-family: 'Montserrat', sans-serif !important;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 text-gray-800" x-data="layoutMaestro()">
+    <div class="flex h-screen overflow-hidden">
+        <div x-show="sidebarAbierto" x-cloak class="fixed inset-0 z-40 bg-gray-900/50 lg:hidden"
+            @click="sidebarAbierto = false"></div>
+        <aside :class="sidebarAbierto ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
+            class="fixed inset-y-0 left-0 z-50 w-64 bg-caqui border-r border-caqui-dark transition-transform duration-300 flex flex-col justify-between shadow-sm">
+            <div class="flex justify-center pt-4 pb-2">
+                <img src="../img/BANNER_LOGO.png" alt="Logo SETAB" class="w-40 object-contain mx-auto mt-2">
+            </div>
+            <div class="mt-2 mx-4 pb-4 border-b border-dorado/30 text-center">
+                <p class="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1"
+                    x-text="rolUsuario === 'SUPERADMIN' ? 'Almacén Central' : 'Director Escolar'"></p>
+                <p class="text-sm font-bold text-guinda truncate" x-text="nombreUsuario"></p>
+            </div>
+            <ul class="space-y-2 mt-4 px-3 flex-1 overflow-y-auto custom-scrollbar pb-6"
+                x-data="{ menuAbierto: 'archivos' }">
+                <template x-if="rolUsuario === 'SUPERADMIN'">
+                    <div class="space-y-2">
+                        <li class="bg-white/40 rounded-lg overflow-hidden border border-dorado/20">
+                            <button @click="menuAbierto = menuAbierto === 'archivos' ? '' : 'archivos'"
+                                class="w-full flex items-center justify-between p-3 text-gray-800 hover:bg-white/60 transition-colors font-bold">
+                                <div class="flex items-center gap-3"><i class="fas fa-folder-open text-dorado w-5"></i>
+                                    Archivos</div>
+                                <i class="fas fa-chevron-down transition-transform"
+                                    :class="menuAbierto === 'archivos' ? 'rotate-180' : ''"></i>
+                            </button>
+                            <ul x-show="menuAbierto === 'archivos'" x-collapse
+                                class="bg-white/20 px-2 py-2 space-y-1 text-sm">
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('catalogos_lista', '../catalogo/catalogos_lista.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'catalogos_lista' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Catálogos</a>
+                                </li>
+                                <li><a href="#" @click.prevent="cambiarVista('catalogo', '../catalogo/catalogo.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'catalogo' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Registrar
+                                        Mobiliario y Equipo</a></li>
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('resguardos_nuevos', '../personal/resguardos_nuevos.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'resguardos_nuevos' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Resguardos
+                                        Nuevos</a></li>
+                                <li><a href="#" @click.prevent="cambiarVista('resguardos', '../personal/personal.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'resguardos' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Cambio
+                                        de Resguardos</a></li>
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('solicitudes', '../personal/personal.html')"
+                                        class="flex justify-between p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'solicitudes' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Trámite
+                                        de Bajas <span x-show="solicitudesBaja.length > 0"
+                                            class="bg-red-500 text-white text-[10px] px-2 rounded-full font-bold flex items-center"
+                                            x-text="solicitudesBaja.length"></span></a></li>
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('cambio_resguardos_bajas', '../personal/cambio_resguardos_bajas.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'cambio_resguardos_bajas' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Cambio
+                                        de Resguardos Bajas</a></li>
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('asignar_acta_bajas', '../personal/asignar_acta_bajas.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'asignar_acta_bajas' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Asignar
+                                        Acta de Bajas</a></li>
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('cambio_resguardos_bode', '../personal/cambio_resguardos_bode.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'cambio_resguardos_bode' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Cambio
+                                        de Resguardos Bode</a></li>
+                            </ul>
+                        </li>
+                        <li class="bg-white/40 rounded-lg overflow-hidden border border-dorado/20">
+                            <button @click="menuAbierto = menuAbierto === 'actualizar' ? '' : 'actualizar'"
+                                class="w-full flex items-center justify-between p-3 text-gray-800 hover:bg-white/60 transition-colors font-bold">
+                                <div class="flex items-center gap-3"><i class="fas fa-edit text-dorado w-5"></i>
+                                    Actualizar</div>
+                                <i class="fas fa-chevron-down transition-transform"
+                                    :class="menuAbierto === 'actualizar' ? 'rotate-180' : ''"></i>
+                            </button>
+                            <ul x-show="menuAbierto === 'actualizar'" x-collapse
+                                class="bg-white/20 px-2 py-2 space-y-1 text-sm">
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('centros_trabajo', '../actualizar/centros_trabajo.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'centros_trabajo' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Centros
+                                        de Trabajo</a></li>
+                                <li><a href="#" @click.prevent="cambiarVista('usuarios', '../usuarios/usuarios.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'usuarios' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Responsables</a>
+                                </li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Tipos
+                                        de Artículos</a></li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Proveedores</a>
+                                </li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Naturaleza
+                                        del Gasto</a></li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Fundamento
+                                        Legal y Jefes</a></li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Tipos
+                                        de Vialidades</a></li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Tipos
+                                        de Asentamientos</a></li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Localidades</a>
+                                </li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Unidades
+                                        Responsables</a></li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">SubDirecciones</a>
+                                </li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Departamentos</a>
+                                </li>
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Partidas</a>
+                                </li>
+                            </ul>
+                        </li>
+                        <li class="bg-white/40 rounded-lg overflow-hidden border border-dorado/20">
+                            <button @click="menuAbierto = menuAbierto === 'reportes' ? '' : 'reportes'"
+                                class="w-full flex items-center justify-between p-3 text-gray-800 hover:bg-white/60 transition-colors font-bold">
+                                <div class="flex items-center gap-3"><i class="fas fa-file-pdf text-dorado w-5"></i>
+                                    Reportes</div>
+                                <i class="fas fa-chevron-down transition-transform"
+                                    :class="menuAbierto === 'reportes' ? 'rotate-180' : ''"></i>
+                            </button>
+                            <ul x-show="menuAbierto === 'reportes'" x-collapse
+                                class="bg-white/20 px-2 py-2 space-y-1 text-sm">
+                                <li><a href="#"
+                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Reportes
+                                        Semestrales</a></li>
+                            </ul>
+                        </li>
+                        <li class="bg-white/40 rounded-lg overflow-hidden border border-dorado/20">
+                            <button @click="menuAbierto = menuAbierto === 'utilerias' ? '' : 'utilerias'"
+                                class="w-full flex items-center justify-between p-3 text-gray-800 hover:bg-white/60 transition-colors font-bold">
+                                <div class="flex items-center gap-3"><i class="fas fa-tools text-dorado w-5"></i>
+                                    Utilerías</div>
+                                <i class="fas fa-chevron-down transition-transform"
+                                    :class="menuAbierto === 'utilerias' ? 'rotate-180' : ''"></i>
+                            </button>
+                            <ul x-show="menuAbierto === 'utilerias'" x-collapse
+                                class="bg-white/20 px-2 py-2 space-y-1 text-sm">
+                                <li><a href="#" @click.prevent="cambiarVista('qr', '../qr/qr.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'qr' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Módulo
+                                        QR Escáner</a></li>
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('historial', '../historial/historial.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'historial' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Historial
+                                        y Trazabilidad</a></li>
+                            </ul>
+                        </li>
+                    </div>
+                </template>
+                <template x-if="rolUsuario === 'admin'">
+                    <div class="space-y-2 mt-2">
+                        <li class="bg-white/40 rounded-lg overflow-hidden border border-dorado/20">
+                            <a href="#" @click.prevent="cambiarVista('mi_escuela', '../catalogo/catalogo.html')"
+                                class="flex items-center gap-3 rounded-lg px-4 py-3 text-sm transition-colors"
+                                :class="vistaActiva === 'mi_escuela' ? 'bg-guinda text-white shadow-sm' : 'text-gray-700 hover:bg-white/60 hover:text-guinda font-bold'">
+                                <i class="fas fa-school w-5 text-center text-dorado"></i> Mi Escuela (Bienes)
+                            </a>
+                        </li>
+                        <li class="bg-white/40 rounded-lg overflow-hidden border border-dorado/20">
+                            <a href="#" @click.prevent="cambiarVista('firmas', '../catalogo/catalogo.html')"
+                                class="flex items-center justify-between rounded-lg px-4 py-3 text-sm transition-colors"
+                                :class="vistaActiva === 'firmas' ? 'bg-guinda text-white shadow-sm' : 'text-gray-700 hover:bg-white/60 hover:text-guinda font-bold'">
+                                <div class="flex items-center gap-3"><i
+                                        class="fas fa-file-signature w-5 text-center text-dorado"></i> Bandeja de Firmas
+                                </div>
+                                <span x-show="pendientes.length > 0"
+                                    class="bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full shadow-sm"
+                                    x-text="pendientes.length"></span>
+                            </a>
+                        </li>
+                    </div>
+                </template>
+            </ul>
+            <div class="sticky inset-x-0 bottom-0 bg-guinda p-6 border-t border-guinda-dark">
+                <div class="flex justify-center mb-6"><img
+                        src="https://tabasco.gob.mx/sites/default/files/inline-images/Logo_Cacao_Footer.png"
+                        alt="Gobierno de Tabasco"
+                        class="h-16 object-contain opacity-90 hover:opacity-100 transition-opacity"></div>
+                <button @click="cerrarSesion()"
+                    class="flex items-center justify-center gap-2 bg-white/10 p-2.5 hover:bg-white/20 w-full rounded-lg text-white font-medium text-sm transition-all focus:ring-2 focus:ring-white/50"><i
+                        class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
+            </div>
+        </aside>
+
+        <div class="flex-1 flex flex-col overflow-y-auto lg:ml-64 w-full custom-scrollbar relative">
+            <header
+                class="bg-white border-b border-gray-200 lg:hidden flex items-center justify-between p-4 sticky top-0 z-30">
+                <button @click="sidebarAbierto = true" class="p-2 bg-gray-100 rounded text-gray-600"><i
+                        class="fas fa-bars"></i></button>
+                <span class="font-bold text-guinda"
+                    x-text="rolUsuario === 'SUPERADMIN' ? 'INVENTARIO CENTRAL' : 'SISTEMA DIRECTORES'"></span>
+            </header>
+            <main class="w-full h-full relative" x-html="contenidoVista">
+                <div x-show="cargandoVista"
+                    class="absolute inset-0 bg-gray-50 flex flex-col items-center justify-center z-10">
+                    <svg class="animate-spin h-10 w-10 text-guinda mb-4" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
+                        </circle>
+                        <path class="opacity-75" fill="currentColor"
+                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z">
+                        </path>
+                    </svg>
+                    <p class="text-gray-500 font-medium">Cargando módulo...</p>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <div class="fixed bottom-5 right-5 z-[60] flex flex-col gap-3 pointer-events-none">
+        <template x-for="toast in toasts" :key="toast.id">
+            <div x-transition:enter="transition ease-out duration-300"
+                x-transition:enter-start="opacity-0 translate-y-4 scale-95"
+                x-transition:enter-end="opacity-100 translate-y-0 scale-100"
+                x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-100 scale-100"
+                x-transition:leave-end="opacity-0 scale-95"
+                class="flex items-center gap-3 p-4 rounded-xl shadow-2xl text-white text-sm font-bold min-w-[250px] max-w-sm"
+                :class="toast.tipo === 'exito' ? 'bg-green-600 border border-green-500' : 'bg-red-600 border border-red-500'">
+                <svg x-show="toast.tipo === 'exito'" class="w-6 h-6 shrink-0" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <svg x-show="toast.tipo === 'error'" class="w-6 h-6 shrink-0" fill="none" stroke="currentColor"
+                    viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span x-text="toast.mensaje"></span>
+            </div>
+        </template>
+    </div>
+
+    <script>
+        function layoutMaestro() {
+            return {
+                sidebarAbierto: false,
+                token: sessionStorage.getItem('tokenSETAB') ? sessionStorage.getItem('tokenSETAB').replace(/['"]+/g, '') : null,
+                rolUsuario: sessionStorage.getItem('rolSETAB') ? sessionStorage.getItem('rolSETAB').replace(/['"]+/g, '') : '',
+                nombreUsuario: sessionStorage.getItem('nombreSETAB') || 'Usuario',
+
+                vistaActiva: '',
+                contenidoVista: '',
+                cargandoVista: false,
+
+                toasts: [],
+                cargando: false,
+                guardando: false,
+                errorMensaje: '',
+
+                articulos: [], totalRegistros: 0,
+                filtroBusqueda: '', filtroCategoria: '', filtroArea: '', paginaActual: 0, totalPaginas: 1,
+                misEquipos: [], pendientes: [], pendienteSeleccionado: {},
+
+                modalAbierto: false, modalRegistroAbierto: false, modalResguardoAbierto: false,
+                modalConfirmacionAbierto: false, modalHistorialAbierto: false, modalFirmaDirectorAbierto: false,
+                modalSeguridadAbierto: false, textoConfirmacion: '', idBajaPendiente: null,
+
+                articuloSeleccionado: {},
+                nuevoArticulo: {
+                    numeroInventario: '', tipoMaterial: '', subClave: '', descripcion: '',
+                    marca: '', modelo: '', serie: '', color: '', estadoFisico: 'NUEVO',
+                    proveedor: '', factura: '', fechaFactura: '',
+                    precioSinIva: null, precio: null,
+                    pedido: '', requisicion: '', naturalezaGasto: '', partida: '',
+                    motor: '', placa: '', poliza: '', vigenciaPoliza: '',
+                    centroTrabajo: '', responsable: '', boletaSalida: '', cantidadStock: 1
+                },
+                busquedaEmpleado: '', datosResguardo: { idEmpleado: '', cantidad: 1, firmaBase64: null, latitud: null, longitud: null },
+                historialArticulo: [], cargandoHistorial: false, canvas: null, ctx: null, isDrawing: false,
+                solicitudesBaja: [],
+
+                empleados: [], empleadosFiltrados: [], filtroEmpleado: '', filtroNivel: '',
+                modalEquiposAbierto: false, empleadoSeleccionado: {}, equiposEmpleado: [],
+                cargandoEquipos: false, cargandoPersonal: false, modalAprobarBajaAbierto: false,
+                equipoADevolver: {}, firmaBase64: null, liberando: false, vinoDesdeBandeja: false,
+
+                usuarios: [], busquedaUsuario: '', filtroNivelUsuario: '', filtroRol: '', modalResetAbierto: false,
+                usuarioSeleccionado: {}, nuevaPassword: '',
+                nuevoUsuario: { nombre: '', apellidos: '', email: '', username: '', password: '', cct: '', nivelEducativo: 'Primaria', nombreEscuela: '', rol: 'Admin' },
+                // --- VARIABLES DE CENTROS DE TRABAJO ---
+                centrosTrabajo: [],
+                busquedaCT: '',
+                modalCTAbierto: false,
+                cargandoAuxiliar: false,
+                nuevoCT: {
+                    id: null, claveCT: '', unidadResp: '', subDireccion: '', departamento: '', nombreCT: '',
+                    tipoVial: '', nombreVial: '', numExt: '', numInt: '', tipoAsent: '', nomAsent: '',
+                    codPostal: '', municipio: '', localidad: '', vialidIzq: '', vialidDer: '',
+                    vialidPost: '', refVialid: '', zonaEscolar: '', sector: '', director: ''
+                },
+
+                get centrosFiltrados() {
+                    if (!this.busquedaCT) return this.centrosTrabajo;
+                    const b = this.busquedaCT.toLowerCase();
+                    return this.centrosTrabajo.filter(c =>
+                        (c.claveCT && c.claveCT.toLowerCase().includes(b)) ||
+                        (c.nombreCT && c.nombreCT.toLowerCase().includes(b)) ||
+                        (c.municipio && c.municipio.toLowerCase().includes(b))
+                    );
+                },
+
+                async cargarCentrosTrabajo() {
+                    this.cargandoAuxiliar = true;
+                    try {
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/centros-trabajo`, { method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` } });
+                        if (respuesta.ok) this.centrosTrabajo = await respuesta.json();
+                    } catch (error) { console.error("Error al cargar CT"); } finally { this.cargandoAuxiliar = false; }
+                },
+
+                abrirModalCT(ct = null) {
+                    if (ct) {
+                        this.nuevoCT = JSON.parse(JSON.stringify(ct));
+                    } else {
+                        this.nuevoCT = { id: null, claveCT: '', unidadResp: '', subDireccion: '', departamento: '', nombreCT: '', tipoVial: '', nombreVial: '', numExt: '', numInt: '', tipoAsent: '', nomAsent: '', codPostal: '', municipio: '', localidad: '', vialidIzq: '', vialidDer: '', vialidPost: '', refVialid: '', zonaEscolar: '', sector: '', director: '' };
+                    }
+                    this.modalCTAbierto = true;
+                },
+
+                cerrarModalCT() { this.modalCTAbierto = false; },
+
+                async guardarCT() {
+                    this.guardando = true;
+                    try {
+                        const esEdicion = this.nuevoCT.id !== null;
+                        const url = esEdicion ? `${SETAB_CONFIG.backendUrl}/api/centros-trabajo/${this.nuevoCT.id}` : `${SETAB_CONFIG.backendUrl}/api/centros-trabajo`;
+                        const metodo = esEdicion ? 'PUT' : 'POST';
+
+                        const respuesta = await fetch(url, { method: metodo, mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(this.nuevoCT) });
+                        if (respuesta.ok) {
+                            this.cerrarModalCT();
+                            this.cargarCentrosTrabajo();
+                            this.notificar("Centro de Trabajo guardado.", "exito");
+                        } else { this.notificar("Error al guardar CT", "error"); }
+                    } catch (error) { this.notificar("Error de red", "error"); } finally { this.guardando = false; }
+                },
+                // --- VARIABLES DE CATÁLOGOS SATÉLITE ---
+                tabCatalogoActivo: 'proveedores',
+                nombreCatalogoActivo: 'Proveedores',
+                listaTabsCatalogos: [
+                    { id: 'proveedores', nombre: 'Proveedores', icono: 'fas fa-truck' },
+                    { id: 'tipos_articulos', nombre: 'Tipos de Artículos', icono: 'fas fa-boxes' },
+                    { id: 'partidas', nombre: 'Partidas Presupuestales', icono: 'fas fa-file-invoice-dollar' },
+                    { id: 'naturaleza_gasto', nombre: 'Naturaleza del Gasto', icono: 'fas fa-coins' },
+                    { id: 'departamentos', nombre: 'Departamentos', icono: 'fas fa-building' },
+                    { id: 'vialidades', nombre: 'Tipos de Vialidades', icono: 'fas fa-road' },
+                    { id: 'asentamientos', nombre: 'Tipos de Asentamientos', icono: 'fas fa-map-marker-alt' }
+                ],
+                datosCatalogo: [],
+                busquedaCatalogo: '',
+                modalCatalogoAbierto: false,
+                itemCatalogo: { id: null, clave: '', descripcion: '' },
+
+                // --- MÉTODOS DE CATÁLOGOS SATÉLITE ---
+                get datosCatalogoFiltrados() {
+                    if (!this.busquedaCatalogo) return this.datosCatalogo;
+                    const b = this.busquedaCatalogo.toLowerCase();
+                    return this.datosCatalogo.filter(i =>
+                        (i.clave && i.clave.toLowerCase().includes(b)) ||
+                        (i.descripcion && i.descripcion.toLowerCase().includes(b)) ||
+                        (i.nombre && i.nombre.toLowerCase().includes(b))
+                    );
+                },
+
+                cambiarTabCatalogo(idTab, nombreTab) {
+                    this.tabCatalogoActivo = idTab;
+                    this.nombreCatalogoActivo = nombreTab;
+                    this.busquedaCatalogo = '';
+                    this.cargarDatosCatalogoSelectivo();
+                },
+
+                async cargarDatosCatalogoSelectivo() {
+                    this.cargandoAuxiliar = true;
+                    this.datosCatalogo = [];
+                    // Aquí tu backend debe tener una ruta genérica o un switch. Ejemplo: /api/catalogos/proveedores
+                    try {
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/catalogos/${this.tabCatalogoActivo}`, {
+                            method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` }
+                        });
+                        if (respuesta.ok) {
+                            this.datosCatalogo = await respuesta.json();
+                        }
+                    } catch (error) {
+                        console.error("Error al cargar catálogo:", this.tabCatalogoActivo);
+                    } finally {
+                        this.cargandoAuxiliar = false;
+                    }
+                },
+
+                abrirModalCatalogo(item = null) {
+                    if (item) {
+                        this.itemCatalogo = { id: item.id, clave: item.clave || '', descripcion: item.descripcion || item.nombre || '' };
+                    } else {
+                        this.itemCatalogo = { id: null, clave: '', descripcion: '' };
+                    }
+                    this.modalCatalogoAbierto = true;
+                },
+
+                cerrarModalCatalogo() {
+                    this.modalCatalogoAbierto = false;
+                },
+
+                async guardarItemCatalogo() {
+                    this.guardando = true;
+                    try {
+                        const esEdicion = this.itemCatalogo.id !== null;
+                        const url = esEdicion
+                            ? `${SETAB_CONFIG.backendUrl}/api/catalogos/${this.tabCatalogoActivo}/${this.itemCatalogo.id}`
+                            : `${SETAB_CONFIG.backendUrl}/api/catalogos/${this.tabCatalogoActivo}`;
+                        const metodo = esEdicion ? 'PUT' : 'POST';
+
+                        // Mapeamos "descripcion" a "nombre" dependiendo de lo que reciba tu base de datos
+                        const payload = { clave: this.itemCatalogo.clave, descripcion: this.itemCatalogo.descripcion, nombre: this.itemCatalogo.descripcion };
+
+                        const respuesta = await fetch(url, {
+                            method: metodo, mode: 'cors',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (respuesta.ok) {
+                            this.cerrarModalCatalogo();
+                            this.cargarDatosCatalogoSelectivo();
+                            this.notificar("Registro guardado exitosamente.", "exito");
+                        } else {
+                            this.notificar("Error al guardar en el catálogo.", "error");
+                        }
+                    } catch (error) {
+                        this.notificar("Error de conexión al guardar.", "error");
+                    } finally {
+                        this.guardando = false;
+                    }
+                },
+                // --- VARIABLES DE MÓDULO QR ---
+                tabQRActivo: 'generar', // 'generar' o 'escanear'
+                busquedaQR: '',
+                itemsSeleccionadosQR: [],
+                html5QrcodeScanner: null,
+                escanerEncendido: false,
+                resultadoEscaneo: null,
+                folioManual: '',
+
+                // --- MÉTODOS DE MÓDULO QR ---
+                get articulosQRFiltrados() {
+                    // Usamos el mismo catálogo de artículos que ya traemos de backend
+                    if (!this.busquedaQR) return this.articulos;
+                    const b = this.busquedaQR.toLowerCase();
+                    return this.articulos.filter(a =>
+                        (a.numeroInventario && a.numeroInventario.toLowerCase().includes(b)) ||
+                        (a.descripcion && a.descripcion.toLowerCase().includes(b)) ||
+                        (a.marca && a.marca.toLowerCase().includes(b))
+                    );
+                },
+
+                cambiarTabQR(tab) {
+                    this.tabQRActivo = tab;
+                    if (tab === 'escanear') {
+                        // Si cambiamos a escanear, por seguridad detenemos si estaba encendido en otro lado
+                    } else {
+                        this.detenerEscaner();
+                    }
+                },
+
+                toggleSeleccionTodosQR(e) {
+                    if (e.target.checked) {
+                        this.itemsSeleccionadosQR = this.articulosQRFiltrados.map(a => a.id);
+                    } else {
+                        this.itemsSeleccionadosQR = [];
+                    }
+                },
+
+                imprimirEtiquetasSeleccionadas() {
+                    if (this.itemsSeleccionadosQR.length === 0) return;
+                    this.notificar("Generando plantilla de impresión para " + this.itemsSeleccionadosQR.length + " equipos...", "exito");
+
+                    // Aquí tu lógica: mandar a llamar a una ruta de backend que devuelva el PDF
+                    // Ejemplo: window.open(`${SETAB_CONFIG.backendUrl}/api/qr/imprimir?ids=${this.itemsSeleccionadosQR.join(',')}`, '_blank');
+
+                    // Simulamos que deselecciona tras imprimir
+                    setTimeout(() => { this.itemsSeleccionadosQR = []; }, 1000);
+                },
+
+                iniciarEscaner() {
+                    this.resultadoEscaneo = null;
+                    this.escanerEncendido = true;
+
+                    setTimeout(() => {
+                        if (this.html5QrcodeScanner) { this.html5QrcodeScanner.clear(); }
+
+                        // Usamos la librería Html5Qrcode incluída en el Head
+                        this.html5QrcodeScanner = new Html5Qrcode("qr-reader");
+
+                        this.html5QrcodeScanner.start(
+                            { facingMode: "environment" }, // Cámara trasera si es celular
+                            { fps: 10, qrbox: { width: 250, height: 250 } },
+                            (textoDecodificado, result) => {
+                                // ÉXITO AL ESCANEAR
+                                this.procesarLecturaQR(textoDecodificado);
+                            },
+                            (errorMensaje) => {
+                                // Ignorar errores de lectura (pasan en cada frame que no ve un QR claro)
+                            }
+                        ).catch((err) => {
+                            this.escanerEncendido = false;
+                            this.notificar("No se pudo acceder a la cámara. Revisa permisos.", "error");
+                        });
+                    }, 300);
+                },
+
+                detenerEscaner() {
+                    if (this.html5QrcodeScanner && this.escanerEncendido) {
+                        this.html5QrcodeScanner.stop().then(() => {
+                            this.html5QrcodeScanner.clear();
+                            this.escanerEncendido = false;
+                        }).catch(err => {
+                            console.error("Error al detener", err);
+                        });
+                    }
+                },
+
+                procesarLecturaQR(textoQR) {
+                    // Se asume que el QR tiene el "numeroInventario" o una URL que lo contenga
+                    // Haremos un "beep" de éxito y buscaremos en la BD
+                    this.reproducirBeep();
+                    this.detenerEscaner();
+                    this.notificar("Código leído con éxito", "exito");
+                    this.buscarItemPorFolio(textoQR);
+                },
+
+                buscarFolioManual() {
+                    if (!this.folioManual) return;
+                    this.buscarItemPorFolio(this.folioManual.trim().toUpperCase());
+                },
+
+                async buscarItemPorFolio(folio) {
+                    // Aquí deberías hacer un fetch especial si no está en la memoria local, pero por velocidad
+                    // lo buscaremos en el arreglo "articulos" actual. Si es un sistema grande, es mejor hacer:
+                    // const resp = await fetch(`/api/bienes/folio/${folio}`);
+
+                    const encontrado = this.articulos.find(a => a.numeroInventario === folio || a.id === folio);
+
+                    if (encontrado) {
+                        this.resultadoEscaneo = encontrado;
+                        this.folioManual = '';
+                    } else {
+                        this.notificar("Equipo no encontrado en la base de datos", "error");
+                        this.resultadoEscaneo = null;
+                    }
+                },
+
+                reproducirBeep() {
+                    try {
+                        const context = new (window.AudioContext || window.webkitAudioContext)();
+                        const oscillator = context.createOscillator();
+                        oscillator.type = "sine";
+                        oscillator.frequency.value = 800; // Hz
+                        oscillator.connect(context.destination);
+                        oscillator.start();
+                        setTimeout(() => { oscillator.stop(); }, 150);
+                    } catch (e) { }
+                },
+                // --- VARIABLES DE HISTORIAL Y TRAZABILIDAD ---
+                busquedaFolioHistorial: '',
+                equipoAuditado: null,
+
+                // --- MÉTODOS DE HISTORIAL Y TRAZABILIDAD ---
+                async buscarHistorialPorFolio() {
+                    const folio = this.busquedaFolioHistorial.trim().toUpperCase();
+                    if (!folio) {
+                        this.notificar("Ingresa un folio o número de serie válido.", "error");
+                        return;
+                    }
+
+                    this.cargandoHistorial = true;
+                    this.equipoAuditado = null;
+                    this.historialArticulo = [];
+
+                    try {
+                        // 1. Buscamos el equipo en la memoria local (si ya cargaste el catálogo)
+                        let equipo = this.articulos.find(a =>
+                            a.numeroInventario === folio ||
+                            a.serie === folio
+                        );
+
+                        // 2. Si es un sistema enorme y el equipo no está en la memoria actual, 
+                        // tu backend debería tener una ruta como esta (descomenta si la tienes):
+                        // if (!equipo) {
+                        //     const respB = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes/folio/${folio}`, { headers: { 'Authorization': `Bearer ${this.token}` } });
+                        //     if (respB.ok) equipo = await respB.json();
+                        // }
+
+                        if (!equipo) {
+                            this.notificar("Equipo no encontrado. Verifica el folio.", "error");
+                            this.cargandoHistorial = false;
+                            return;
+                        }
+
+                        this.equipoAuditado = equipo;
+
+                        // 3. Cargamos la trazabilidad
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/trazabilidad/articulo/${equipo.id}`, {
+                            method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` }
+                        });
+
+                        if (respuesta.ok) {
+                            this.historialArticulo = await respuesta.json();
+                            this.notificar("Expediente de trazabilidad cargado.", "exito");
+                        } else {
+                            this.notificar("Error al obtener los movimientos del equipo.", "error");
+                        }
+
+                    } catch (error) {
+                        this.notificar("Error de conexión al buscar historial.", "error");
+                    } finally {
+                        this.cargandoHistorial = false;
+                    }
+                },
+                init() {
+                    if (!this.token) { window.location.href = '../login/index.html'; return; }
+                    if (this.rolUsuario === 'SUPERADMIN') {
+                        this.cambiarVista('catalogo', '../catalogo/catalogo.html');
+                        this.cargarEmpleados();
+                        this.cargarSolicitudesBaja();
+                        this.cargarUsuarios();
+                    } else if (this.rolUsuario === 'admin') {
+                        this.cambiarVista('mi_escuela', '../catalogo/catalogo.html');
+                    }
+                },
+
+                async cambiarVista(nombreVista, rutaArchivo = null) {
+                    if (this.vistaActiva === nombreVista && this.contenidoVista !== '' && nombreVista !== 'resguardos' && nombreVista !== 'solicitudes') return;
+
+                    // SEGURIDAD: Apagar cámara si salimos del módulo QR
+                    if (this.vistaActiva === 'qr' && nombreVista !== 'qr') {
+                        this.detenerEscaner();
+                    }
+
+                    this.vistaActiva = nombreVista;
+
+                    if (rutaArchivo) {
+                        this.cargandoVista = true;
+                        this.contenidoVista = '';
+
+                        try {
+                            const respuesta = await fetch(rutaArchivo);
+                            if (respuesta.ok) {
+                                this.contenidoVista = await respuesta.text();
+                            } else {
+                                this.contenidoVista = `<div class="bg-red-50 text-red-600 p-6 rounded-xl border border-red-200">Error al cargar ${rutaArchivo}</div>`;
+                            }
+                        } catch (error) {
+                            console.error("Error SPA:", error);
+                        } finally {
+                            this.cargandoVista = false;
+                            if (window.innerWidth < 1024) this.sidebarAbierto = false;
+                        }
+                    }
+                    if (nombreVista === 'catalogo') this.cargarArticulos();
+                    if (nombreVista === 'mi_escuela') this.cargarMisEquipos();
+                    if (nombreVista === 'firmas') this.cargarPendientes();
+                    if (nombreVista === 'usuarios') this.cargarUsuarios();
+                    if (nombreVista === 'resguardos') { this.filtrarLocal(); }
+                    if (nombreVista === 'solicitudes') { this.cargarSolicitudesBaja(); }
+                    if (nombreVista === 'centros_trabajo') this.cargarCentrosTrabajo();
+                    if (nombreVista === 'catalogos_lista') this.cargarDatosCatalogoSelectivo();
+                    if (nombreVista === 'qr') this.cambiarTabQR('generar');
+                    if (nombreVista === 'historial') { this.busquedaFolioHistorial = ''; this.equipoAuditado = null; }
+                },
+
+                notificar(mensaje, tipo = 'exito') {
+                    const id = Date.now();
+                    this.toasts.push({ id, mensaje, tipo });
+                    setTimeout(() => { this.toasts = this.toasts.filter(t => t.id !== id); }, 4000);
+                },
+
+                get usuariosFiltrados() {
+                    let filtrados = this.usuarios;
+                    if (this.filtroNivelUsuario !== '') filtrados = filtrados.filter(u => u.nivelEducativo === this.filtroNivelUsuario);
+                    if (this.filtroRol !== '') filtrados = filtrados.filter(u => u.rol === this.filtroRol);
+                    if (this.busquedaUsuario !== '') {
+                        const term = this.busquedaUsuario.toLowerCase();
+                        filtrados = filtrados.filter(u => {
+                            const nombre = u.nombreCompleto ? u.nombreCompleto.toLowerCase() : '';
+                            const usuario = u.username ? u.username.toLowerCase() : '';
+                            const cct = u.cct ? u.cct.toLowerCase() : '';
+                            return nombre.includes(term) || usuario.includes(term) || cct.includes(term);
+                        });
+                    }
+                    return filtrados;
+                },
+
+                async cargarUsuarios() {
+                    this.cargando = true;
+                    try {
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/usuarios`, { method: 'GET', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` } });
+                        if (respuesta.ok) this.usuarios = await respuesta.json();
+                    } catch (error) { this.notificar("Error al cargar la lista de usuarios", "error"); } finally { this.cargando = false; }
+                },
+
+                async guardarNuevoUsuario() {
+                    this.guardando = true;
+                    try {
+                        const payload = { ...this.nuevoUsuario, cct: this.nuevoUsuario.cct.toUpperCase() };
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/usuarios`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
+                        if (respuesta.ok) { this.cerrarModalRegistro(); this.cargarUsuarios(); this.notificar("¡Director registrado!", "exito"); }
+                        else { this.notificar("Error al crear usuario. Verifica que el username no esté repetido.", "error"); }
+                    } catch (error) { this.notificar("Error de conexión al servidor.", "error"); } finally { this.guardando = false; }
+                },
+
+                abrirModalReset(usuario) { this.usuarioSeleccionado = usuario; this.nuevaPassword = ''; this.modalResetAbierto = true; },
+                cerrarModalReset() { this.modalResetAbierto = false; setTimeout(() => { this.usuarioSeleccionado = {}; }, 300); },
+
+                async guardarNuevaPassword() {
+                    if (this.nuevaPassword.trim().length < 4) { this.notificar("La contraseña debe tener al menos 4 caracteres.", "error"); return; }
+                    this.guardando = true;
+                    try {
+                        const payload = { nuevaPassword: this.nuevaPassword };
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/usuarios/${this.usuarioSeleccionado.id}/reset-password`, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
+                        if (respuesta.ok) { this.notificar("¡Contraseña actualizada!", "exito"); this.cerrarModalReset(); }
+                        else { this.notificar("Error al intentar cambiar la contraseña.", "error"); }
+                    } catch (error) { this.notificar("Fallo de conexión al servidor.", "error"); } finally { this.guardando = false; }
+                },
+
+                async cambiarEstado(idUsuario, nombreUser) {
+                    if (!confirm(`¿Cambiar permisos de acceso para: ${nombreUser}?`)) return;
+                    try {
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/usuarios/${idUsuario}/toggle-estado`, { method: 'PUT', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` } });
+                        if (respuesta.ok) { this.cargarUsuarios(); this.notificar("Estado de la cuenta actualizado.", "exito"); }
+                        else { this.notificar("Error al modificar el estado de la cuenta.", "error"); }
+                    } catch (error) { this.notificar("Fallo de conexión.", "error"); }
+                },
+
+                filtrarLocal() {
+                    let filtrados = this.empleados;
+                    if (this.filtroNivel !== '') { filtrados = filtrados.filter(e => e.area === this.filtroNivel); }
+                    if (this.filtroEmpleado !== '') {
+                        const termino = this.filtroEmpleado.toLowerCase();
+                        filtrados = filtrados.filter(e => (e.nombre && e.nombre.toLowerCase().includes(termino)) || (e.cct && e.cct.toLowerCase().includes(termino)) || (e.nombreEscuela && e.nombreEscuela.toLowerCase().includes(termino)) || (e.usuario && e.usuario.toLowerCase().includes(termino)) || (e.area && e.area.toLowerCase().includes(termino)));
+                    }
+                    this.empleadosFiltrados = filtrados;
+                },
+
+                get empleadosFiltradosList() {
+                    if (!this.busquedaEmpleado) return this.empleados;
+                    const busq = this.busquedaEmpleado.toLowerCase();
+                    return this.empleados.filter(e => (e.nombre && e.nombre.toLowerCase().includes(busq)) || (e.rfc && e.rfc.toLowerCase().includes(busq)) || (e.cct && e.cct.toLowerCase().includes(busq)));
+                },
+
+                atenderSolicitud(solicitud) {
+                    const empleadoEncontrado = this.empleados.find(e => e.id_empleado === solicitud.idEmpleado);
+                    if (empleadoEncontrado) { this.abrirModalEquipos(empleadoEncontrado); }
+                    else { this.notificar("El expediente de esta escuela no está disponible.", "error"); }
+                },
+
+                abrirModalEquipos(empleado) { this.empleadoSeleccionado = empleado; this.modalEquiposAbierto = true; this.cargarEquiposDelEmpleado(empleado.id_empleado); },
+                cerrarModalEquipos() { this.modalEquiposAbierto = false; setTimeout(() => { this.empleadoSeleccionado = {}; this.equiposEmpleado = []; }, 300); },
+
+                async cargarEquiposDelEmpleado(idEmpleado) {
+                    this.cargandoEquipos = true; this.equiposEmpleado = [];
+                    try {
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/empleado/${idEmpleado}`, { method: 'GET', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token } });
+                        if (respuesta.ok) { this.equiposEmpleado = await respuesta.json(); }
+                    } catch (error) { this.notificar("Error al obtener resguardos", "error"); } finally { this.cargandoEquipos = false; }
+                },
+
+                abrirModalAprobarBaja(equipo, desdeBandeja = false) {
+                    this.equipoADevolver = equipo; this.vinoDesdeBandeja = desdeBandeja;
+                    if (!desdeBandeja) { this.modalEquiposAbierto = false; }
+                    this.modalAprobarBajaAbierto = true; this.initCanvas('canvas-firma-superadmin');
+                },
+
+                cerrarModalAprobarBaja() {
+                    this.modalAprobarBajaAbierto = false; this.limpiarFirma('canvas-firma-superadmin');
+                    if (!this.vinoDesdeBandeja) { this.modalEquiposAbierto = true; }
+                },
+
+                async procesarAprobacionBaja() {
+                    if (this.isCanvasBlank(document.getElementById('canvas-firma-superadmin'))) { this.notificar("El Almacén Central debe firmar.", "error"); return; }
+                    this.firmaBase64 = document.getElementById('canvas-firma-superadmin').toDataURL("image/png"); this.liberando = true;
+                    try {
+                        const payload = { firmaSuperAdminBase64: this.firmaBase64 };
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/aprobar-baja/${this.equipoADevolver.idResguardo}`, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token }, body: JSON.stringify(payload) });
+                        if (respuesta.status === 401) { this.cerrarSesion(); return; }
+                        if (respuesta.ok) {
+                            this.notificar("Baja autorizada. Enviada a bandeja del Director.", "exito");
+                            this.cerrarModalAprobarBaja(); this.cargarSolicitudesBaja();
+                            if (this.empleadoSeleccionado && this.empleadoSeleccionado.id_empleado) { this.cargarEquiposDelEmpleado(this.empleadoSeleccionado.id_empleado); }
+                        } else { this.notificar("Error al autorizar la baja.", "error"); }
+                    } catch (error) { this.notificar("Error de red al autorizar.", "error"); } finally { this.liberando = false; this.limpiarFirma('canvas-firma-superadmin'); }
+                },
+
+                initCanvas(canvasId = 'canvas-firma') {
+                    setTimeout(() => {
+                        this.canvas = document.getElementById(canvasId);
+                        if (!this.canvas) return;
+                        this.ctx = this.canvas.getContext('2d');
+                        this.ctx.lineWidth = 3; this.ctx.lineCap = 'round'; this.ctx.strokeStyle = '#0f172a';
+                        this.canvas.addEventListener('mousedown', this.startDrawing.bind(this));
+                        this.canvas.addEventListener('mousemove', this.draw.bind(this));
+                        this.canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
+                        this.canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
+                        this.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); this.startDrawing(e.touches[0]); }, { passive: false });
+                        this.canvas.addEventListener('touchmove', (e) => { e.preventDefault(); this.draw(e.touches[0]); }, { passive: false });
+                        this.canvas.addEventListener('touchend', this.stopDrawing.bind(this));
+                    }, 300);
+                },
+                startDrawing(e) { this.isDrawing = true; this.draw(e); },
+                draw(e) {
+                    if (!this.isDrawing) return;
+                    const rect = this.canvas.getBoundingClientRect();
+                    const x = (e.clientX || e.touches && e.touches[0].clientX) - rect.left;
+                    const y = (e.clientY || e.touches && e.touches[0].clientY) - rect.top;
+                    this.ctx.lineTo(x, y); this.ctx.stroke(); this.ctx.beginPath(); this.ctx.moveTo(x, y);
+                },
+                stopDrawing() { this.isDrawing = false; this.ctx.beginPath(); },
+                limpiarFirma(canvasId = 'canvas-firma') {
+                    const c = document.getElementById(canvasId);
+                    if (c && c.getContext) { c.getContext('2d').clearRect(0, 0, c.width, c.height); }
+                },
+                isCanvasBlank(canvasEl) {
+                    if (!canvasEl) return true;
+                    const context = canvasEl.getContext('2d');
+                    const pixelBuffer = new Uint32Array(context.getImageData(0, 0, canvasEl.width, canvasEl.height).data.buffer);
+                    return !pixelBuffer.some(color => color !== 0);
+                },
+
+                obtenerUbicacion() {
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => { this.datosResguardo.latitud = position.coords.latitude; this.datosResguardo.longitud = position.coords.longitude; },
+                            (error) => { this.notificar("Error de GPS", "error"); }
+                        );
+                    } else { this.notificar("GPS no soportado", "error"); }
+                },
+
+                async cargarEmpleados() {
+                    try {
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/empleados`, { method: 'GET', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` } });
+                        if (respuesta.ok) { this.empleados = await respuesta.json(); this.empleadosFiltrados = this.empleados; }
+                    } catch (error) { console.error(error); }
+                },
+
+                async cargarSolicitudesBaja() {
+                    try {
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/solicitudes-baja`, { method: 'GET', mode: 'cors', headers: { 'Authorization': 'Bearer ' + this.token } });
+                        if (respuesta.ok) { this.solicitudesBaja = await respuesta.json(); }
+                    } catch (error) { console.error(error); }
+                },
+
+                cambiarPagina(nuevaPagina) { if (nuevaPagina >= 0 && nuevaPagina < this.totalPaginas) { this.paginaActual = nuevaPagina; this.cargarArticulos(); } },
+                aplicarFiltros() { this.paginaActual = 0; this.cargarArticulos(); },
+
+                async cargarArticulos() {
+                    this.cargando = true; this.errorMensaje = '';
+                    try {
+                        let url = new URL(`${SETAB_CONFIG.backendUrl}/api/bienes`);
+                        if (this.filtroCategoria) url.searchParams.append('categoria', this.filtroCategoria);
+                        if (this.filtroArea) url.searchParams.append('area', this.filtroArea);
+                        url.searchParams.append('page', this.paginaActual);
+                        url.searchParams.append('size', 50);
+
+                        const respuesta = await fetch(url, { method: 'GET', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` } });
+                        if (respuesta.status === 401) { this.cerrarSesion(); return; }
+
+                        if (respuesta.ok) {
+                            const datos = await respuesta.json();
+                            if (Array.isArray(datos)) { this.articulos = datos; this.totalPaginas = 1; this.totalRegistros = datos.length; }
+                            else { this.articulos = datos.articulos || []; this.totalPaginas = datos.pageCount || 1; this.totalRegistros = datos.totalRegistros || 0; }
+                        } else { this.errorMensaje = "Error " + respuesta.status; }
+                    } catch (error) { this.errorMensaje = 'Error de conexión'; } finally { this.cargando = false; }
+                },
+
+                async cargarMisEquipos() {
+                    this.cargando = true; this.errorMensaje = '';
+                    try {
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/mis-equipos`, { method: 'GET', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` } });
+                        if (respuesta.status === 401) { this.cerrarSesion(); return; }
+                        if (respuesta.ok) { this.misEquipos = await respuesta.json(); }
+                        else { this.errorMensaje = "Error " + respuesta.status; }
+                    } catch (error) { this.errorMensaje = 'Error de conexión'; } finally { this.cargando = false; }
+                },
+
+                async cargarPendientes() {
+                    this.cargando = true;
+                    try {
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/pendientes-firma`, { method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` } });
+                        if (respuesta.ok) { this.pendientes = await respuesta.json(); }
+                    } catch (e) { console.error(e); } finally { this.cargando = false; }
+                },
+
+                async cargarHistorial(idArticulo) {
+                    this.cargandoHistorial = true; this.historialArticulo = [];
+                    try {
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/trazabilidad/articulo/${idArticulo}`, { method: 'GET', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` } });
+                        if (respuesta.ok) { this.historialArticulo = await respuesta.json(); }
+                    } catch (error) { console.error(error); } finally { this.cargandoHistorial = false; }
+                },
+
+                abrirModalRegistro() {
+                    const anio = new Date().getFullYear().toString().slice(-2);
+                    const numeroConsecutivo = String(this.totalRegistros + 1).padStart(5, '0');
+                    const folioAutogenerado = `SE-AG-${anio}-${numeroConsecutivo}`;
+
+                    this.nuevoArticulo = {
+                        numeroInventario: folioAutogenerado,
+                        tipoMaterial: '', subClave: '', descripcion: '',
+                        marca: '', modelo: '', serie: '', color: '', estadoFisico: 'NUEVO',
+                        proveedor: '', factura: '', fechaFactura: '',
+                        precioSinIva: null, precio: null,
+                        pedido: '', requisicion: '', naturalezaGasto: '', partida: '',
+                        motor: '', placa: '', poliza: '', vigenciaPoliza: '',
+                        centroTrabajo: '', responsable: '', boletaSalida: '', cantidadStock: 1
+                    };
+                    this.modalRegistroAbierto = true;
+                },
+                cerrarModalRegistro() { this.modalRegistroAbierto = false; },
+
+                async guardarNuevoArticulo() {
+                    this.guardando = true;
+                    try {
+                        if (this.nuevoArticulo.precioSinIva) {
+                            this.nuevoArticulo.precio = parseFloat((this.nuevoArticulo.precioSinIva * 1.16).toFixed(2));
+                        }
+                        this.nuevoArticulo.cantidadStock = 1;
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(this.nuevoArticulo) });
+                        if (respuesta.ok) { this.cerrarModalRegistro(); this.cargarArticulos(); this.notificar("Registro guardado con éxito", "exito"); }
+                        else { this.notificar("Error al guardar", "error"); }
+                    } catch (error) { this.notificar("Error de conexión", "error"); } finally { this.guardando = false; }
+                },
+
+                abrirModal(articulo) { this.articuloSeleccionado = JSON.parse(JSON.stringify(articulo)); this.modalAbierto = true; },
+                cerrarModal() { this.modalAbierto = false; this.articuloSeleccionado = {}; },
+
+                async guardarCambios() {
+                    this.guardando = true;
+                    try {
+                        this.articuloSeleccionado.cantidadStock = parseFloat(this.articuloSeleccionado.cantidadStock);
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes/${this.articuloSeleccionado.id}`, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(this.articuloSeleccionado) });
+                        if (respuesta.ok) { this.cerrarModal(); this.cargarArticulos(); this.notificar("Cambios guardados", "exito"); }
+                        else { this.notificar("Error al guardar cambios", "error"); }
+                    } catch (error) { this.notificar("Error de conexión", "error"); } finally { this.guardando = false; }
+                },
+
+                abrirModalResguardo(articulo) { this.articuloSeleccionado = articulo; this.busquedaEmpleado = ''; this.datosResguardo = { idEmpleado: '', cantidad: 1, latitud: null, longitud: null, firmaBase64: null }; this.modalResguardoAbierto = true; },
+                cerrarModalResguardo() { this.modalResguardoAbierto = false; this.articuloSeleccionado = {}; },
+
+                confirmarAsignacion() {
+                    if (!this.datosResguardo.idEmpleado) { this.notificar("Selecciona un empleado", "error"); return; }
+                    if (!this.datosResguardo.cantidad || this.datosResguardo.cantidad <= 0 || this.datosResguardo.cantidad > this.articuloSeleccionado.cantidadStock) { this.notificar("Cantidad inválida", "error"); return; }
+                    this.modalResguardoAbierto = false; this.modalConfirmacionAbierto = true; this.initCanvas('canvas-firma');
+                },
+                cerrarModalesFirmas() { this.modalConfirmacionAbierto = false; this.limpiarFirma('canvas-firma'); this.modalResguardoAbierto = true; },
+
+                async procesarResguardo() {
+                    if (this.isCanvasBlank(document.getElementById('canvas-firma'))) { this.notificar("Firma requerida", "error"); return; }
+                    this.datosResguardo.firmaBase64 = document.getElementById('canvas-firma').toDataURL("image/png"); this.guardando = true;
+                    try {
+                        const payload = { idEmpleado: parseInt(this.datosResguardo.idEmpleado), cantidad: parseFloat(this.datosResguardo.cantidad), firmaEmpleadoBase64: this.datosResguardo.firmaBase64 };
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/asignar/${this.articuloSeleccionado.id}`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
+                        if (respuesta.ok) { this.notificar("Asignado correctamente", "exito"); this.modalConfirmacionAbierto = false; this.cargarArticulos(); }
+                        else { this.notificar("Error en la asignación", "error"); }
+                    } catch (error) { this.notificar("Error de conexión", "error"); } finally { this.guardando = false; this.limpiarFirma('canvas-firma'); }
+                },
+
+                abrirModalHistorial(articulo) { this.articuloSeleccionado = articulo; this.modalHistorialAbierto = true; this.cargarHistorial(articulo.id); },
+                cerrarModalHistorial() { this.modalHistorialAbierto = false; setTimeout(() => { this.historialArticulo = []; }, 300); },
+
+                iniciarProcesoBaja(idResguardo) { this.idBajaPendiente = idResguardo; this.textoConfirmacion = ''; this.modalSeguridadAbierto = true; },
+                cerrarModalSeguridad() { this.modalSeguridadAbierto = false; this.idBajaPendiente = null; this.textoConfirmacion = ''; },
+
+                async ejecutarBaja() {
+                    if (this.textoConfirmacion.trim().toUpperCase() !== 'CONFIRMAR') { this.notificar("Palabra incorrecta", "error"); return; }
+                    this.cargando = true;
+                    try {
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/solicitar-baja/${this.idBajaPendiente}`, { method: 'PUT', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` } });
+                        if (respuesta.ok) { this.notificar("Baja solicitada", "exito"); this.cerrarModalSeguridad(); this.cargarMisEquipos(); }
+                        else { this.notificar("Error al solicitar", "error"); }
+                    } catch (e) { this.notificar("Error de conexión", "error"); } finally { this.cargando = false; }
+                },
+
+                abrirModalFirmaDirector(pendiente) { this.pendienteSeleccionado = pendiente; this.modalFirmaDirectorAbierto = true; this.initCanvas('canvas-firma-director'); },
+                cerrarModalFirmaDirector() { this.modalFirmaDirectorAbierto = false; this.pendienteSeleccionado = {}; },
+
+                async procesarFirmaDirector() {
+                    if (this.isCanvasBlank(document.getElementById('canvas-firma-director'))) { this.notificar("Firma requerida", "error"); return; }
+                    this.guardando = true;
+                    try {
+                        const isBaja = this.pendienteSeleccionado.estadoResguardo === 'BAJA_EN_PROCESO';
+                        const endpoint = isBaja ? `${SETAB_CONFIG.backendUrl}/api/resguardos/liberar/${this.pendienteSeleccionado.idResguardo}` : `${SETAB_CONFIG.backendUrl}/api/resguardos/firmar/${this.pendienteSeleccionado.idResguardo}`;
+                        const payload = isBaja
+                            ? { cantidad: this.pendienteSeleccionado.cantidadAsignada, firmaBase64: document.getElementById('canvas-firma-director').toDataURL("image/png"), latitudGPS: this.datosResguardo.latitud ? this.datosResguardo.latitud.toString() : null, longitudGPS: this.datosResguardo.longitud ? this.datosResguardo.longitud.toString() : null }
+                            : { firmaBase64: document.getElementById('canvas-firma-director').toDataURL("image/png"), latitudGPS: this.datosResguardo.latitud ? this.datosResguardo.latitud.toString() : null, longitudGPS: this.datosResguardo.longitud ? this.datosResguardo.longitud.toString() : null };
+
+                        const respuesta = await fetch(endpoint, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
+                        if (respuesta.ok) {
+                            this.notificar("Autorizado", "exito");
+                            this.descargarActa(this.pendienteSeleccionado.idResguardo, isBaja ? 'baja' : 'asignacion');
+                            this.cerrarModalFirmaDirector(); this.cargarPendientes(); this.cargarMisEquipos();
+                        } else { this.notificar("Error al firmar", "error"); }
+                    } catch (error) { this.notificar("Error de conexión", "error"); } finally { this.guardando = false; this.limpiarFirma('canvas-firma-director'); }
+                },
+
+                async descargarActa(idResguardo, tipoActa = 'asignacion') {
+                    try {
+                        this.notificar("Generando PDF...", "exito");
+                        const endpoint = tipoActa === 'baja' ? 'pdf-baja' : 'pdf-asignacion';
+                        const adminNameFront = encodeURIComponent(this.nombreUsuario);
+                        const response = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/${endpoint}/${idResguardo}?adminName=${adminNameFront}`, { headers: { 'Authorization': `Bearer ${this.token}` } });
+                        if (!response.ok) throw new Error('error');
+                        const blob = await response.blob();
+                        const url = window.URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `Acta_${tipoActa.toUpperCase()}_SETAB_Folio_${idResguardo}.pdf`;
+                        document.body.appendChild(a); a.click(); a.remove();
+                    } catch (error) { this.notificar("Error al descargar", "error"); }
+                },
+
+                formatearFecha(fechaArray) {
+                    if (!fechaArray) return 'Fecha desconocida';
+                    if (Array.isArray(fechaArray)) {
+                        const [yyyy, mm, dd, hh, min] = fechaArray;
+                        return `${dd}/${mm}/${yyyy} a las ${hh}:${min < 10 ? '0' + min : min}`;
+                    }
+                    const f = new Date(fechaArray);
+                    return isNaN(f.getTime()) ? fechaArray : f.toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' });
+                },
+
+                cerrarSesion() {
+                    const idToken = sessionStorage.getItem('idTokenSETAB');
+                    sessionStorage.clear();
+                    const baseUrl = window.location.origin;
+                    if (!idToken) { window.location.href = '../login/index.html'; return; }
+                    const logoutUrl = `${SETAB_CONFIG.keycloakUrl}/realms/${SETAB_CONFIG.realm}/protocol/openid-connect/logout?client_id=${SETAB_CONFIG.clientId}&post_logout_redirect_uri=${encodeURIComponent(baseUrl + '/login/index.html')}&id_token_hint=${idToken}`;
+                    window.location.href = logoutUrl;
+                }
+            }
+        }
+    </script>
+</body>
+
+</html>

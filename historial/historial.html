@@ -1,0 +1,104 @@
+<!-- ======================================================= -->
+<!-- VISTA: ACCESO DENEGADO -->
+<!-- ======================================================= -->
+<div x-show="!cargandoVista && rolUsuario !== 'SUPERADMIN'" x-cloak
+    class="bg-red-50 text-red-700 p-6 rounded-xl border border-red-200 text-center shadow-sm">
+    <h2 class="text-xl font-bold mb-2">Acceso Denegado</h2>
+    <p>Solo el Almacén Central puede auditar el historial de los bienes.</p>
+</div>
+
+<!-- ======================================================= -->
+<!-- VISTA: HISTORIAL Y TRAZABILIDAD (SUPERADMIN)            -->
+<!-- ======================================================= -->
+<div x-show="rolUsuario === 'SUPERADMIN' && vistaActiva === 'historial'" x-cloak x-transition.opacity>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">Trazabilidad y Auditoría</h1>
+            <p class="mt-1.5 text-sm text-gray-500">Consulta la línea de vida completa de cualquier activo
+                institucional.</p>
+        </div>
+    </div>
+
+    <!-- Buscador de Expedientes -->
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-dorado mb-6">
+        <label class="block text-sm font-bold text-gray-700 mb-2">Buscar Equipo por Folio o Número de Serie</label>
+        <div class="flex flex-col sm:flex-row gap-3">
+            <input type="text" x-model="busquedaFolioHistorial" @keydown.enter="buscarHistorialPorFolio()"
+                placeholder="Ej. SE-AG-26-00381"
+                class="flex-1 rounded-md border-gray-300 shadow-sm text-sm font-mono uppercase focus:ring-guinda focus:border-guinda py-3 px-4 bg-gray-50 border">
+            <button @click="buscarHistorialPorFolio()"
+                class="bg-guinda text-white px-6 py-3 rounded-md shadow-sm font-bold hover:bg-guinda-dark transition-colors flex items-center justify-center gap-2"
+                :disabled="cargandoHistorial">
+                <i class="fas fa-search" x-show="!cargandoHistorial"></i>
+                <i class="fas fa-circle-notch fa-spin" x-show="cargandoHistorial"></i>
+                <span x-text="cargandoHistorial ? 'Buscando...' : 'Auditar Expediente'"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Zona de Resultados -->
+    <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 min-h-[400px]">
+
+        <!-- Estado Vacío -->
+        <div x-show="!cargandoHistorial && historialArticulo.length === 0 && !equipoAuditado"
+            class="flex flex-col items-center justify-center text-gray-400 py-12">
+            <i class="fas fa-history text-6xl mb-4 opacity-30"></i>
+            <p class="text-lg font-bold text-gray-500">Ingresa un folio para ver su historial</p>
+            <p class="text-sm mt-1">Podrás ver desde su alta, asignaciones a escuelas y reportes de estado.</p>
+        </div>
+
+        <!-- Ficha del equipo encontrado -->
+        <div x-show="equipoAuditado" x-cloak
+            class="mb-6 pb-6 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div>
+                <span class="bg-dorado/20 text-dorado text-xs font-bold px-2 py-1 rounded uppercase tracking-widest"><i
+                        class="fas fa-check-circle"></i> Equipo Localizado</span>
+                <h2 class="text-xl font-bold text-gray-900 mt-2 uppercase" x-text="equipoAuditado?.descripcion"></h2>
+                <p class="text-sm text-gray-600 font-mono mt-1"
+                    x-text="'Folio: ' + (equipoAuditado?.numeroInventario || 'S/N') + ' | Serie: ' + (equipoAuditado?.serie || 'S/N')">
+                </p>
+            </div>
+            <div class="sm:text-right bg-gray-50 p-3 rounded-lg border border-gray-100 w-full sm:w-auto">
+                <p class="text-[10px] text-gray-500 font-bold uppercase mb-1">Estatus Actual</p>
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border"
+                    :class="equipoAuditado?.estado === 'Activo' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'"
+                    x-text="equipoAuditado?.estado || 'Desconocido'">
+                </span>
+            </div>
+        </div>
+
+        <!-- Línea de tiempo -->
+        <div x-show="historialArticulo.length > 0" class="relative border-l-2 border-dorado/50 ml-4 py-2">
+            <template x-for="movimiento in historialArticulo"
+                :key="movimiento.idTrazabilidad || movimiento.id_trazabilidad || movimiento.fechaMovimiento">
+                <div class="mb-8 ml-8 relative group">
+                    <span
+                        class="absolute flex items-center justify-center w-5 h-5 bg-guinda rounded-full -left-[43px] ring-4 ring-white group-hover:scale-110 transition-transform"></span>
+                    <div
+                        class="flex flex-col sm:flex-row sm:justify-between sm:items-start bg-gray-50 p-4 rounded-lg border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
+                        <div>
+                            <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wide mb-1"
+                                x-text="movimiento.tipoMovimiento || movimiento.tipo_movimiento"></h3>
+                            <p class="text-sm font-medium text-gray-600 mb-2"
+                                x-text="movimiento.detallesModificacion || movimiento.detalles_modificacion"></p>
+                            <p class="text-xs font-semibold text-guinda bg-guinda/10 inline-block px-2 py-1 rounded">
+                                Ejecutado por: <span class="font-normal text-gray-700"
+                                    x-text="movimiento.username || movimiento.usuario || 'Sistema / Admin'"></span></p>
+                        </div>
+                        <time
+                            class="text-xs font-bold text-gray-500 mt-3 sm:mt-0 bg-white px-2 py-1 rounded border border-gray-200 shadow-sm whitespace-nowrap flex items-center gap-1"
+                            x-text="formatearFecha(movimiento.fechaMovimiento || movimiento.fecha_movimiento)"></time>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- Sin movimientos -->
+        <div x-show="!cargandoHistorial && historialArticulo.length === 0 && equipoAuditado" x-cloak
+            class="py-10 text-center text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+            <i class="fas fa-file-alt text-4xl text-gray-300 mb-3"></i>
+            <p class="font-medium">El equipo existe en el catálogo, pero no tiene movimientos registrados.</p>
+        </div>
+
+    </div>
+</div>
