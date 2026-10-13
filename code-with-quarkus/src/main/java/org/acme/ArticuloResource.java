@@ -4,9 +4,7 @@ import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
-
 import org.eclipse.microprofile.jwt.JsonWebToken;
-
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -25,18 +23,15 @@ import jakarta.ws.rs.core.Response;
 @Path("/api/bienes") 
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-// ¡AQUÍ ESTÁ LA MAGIA! Ahora acepta ambos roles
 @RolesAllowed({"SUPERADMIN"}) 
 public class ArticuloResource {
 
     @Inject
     JsonWebToken jwt;
 
-    // Método auxiliar para no perder la pista de quién hace los movimientos
     private String obtenerNombreAdmin() {
         String adminNombre = "Administrador del Sistema";
         if (jwt != null && jwt.getName() != null) {
-            // Manejo seguro por si el usuario aún no existe en la BD local pero sí en Keycloak
             Usuario adminUser = Usuario.find("username", jwt.getName()).firstResult();
             if (adminUser != null && adminUser.nombreCompleto != null && !adminUser.nombreCompleto.isEmpty()) {
                 adminNombre = adminUser.nombreCompleto;
@@ -47,7 +42,6 @@ public class ArticuloResource {
         return adminNombre;
     }
 
-    // Respuesta estructurada para soportar Paginación Frontend
     public static class PaginacionResponse {
         public java.util.List<Articulo> articulos;
         public int pageCount;
@@ -76,7 +70,6 @@ public class ArticuloResource {
 
         PanacheQuery<Articulo> baseQuery = Articulo.find(query.toString(), params);
         
-        // Soporte robusto para 15,000+ registros
         if (page != null && size != null) {
             baseQuery.page(page, size);
         }
@@ -92,29 +85,21 @@ public class ArticuloResource {
     @POST
     @Transactional
     public Response guardar(Articulo articulo) {
-        
-        // 1. Guardar primero para obtener un ID válido de la BD
         articulo.persistAndFlush();
 
-        // 2. Generación automática del Folio de 22 Dígitos (Auditoría Gubernamental)
         int año = LocalDate.now().getYear();
         String catCorta = (articulo.categoria != null && articulo.categoria.length() >= 4) ? articulo.categoria.substring(0, 4).toUpperCase() : "GRAL";
         String baseLimpia = año + catCorta + articulo.id;
         
-        // Aseguramos exactamente 22 caracteres rellenando con ceros al frente
         articulo.numeroInventario = String.format("%22s", baseLimpia).replace(' ', '0');
-
-        // 3. Generación del Token QR de seguridad
         articulo.tokenQR = UUID.randomUUID().toString();
         
-        // Si no mandaron fecha de adquisición, ponemos la de hoy
         if (articulo.fechaAdquisicion == null) {
             articulo.fechaAdquisicion = LocalDate.now();
         }
 
         articulo.persist();
 
-        // 4. Inyección de Trazabilidad Real
         HistorialTrazabilidad historial = new HistorialTrazabilidad();
         historial.articulo = articulo;
         historial.tipoMovimiento = "ALTA";
@@ -147,13 +132,10 @@ public class ArticuloResource {
         articuloExistente.cantidadStock = articuloActualizado.cantidadStock;
         articuloExistente.estadoFisico = articuloActualizado.estadoFisico;
         articuloExistente.estado = articuloActualizado.estado;
-        
-        // Depreciación
         articuloExistente.valorUmas = articuloActualizado.valorUmas;
         articuloExistente.valorInicial = articuloActualizado.valorInicial;
         articuloExistente.porcentajeDepreciacion = articuloActualizado.porcentajeDepreciacion;
         
-        // Inyección de Trazabilidad Real
         HistorialTrazabilidad historial = new HistorialTrazabilidad();
         historial.articulo = articuloExistente;
         historial.tipoMovimiento = "EDICION";

@@ -1,7 +1,6 @@
 package org.acme;
 
 import java.time.LocalDateTime;
-
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,7 +20,6 @@ public class HistorialTrazabilidad extends PanacheEntityBase {
     @Column(name = "id_trazabilidad")
     public Long idTrazabilidad;
 
-    // Relación con tu artículo existente
     @ManyToOne
     @JoinColumn(name = "id_articulo")
     public Articulo articulo;

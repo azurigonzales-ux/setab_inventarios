@@ -3,7 +3,7 @@ package org.acme;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -19,12 +19,20 @@ import jakarta.ws.rs.core.Response;
 @RolesAllowed({"SUPERADMIN"})
 public class TrazabilidadResource {
 
-    // CAJITA SEGURA (DTO) PARA EVITAR BUCLES INFINITOS DE JSON
     public static class MovimientoDTO {
+        @JsonProperty("id_trazabilidad")
         public Long idTrazabilidad;
+        
+        @JsonProperty("tipo_movimiento")
         public String tipoMovimiento;
+        
+        @JsonProperty("detalles_modificacion")
         public String detallesModificacion;
+        
+        @JsonProperty("fecha_movimiento")
         public LocalDateTime fechaMovimiento;
+        
+        @JsonProperty("usuario")
         public String username;
     }
 
@@ -32,7 +40,6 @@ public class TrazabilidadResource {
     @Path("/articulo/{idArticulo}")
     public Response obtenerHistorial(@PathParam("idArticulo") Long idArticulo) {
         try {
-            // Sintaxis HQL pura y blindada para evitar errores de Panache Sort
             List<HistorialTrazabilidad> historial = HistorialTrazabilidad.find(
                 "articulo.id = ?1 order by fechaMovimiento desc", idArticulo
             ).list();
@@ -53,11 +60,7 @@ public class TrazabilidadResource {
             return Response.ok(listaSegura).build();
 
         } catch (Exception e) {
-            // 🚨 SI ALGO FALLA, JUAN LUIS LO VERÁ EN SU TERMINAL 🚨
-            System.out.println("============== ERROR EN TRAZABILIDAD ==============");
             e.printStackTrace();
-            System.out.println("===================================================");
-            
             return Response.serverError().entity("{\"error\": \"Fallo interno: " + e.getMessage() + "\"}").build();
         }
     }

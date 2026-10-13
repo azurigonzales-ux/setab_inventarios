@@ -6,14 +6,12 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List; 
-
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
-
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -126,14 +124,12 @@ public class ResguardoResource {
         resguardo.empleado = empleado;
         resguardo.fechaAsignacion = LocalDate.now();
         resguardo.cantidadAsignada = request.cantidad;
-
         resguardo.firmaAdminBase64 = request.firmaEmpleadoBase64; 
         resguardo.firmaEmpleadoBase64 = null; 
         resguardo.latitudGPS = null; 
         resguardo.longitudGPS = null; 
         resguardo.nombreAdminAsignador = obtenerNombreAdmin();
         resguardo.estadoResguardo = "ACTIVO";
-
         resguardo.persist();
 
         HistorialTrazabilidad historial = new HistorialTrazabilidad();
@@ -222,8 +218,8 @@ public class ResguardoResource {
         }
 
         List<Resguardo> pendientes = Resguardo.find("empleado.idEmpleado = ?1 and (firmaEmpleadoBase64 is null or firmaEmpleadoBase64 = '' or estadoResguardo = 'BAJA_EN_PROCESO')", empleado.idEmpleado).list();
-
         List<PendienteDTO> lista = new ArrayList<>();
+        
         for (Resguardo r : pendientes) {
             PendienteDTO dto = new PendienteDTO();
             dto.idResguardo = r.id;
