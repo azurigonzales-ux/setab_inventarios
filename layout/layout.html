@@ -108,7 +108,6 @@
                 x-data="{ menuAbierto: 'archivos' }">
                 <template x-if="rolUsuario === 'SUPERADMIN'">
                     <div class="space-y-2">
-                        <!-- 1. ARCHIVOS -->
                         <li class="rounded-lg overflow-hidden border transition-colors duration-300"
                             :class="menuAbierto === 'archivos' ? 'bg-white border-guinda shadow-sm' : 'bg-white/40 border-dorado/20'">
                             <button @click="menuAbierto = menuAbierto === 'archivos' ? '' : 'archivos'"
@@ -124,11 +123,6 @@
                             </button>
                             <ul x-show="menuAbierto === 'archivos'" x-collapse
                                 class="bg-white/50 px-2 py-2 space-y-1 text-sm border-t border-gray-100">
-                                <li><a href="#"
-                                        @click.prevent="cambiarVista('catalogos_lista', '../catalogo/catalogos_lista.html')"
-                                        class="block p-2 rounded transition-colors"
-                                        :class="vistaActiva === 'catalogos_lista' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Catálogos</a>
-                                </li>
                                 <li><a href="#" @click.prevent="cambiarVista('catalogo', '../catalogo/catalogo.html')"
                                         class="block p-2 rounded transition-colors"
                                         :class="vistaActiva === 'catalogo' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Registrar
@@ -167,7 +161,6 @@
                             </ul>
                         </li>
 
-                        <!-- 2. ACTUALIZAR -->
                         <li class="rounded-lg overflow-hidden border transition-colors duration-300"
                             :class="menuAbierto === 'actualizar' ? 'bg-white border-guinda shadow-sm' : 'bg-white/40 border-dorado/20'">
                             <button @click="menuAbierto = menuAbierto === 'actualizar' ? '' : 'actualizar'"
@@ -184,6 +177,12 @@
                             <ul x-show="menuAbierto === 'actualizar'" x-collapse
                                 class="bg-white/50 px-2 py-2 space-y-1 text-sm border-t border-gray-100">
                                 <li><a href="#"
+                                        @click.prevent="cambiarVista('catalogos_lista', '../catalogo/catalogos_lista.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'catalogos_lista' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Catálogos
+                                        Sistema</a>
+                                </li>
+                                <li><a href="#"
                                         @click.prevent="cambiarVista('centros_trabajo', '../actualizar/centros_trabajo.html')"
                                         class="block p-2 rounded transition-colors"
                                         :class="vistaActiva === 'centros_trabajo' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Centros
@@ -192,43 +191,9 @@
                                         class="block p-2 rounded transition-colors"
                                         :class="vistaActiva === 'usuarios' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Responsables</a>
                                 </li>
-                                <li><a href="#"
-                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Tipos
-                                        de Artículos</a></li>
-                                <li><a href="#"
-                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Proveedores</a>
-                                </li>
-                                <li><a href="#"
-                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Naturaleza
-                                        del Gasto</a></li>
-                                <li><a href="#"
-                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Fundamento
-                                        Legal y Jefes</a></li>
-                                <li><a href="#"
-                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Tipos
-                                        de Vialidades</a></li>
-                                <li><a href="#"
-                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Tipos
-                                        de Asentamientos</a></li>
-                                <li><a href="#"
-                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Localidades</a>
-                                </li>
-                                <li><a href="#"
-                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Unidades
-                                        Responsables</a></li>
-                                <li><a href="#"
-                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">SubDirecciones</a>
-                                </li>
-                                <li><a href="#"
-                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Departamentos</a>
-                                </li>
-                                <li><a href="#"
-                                        class="block p-2 rounded hover:bg-guinda hover:text-white transition-colors">Partidas</a>
-                                </li>
                             </ul>
                         </li>
 
-                        <!-- 3. REPORTES -->
                         <li class="rounded-lg overflow-hidden border transition-colors duration-300"
                             :class="menuAbierto === 'reportes' ? 'bg-white border-guinda shadow-sm' : 'bg-white/40 border-dorado/20'">
                             <button @click="menuAbierto = menuAbierto === 'reportes' ? '' : 'reportes'"
@@ -250,7 +215,6 @@
                             </ul>
                         </li>
 
-                        <!-- 4. UTILERÍAS -->
                         <li class="rounded-lg overflow-hidden border transition-colors duration-300"
                             :class="menuAbierto === 'utilerias' ? 'bg-white border-guinda shadow-sm' : 'bg-white/40 border-dorado/20'">
                             <button @click="menuAbierto = menuAbierto === 'utilerias' ? '' : 'utilerias'"
@@ -268,8 +232,8 @@
                                 class="bg-white/50 px-2 py-2 space-y-1 text-sm border-t border-gray-100">
                                 <li><a href="#" @click.prevent="cambiarVista('qr', '../qr/qr.html')"
                                         class="block p-2 rounded transition-colors"
-                                        :class="vistaActiva === 'qr' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Módulo
-                                        QR Escáner</a></li>
+                                        :class="vistaActiva === 'qr' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Control
+                                        QR</a></li>
                                 <li><a href="#"
                                         @click.prevent="cambiarVista('historial', '../historial/historial.html')"
                                         class="block p-2 rounded transition-colors"
@@ -322,7 +286,6 @@
                 <span class="font-bold text-guinda"
                     x-text="rolUsuario === 'SUPERADMIN' ? 'INVENTARIO CENTRAL' : 'SISTEMA DIRECTORES'"></span>
             </header>
-            <!-- Le agregamos p-6 md:p-8 para darle un respiro al contenido -->
             <main class="p-6 md:p-8 w-full h-full relative overflow-y-auto" x-html="contenidoVista">
                 <div x-show="cargandoVista"
                     class="absolute inset-0 bg-gray-50 flex flex-col items-center justify-center z-10">
@@ -386,7 +349,7 @@
 
                 modalAbierto: false, modalRegistroAbierto: false, modalResguardoAbierto: false,
                 modalConfirmacionAbierto: false, modalHistorialAbierto: false, modalFirmaDirectorAbierto: false,
-                modalSeguridadAbierto: false, textoConfirmacion: '', idBajaPendiente: null,
+                modalSeguridadAbierto: false, textoConfirmacion: '', idBajaPendiente: null, modalTraspasoAbierto: false, idDirectorEntrante: '', procesandoTraspaso: false, empleadosGeneral: [],
 
                 articuloSeleccionado: {},
                 nuevoArticulo: {
@@ -410,7 +373,6 @@
                 usuarios: [], busquedaUsuario: '', filtroNivelUsuario: '', filtroRol: '', modalResetAbierto: false,
                 usuarioSeleccionado: {}, nuevaPassword: '',
                 nuevoUsuario: { nombre: '', apellidos: '', email: '', username: '', password: '', cct: '', nivelEducativo: 'Primaria', nombreEscuela: '', rol: 'Admin' },
-                // --- VARIABLES DE CENTROS DE TRABAJO ---
                 centrosTrabajo: [],
                 busquedaCT: '',
                 modalCTAbierto: false,
@@ -466,7 +428,6 @@
                         } else { this.notificar("Error al guardar CT", "error"); }
                     } catch (error) { this.notificar("Error de red", "error"); } finally { this.guardando = false; }
                 },
-                // --- VARIABLES DE CATÁLOGOS SATÉLITE ---
                 tabCatalogoActivo: 'proveedores',
                 nombreCatalogoActivo: 'Proveedores',
                 listaTabsCatalogos: [
@@ -483,7 +444,6 @@
                 modalCatalogoAbierto: false,
                 itemCatalogo: { id: null, clave: '', descripcion: '' },
 
-                // --- MÉTODOS DE CATÁLOGOS SATÉLITE ---
                 get datosCatalogoFiltrados() {
                     if (!this.busquedaCatalogo) return this.datosCatalogo;
                     const b = this.busquedaCatalogo.toLowerCase();
@@ -504,7 +464,6 @@
                 async cargarDatosCatalogoSelectivo() {
                     this.cargandoAuxiliar = true;
                     this.datosCatalogo = [];
-                    // Aquí tu backend debe tener una ruta genérica o un switch. Ejemplo: /api/catalogos/proveedores
                     try {
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/catalogos/${this.tabCatalogoActivo}`, {
                             method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` }
@@ -541,7 +500,6 @@
                             : `${SETAB_CONFIG.backendUrl}/api/catalogos/${this.tabCatalogoActivo}`;
                         const metodo = esEdicion ? 'PUT' : 'POST';
 
-                        // Mapeamos "descripcion" a "nombre" dependiendo de lo que reciba tu base de datos
                         const payload = { clave: this.itemCatalogo.clave, descripcion: this.itemCatalogo.descripcion, nombre: this.itemCatalogo.descripcion };
 
                         const respuesta = await fetch(url, {
@@ -563,18 +521,16 @@
                         this.guardando = false;
                     }
                 },
-                // --- VARIABLES DE MÓDULO QR ---
-                tabQRActivo: 'generar', // 'generar' o 'escanear'
+                tabQRActivo: 'generar',
                 busquedaQR: '',
                 itemsSeleccionadosQR: [],
                 html5QrcodeScanner: null,
                 escanerEncendido: false,
                 resultadoEscaneo: null,
                 folioManual: '',
+                modalQRAbierto: false,
 
-                // --- MÉTODOS DE MÓDULO QR ---
                 get articulosQRFiltrados() {
-                    // Usamos el mismo catálogo de artículos que ya traemos de backend
                     if (!this.busquedaQR) return this.articulos;
                     const b = this.busquedaQR.toLowerCase();
                     return this.articulos.filter(a =>
@@ -587,7 +543,6 @@
                 cambiarTabQR(tab) {
                     this.tabQRActivo = tab;
                     if (tab === 'escanear') {
-                        // Si cambiamos a escanear, por seguridad detenemos si estaba encendido en otro lado
                     } else {
                         this.detenerEscaner();
                     }
@@ -604,11 +559,6 @@
                 imprimirEtiquetasSeleccionadas() {
                     if (this.itemsSeleccionadosQR.length === 0) return;
                     this.notificar("Generando plantilla de impresión para " + this.itemsSeleccionadosQR.length + " equipos...", "exito");
-
-                    // Aquí tu lógica: mandar a llamar a una ruta de backend que devuelva el PDF
-                    // Ejemplo: window.open(`${SETAB_CONFIG.backendUrl}/api/qr/imprimir?ids=${this.itemsSeleccionadosQR.join(',')}`, '_blank');
-
-                    // Simulamos que deselecciona tras imprimir
                     setTimeout(() => { this.itemsSeleccionadosQR = []; }, 1000);
                 },
 
@@ -618,19 +568,15 @@
 
                     setTimeout(() => {
                         if (this.html5QrcodeScanner) { this.html5QrcodeScanner.clear(); }
-
-                        // Usamos la librería Html5Qrcode incluída en el Head
                         this.html5QrcodeScanner = new Html5Qrcode("qr-reader");
 
                         this.html5QrcodeScanner.start(
-                            { facingMode: "environment" }, // Cámara trasera si es celular
+                            { facingMode: "environment" },
                             { fps: 10, qrbox: { width: 250, height: 250 } },
                             (textoDecodificado, result) => {
-                                // ÉXITO AL ESCANEAR
                                 this.procesarLecturaQR(textoDecodificado);
                             },
                             (errorMensaje) => {
-                                // Ignorar errores de lectura (pasan en cada frame que no ve un QR claro)
                             }
                         ).catch((err) => {
                             this.escanerEncendido = false;
@@ -651,8 +597,6 @@
                 },
 
                 procesarLecturaQR(textoQR) {
-                    // Se asume que el QR tiene el "numeroInventario" o una URL que lo contenga
-                    // Haremos un "beep" de éxito y buscaremos en la BD
                     this.reproducirBeep();
                     this.detenerEscaner();
                     this.notificar("Código leído con éxito", "exito");
@@ -665,10 +609,6 @@
                 },
 
                 async buscarItemPorFolio(folio) {
-                    // Aquí deberías hacer un fetch especial si no está en la memoria local, pero por velocidad
-                    // lo buscaremos en el arreglo "articulos" actual. Si es un sistema grande, es mejor hacer:
-                    // const resp = await fetch(`/api/bienes/folio/${folio}`);
-
                     const encontrado = this.articulos.find(a => a.numeroInventario === folio || a.id === folio);
 
                     if (encontrado) {
@@ -685,17 +625,15 @@
                         const context = new (window.AudioContext || window.webkitAudioContext)();
                         const oscillator = context.createOscillator();
                         oscillator.type = "sine";
-                        oscillator.frequency.value = 800; // Hz
+                        oscillator.frequency.value = 800;
                         oscillator.connect(context.destination);
                         oscillator.start();
                         setTimeout(() => { oscillator.stop(); }, 150);
                     } catch (e) { }
                 },
-                // --- VARIABLES DE HISTORIAL Y TRAZABILIDAD ---
                 busquedaFolioHistorial: '',
                 equipoAuditado: null,
 
-                // --- MÉTODOS DE HISTORIAL Y TRAZABILIDAD ---
                 async buscarHistorialPorFolio() {
                     const folio = this.busquedaFolioHistorial.trim().toUpperCase();
                     if (!folio) {
@@ -708,18 +646,10 @@
                     this.historialArticulo = [];
 
                     try {
-                        // 1. Buscamos el equipo en la memoria local (si ya cargaste el catálogo)
                         let equipo = this.articulos.find(a =>
                             a.numeroInventario === folio ||
                             a.serie === folio
                         );
-
-                        // 2. Si es un sistema enorme y el equipo no está en la memoria actual, 
-                        // tu backend debería tener una ruta como esta (descomenta si la tienes):
-                        // if (!equipo) {
-                        //     const respB = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes/folio/${folio}`, { headers: { 'Authorization': `Bearer ${this.token}` } });
-                        //     if (respB.ok) equipo = await respB.json();
-                        // }
 
                         if (!equipo) {
                             this.notificar("Equipo no encontrado. Verifica el folio.", "error");
@@ -729,7 +659,6 @@
 
                         this.equipoAuditado = equipo;
 
-                        // 3. Cargamos la trazabilidad
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/trazabilidad/articulo/${equipo.id}`, {
                             method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` }
                         });
@@ -762,7 +691,6 @@
                 async cambiarVista(nombreVista, rutaArchivo = null) {
                     if (this.vistaActiva === nombreVista && this.contenidoVista !== '' && nombreVista !== 'resguardos' && nombreVista !== 'solicitudes') return;
 
-                    // SEGURIDAD: Apagar cámara si salimos del módulo QR
                     if (this.vistaActiva === 'qr' && nombreVista !== 'qr') {
                         this.detenerEscaner();
                     }
@@ -986,7 +914,7 @@
                     this.cargando = true; this.errorMensaje = '';
                     try {
                         let url = new URL(`${SETAB_CONFIG.backendUrl}/api/bienes`);
-                        if (this.filtroCategoria) url.searchParams.append('categoria', this.filtroCategoria);
+                        if (this.filCategoria) url.searchParams.append('categoria', this.filCategoria);
                         if (this.filtroArea) url.searchParams.append('area', this.filtroArea);
                         url.searchParams.append('page', this.paginaActual);
                         url.searchParams.append('size', 50);
@@ -1165,6 +1093,88 @@
                     if (!idToken) { window.location.href = '../login/index.html'; return; }
                     const logoutUrl = `${SETAB_CONFIG.keycloakUrl}/realms/${SETAB_CONFIG.realm}/protocol/openid-connect/logout?client_id=${SETAB_CONFIG.clientId}&post_logout_redirect_uri=${encodeURIComponent(baseUrl + '/login/index.html')}&id_token_hint=${idToken}`;
                     window.location.href = logoutUrl;
+                },
+                abrirModalTraspaso(empleado) {
+                    this.empleadoSeleccionado = empleado;
+                    this.idDirectorEntrante = '';
+                    this.procesandoTraspaso = false;
+                    this.modalTraspasoAbierto = true;
+                    this.initCanvas('canvas-firma-traspaso');
+
+                    if (this.empleadosGeneral.length === 0) {
+                        this.empleadosGeneral = [...this.empleados];
+                    }
+                },
+
+                cerrarModalTraspaso() {
+                    this.modalTraspasoAbierto = false;
+                    this.limpiarFirma('canvas-firma-traspaso');
+                    setTimeout(() => {
+                        this.empleadoSeleccionado = {};
+                        this.idDirectorEntrante = '';
+                    }, 300);
+                },
+
+                async procesarTraspaso() {
+                    if (!this.idDirectorEntrante) {
+                        this.notificar("Selecciona al Director Entrante", "error");
+                        return;
+                    }
+                    if (this.isCanvasBlank(document.getElementById('canvas-firma-traspaso'))) {
+                        this.notificar("El Director Saliente debe firmar", "error");
+                        return;
+                    }
+
+                    this.procesandoTraspaso = true;
+                    const firmaSaliente = document.getElementById('canvas-firma-traspaso').toDataURL("image/png");
+
+                    try {
+                        const payload = {
+                            idEmpleadoEntrante: parseInt(this.idDirectorEntrante),
+                            firmaSalienteBase64: firmaSaliente
+                        };
+
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/traspaso/${this.empleadoSeleccionado.cct}`, {
+                            method: 'POST',
+                            mode: 'cors',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${this.token}`
+                            },
+                            body: JSON.stringify(payload)
+                        });
+
+                        if (respuesta.ok) {
+                            this.notificar("¡Traspaso masivo ejecutado con éxito!", "exito");
+                            this.cerrarModalTraspaso();
+                        } else {
+                            const error = await respuesta.text();
+                            this.notificar(error || "Error en el traspaso", "error");
+                        }
+                    } catch (e) {
+                        this.notificar("Error de conexión al servidor", "error");
+                    } finally {
+                        this.procesandoTraspaso = false;
+                    }
+                },
+                abrirModalQR(articulo) {
+                    this.articuloSeleccionado = articulo;
+                    this.modalQRAbierto = true;
+                    this.$nextTick(() => {
+                        const container = document.getElementById('qr-container');
+                        container.innerHTML = '';
+                        new QRCode(container, {
+                            text: articulo.numeroInventario || articulo.id.toString(),
+                            width: 200,
+                            height: 200,
+                            colorDark: "#981A35",
+                            colorLight: "#ffffff",
+                            correctLevel: QRCode.CorrectLevel.H
+                        });
+                    });
+                },
+                cerrarModalQR() {
+                    this.modalQRAbierto = false;
                 }
             }
         }
