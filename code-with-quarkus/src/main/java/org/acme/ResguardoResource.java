@@ -678,4 +678,54 @@ public class ResguardoResource {
             return Response.serverError().entity("Error interno al generar el acta PDF de devolucion: " + e.getMessage()).build();
         }
     }
+    public static class TraspasoRequest {
+        public Long idEmpleadoEntrante;
+        public String firmaSalienteBase64;
+    }
+
+    @POST
+    @Path("/traspaso/{cct}")
+    @Transactional
+    @RolesAllowed("SUPERADMIN")
+    public Response traspasarResguardos(@PathParam("cct") String cct, TraspasoRequest request) {
+        Empleado directorEntrante = Empleado.findById(request.idEmpleadoEntrante);
+        if (directorEntrante == null) {
+            return Response.status(Response.Status.NOT_FOUND).entity("Director entrante no encontrado.").build();
+        }
+
+        List<Resguardo> resguardosActivos = Resguardo.find("empleado.cct = ?1 and estadoResguardo = 'ACTIVO'", cct).list();
+        if (resguardosActivos.isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("La escuela no tiene equipos activos para traspasar.").build();
+        }
+
+        String directorSalienteNombre = resguardosActivos.get(0).empleado.nombre;
+
+        for (Resguardo rAntiguo : resguardosActivos) {
+            rAntiguo.estadoResguardo = "TRASPASADO";
+            rAntiguo.fechaBaja = LocalDate.now();
+            rAntiguo.firmaDirectorBajaBase64 = request.firmaSalienteBase64;
+            rAntiguo.persist();
+
+            Resguardo rNuevo = new Resguardo();
+            rNuevo.articulo = rAntiguo.articulo;
+            rNuevo.empleado = directorEntrante;
+            rNuevo.fechaAsignacion = LocalDate.now();
+            rNuevo.cantidadAsignada = rAntiguo.cantidadAsignada;
+            rNuevo.estadoResguardo = "ACTIVO";
+            rNuevo.nombreAdminAsignador = obtenerNombreAdmin();
+            rNuevo.firmaAdminBase64 = null; 
+            rNuevo.firmaEmpleadoBase64 = null; 
+            rNuevo.persist();
+
+            HistorialTrazabilidad historial = new HistorialTrazabilidad();
+            historial.articulo = rAntiguo.articulo;
+            historial.tipoMovimiento = "ROTACION_DIRECTOR";
+            historial.detallesModificacion = "Traspaso de resguardo por rotación. De: " + directorSalienteNombre + " a: " + directorEntrante.nombre;
+            historial.fechaMovimiento = java.time.LocalDateTime.now();
+            historial.username = obtenerNombreAdmin();
+            historial.persist();
+        }
+
+        return Response.ok("{\"mensaje\": \"Traspaso masivo ejecutado. Los equipos ahora están a cargo del nuevo director.\"}").build();
+    }
 }

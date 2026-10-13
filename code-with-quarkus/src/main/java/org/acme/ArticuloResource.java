@@ -87,11 +87,10 @@ public class ArticuloResource {
     public Response guardar(Articulo articulo) {
         articulo.persistAndFlush();
 
-        int año = LocalDate.now().getYear();
-        String catCorta = (articulo.categoria != null && articulo.categoria.length() >= 4) ? articulo.categoria.substring(0, 4).toUpperCase() : "GRAL";
-        String baseLimpia = año + catCorta + articulo.id;
+        int anioCorto = LocalDate.now().getYear() % 100;
+        String secuencial = String.format("%05d", articulo.id);
+        articulo.numeroInventario = "SE-AG-" + anioCorto + "-" + secuencial;
         
-        articulo.numeroInventario = String.format("%22s", baseLimpia).replace(' ', '0');
         articulo.tokenQR = UUID.randomUUID().toString();
         
         if (articulo.fechaAdquisicion == null) {
