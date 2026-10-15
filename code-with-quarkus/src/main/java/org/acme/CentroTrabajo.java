@@ -1,20 +1,11 @@
 package org.acme;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "centro_trabajo")
-public class CentroTrabajo extends PanacheEntityBase {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    public Long id;
+public class CentroTrabajo extends PanacheEntity {
 
     @Column(unique = true)
     public String claveCT;

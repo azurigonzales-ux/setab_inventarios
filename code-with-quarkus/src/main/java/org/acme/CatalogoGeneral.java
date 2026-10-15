@@ -1,19 +1,10 @@
 package org.acme;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "catalogo_general")
-public class CatalogoGeneral extends PanacheEntityBase {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    public Long id;
+public class CatalogoGeneral extends PanacheEntity {
 
     public String tipoCatalogo;
     public String clave;

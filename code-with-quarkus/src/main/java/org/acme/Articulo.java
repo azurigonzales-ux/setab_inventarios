@@ -2,21 +2,12 @@ package org.acme;
 
 import java.time.LocalDate;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
+import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "articulo")
-public class Articulo extends PanacheEntityBase {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    public Long id;
+public class Articulo extends PanacheEntity {
 
     public String numeroInventario;
     public String tokenQR;

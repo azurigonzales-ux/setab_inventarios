@@ -40,14 +40,25 @@ public class CorsFilter implements ContainerRequestFilter, ContainerResponseFilt
     public static class GlobalErrorMapper implements ExceptionMapper<Throwable> {
         @Override
         public Response toResponse(Throwable exception) {
-            String msg = exception.getMessage() != null ? exception.getMessage().replace("\"", "'") : "Error interno en el servidor";
-            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+            Throwable root = exception;
+            while (root.getCause() != null && root.getCause() != root) {
+                root = root.getCause();
+            }
+            String rawMsg = root.getMessage() != null ? root.getMessage() : (exception.getMessage() != null ? exception.getMessage() : "Error interno en el servidor");
+            String cleanMsg = rawMsg
+                    .replace("\\", "/")
+                    .replace("\"", "'")
+                    .replace("\n", " ")
+                    .replace("\r", " ")
+                    .replace("\t", " ");
+
+            return Response.status(Response.Status.BAD_REQUEST)
                     .header("Access-Control-Allow-Origin", "*")
                     .header("Access-Control-Allow-Credentials", "true")
                     .header("Access-Control-Allow-Headers", "origin, content-type, accept, authorization, x-requested-with")
                     .header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, HEAD")
                     .header("Content-Type", "application/json")
-                    .entity("{\"error\": \"" + msg + "\"}")
+                    .entity("{\"error\": \"" + cleanMsg + "\"}")
                     .build();
         }
     }
