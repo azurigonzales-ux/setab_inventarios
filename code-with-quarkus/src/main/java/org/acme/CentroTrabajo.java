@@ -1,22 +1,30 @@
 package org.acme;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "centros_trabajo")
+@Table(name = "centro_trabajo")
 public class CentroTrabajo extends PanacheEntityBase {
 
     @Id
-    @Column(name = "clave_ct", length = 50, nullable = false)
-    public String claveCT; // Este será nuestro ID principal (ej. 27DPR0000X)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Long id;
+
+    @Column(unique = true)
+    public String claveCT;
 
     public String nombreCT;
     public String unidadResp;
     public String subDireccion;
     public String departamento;
-    
-    // Datos Geográficos
+    public String director;
+
     public String tipoVial;
     public String nombreVial;
     public String numExt;
@@ -26,13 +34,12 @@ public class CentroTrabajo extends PanacheEntityBase {
     public String codPostal;
     public String municipio;
     public String localidad;
+
     public String vialidIzq;
     public String vialidDer;
     public String vialidPost;
     public String refVialid;
-    
-    // Organización
+
     public String zonaEscolar;
     public String sector;
-    public String director;
 }

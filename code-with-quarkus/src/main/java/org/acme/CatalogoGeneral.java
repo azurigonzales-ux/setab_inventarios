@@ -1,19 +1,22 @@
 package org.acme;
 
-import io.quarkus.hibernate.orm.panache.PanacheEntity;
+import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "catalogos_sistema")
-public class CatalogoGeneral extends PanacheEntity {
-    
-    // Aquí guardaremos: "proveedor", "partida", "departamento", "tipo_articulo", etc.
-    public String tipoCatalogo; 
-    
+@Table(name = "catalogo_general")
+public class CatalogoGeneral extends PanacheEntityBase {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    public Long id;
+
+    public String tipoCatalogo;
     public String clave;
     public String descripcion;
-    
-    // Campo extra opcional por si el catálogo requiere un valor adicional (ej. monto, id_padre)
-    public String valorExtra; 
+    public String nombre;
 }

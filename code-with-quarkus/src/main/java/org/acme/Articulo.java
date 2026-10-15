@@ -1,9 +1,7 @@
 package org.acme;
 
 import java.time.LocalDate;
-
 import com.fasterxml.jackson.annotation.JsonProperty;
-
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -18,57 +16,67 @@ public class Articulo extends PanacheEntityBase {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @JsonProperty("id")
     public Long id;
 
-    @Column(unique = true, length = 22)
-    @JsonProperty("numeroInventario")
     public String numeroInventario;
+    public String tokenQR;
+    public String tipoMaterial;
+    public String subClave;
 
-    @JsonProperty("numeroSerie")
-    public String numeroSerie;
-
-    @JsonProperty("folioFiscal")
-    public String folioFiscal;
-
-    @Column(columnDefinition = "TEXT")
-    @JsonProperty("descripcion")
+    @Column(length = 500)
     public String descripcion;
 
-    @JsonProperty("marca")
     public String marca;
-
-    @JsonProperty("modelo")
     public String modelo;
-
-    @JsonProperty("categoria")
+    public String numeroSerie;
+    public String color;
     public String categoria;
-
-    @JsonProperty("areaUbicacion")
     public String areaUbicacion;
+    public Double cantidadStock = 1.0;
+    public String estadoFisico;
+    public String estado = "Activo";
 
-    @JsonProperty("valorUmas")
-    public Double valorUmas;
-
-    @JsonProperty("valorInicial")
-    public Double valorInicial;
-
-    @JsonProperty("fechaAdquisicion")
+    public String proveedor;
+    public String factura;
+    public LocalDate fechaFactura;
     public LocalDate fechaAdquisicion;
 
-    @JsonProperty("porcentajeDepreciacion")
+    public Double precioSinIva;
+    public Double valorInicial;
+    public Double valorUmas;
     public Double porcentajeDepreciacion;
 
-    @JsonProperty("estadoFisico")
-    public String estadoFisico;
+    public String pedido;
+    public String requisicion;
+    public String naturalezaGasto;
+    public String partida;
 
-    @JsonProperty("estado")
-    public String estado;
+    public String motor;
+    public String placa;
+    public String poliza;
+    public LocalDate vigenciaPoliza;
 
-    @JsonProperty("cantidadStock")
-    public double cantidadStock;
+    @JsonProperty("serie")
+    public void setSerieAlias(String serie) {
+        if (serie != null && !serie.trim().isEmpty()) {
+            this.numeroSerie = serie.trim().toUpperCase();
+        }
+    }
 
-    @Column(unique = true)
-    @JsonProperty("tokenQR")
-    public String tokenQR;
+    @JsonProperty("serie")
+    public String getSerieAlias() {
+        return this.numeroSerie;
+    }
+
+    @JsonProperty("precio")
+    public void setPrecioAlias(Double precio) {
+        if (precio != null) {
+            this.valorInicial = precio;
+        }
+    }
+
+    @JsonProperty("precio")
+    public Double getPrecioAlias() {
+        return this.valorInicial;
+    }
 }

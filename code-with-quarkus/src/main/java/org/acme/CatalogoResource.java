@@ -1,46 +1,63 @@
 package org.acme;
 
+import java.util.List;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.*;
+import jakarta.ws.rs.Consumes;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-import java.util.List;
 
 @Path("/api/catalogos")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
+@RolesAllowed("SUPERADMIN")
 public class CatalogoResource {
 
-    // Extrae solo los registros de un tipo específico
     @GET
     @Path("/{tipo}")
-    public List<CatalogoGeneral> obtenerPorTipo(@PathParam("tipo") String tipo) {
-        return CatalogoGeneral.list("tipoCatalogo", tipo);
+    public Response listarPorTipo(@PathParam("tipo") String tipo) {
+        List<CatalogoGeneral> items = CatalogoGeneral.find("tipoCatalogo", tipo.toLowerCase()).list();
+        return Response.ok(items).build();
     }
 
-    // Guarda un nuevo elemento en cualquier catálogo
     @POST
+    @Path("/{tipo}")
     @Transactional
-    public Response crear(CatalogoGeneral catalogo) {
-        if (catalogo.tipoCatalogo == null || catalogo.descripcion == null) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                   .entity("{\"error\": \"El tipo de catálogo y la descripción son obligatorios\"}").build();
+    public Response crear(@PathParam("tipo") String tipo, CatalogoGeneral item) {
+        item.id = null;
+        item.tipoCatalogo = tipo.toLowerCase();
+        if (item.descripcion != null && (item.nombre == null || item.nombre.isEmpty())) {
+            item.nombre = item.descripcion.trim().toUpperCase();
         }
-        
-        catalogo.persist();
-        return Response.status(Response.Status.CREATED).entity(catalogo).build();
+        if (item.clave != null) {
+            item.clave = item.clave.trim().toUpperCase();
+        }
+        if (item.descripcion != null) {
+            item.descripcion = item.descripcion.trim().toUpperCase();
+        }
+        item.persist();
+        return Response.status(Response.Status.CREATED).entity(item).build();
     }
 
-    // Eliminar un registro del catálogo
-    @DELETE
-    @Path("/{id}")
+    @PUT
+    @Path("/{tipo}/{id}")
     @Transactional
-    public Response eliminar(@PathParam("id") Long id) {
-        CatalogoGeneral entidad = CatalogoGeneral.findById(id);
-        if (entidad == null) {
+    public Response actualizar(@PathParam("tipo") String tipo, @PathParam("id") Long id, CatalogoGeneral datos) {
+        CatalogoGeneral existente = CatalogoGeneral.findById(id);
+        if (existente == null) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
-        entidad.delete();
-        return Response.noContent().build();
+        existente.tipoCatalogo = tipo.toLowerCase();
+        existente.clave = datos.clave != null ? datos.clave.trim().toUpperCase() : "";
+        existente.descripcion = datos.descripcion != null ? datos.descripcion.trim().toUpperCase() : "";
+        existente.nombre = existente.descripcion;
+        existente.persist();
+        return Response.ok(existente).build();
     }
 }

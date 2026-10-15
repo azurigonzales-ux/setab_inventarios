@@ -50,6 +50,7 @@ public class ArticuloResource {
 
     @GET
     public Response listar(
+        @QueryParam("busqueda") String busqueda,
         @QueryParam("categoria") String categoria,
         @QueryParam("area") String area,
         @QueryParam("page") Integer page,
@@ -57,6 +58,11 @@ public class ArticuloResource {
     ) {
         StringBuilder query = new StringBuilder("1 = 1");
         Map<String, Object> params = new HashMap<>();
+
+        if (busqueda != null && !busqueda.trim().isEmpty()) {
+            query.append(" and (lower(marca) like :busqueda or lower(modelo) like :busqueda or lower(descripcion) like :busqueda or lower(numeroInventario) like :busqueda or lower(numeroSerie) like :busqueda)");
+            params.put("busqueda", "%" + busqueda.trim().toLowerCase() + "%");
+        }
 
         if (categoria != null && !categoria.trim().isEmpty()) {
             query.append(" and categoria = :categoria");
@@ -82,9 +88,27 @@ public class ArticuloResource {
         return Response.ok(respuesta).build();
     }
 
+    @GET
+    @Path("/folio/{folio}")
+    public Response buscarPorFolio(@PathParam("folio") String folio) {
+        String f = folio.trim().toUpperCase();
+        Articulo articulo = Articulo.find("upper(numeroInventario) = ?1 or upper(numeroSerie) = ?1 or tokenQR = ?2", f, folio.trim()).firstResult();
+        if (articulo == null) {
+            return Response.status(Response.Status.NOT_FOUND).entity("{\"error\": \"Equipo no encontrado\"}").build();
+        }
+        return Response.ok(articulo).build();
+    }
+
     @POST
     @Transactional
     public Response guardar(Articulo articulo) {
+        if (articulo.cantidadStock == null || articulo.cantidadStock <= 0) {
+            articulo.cantidadStock = 1.0;
+        }
+        if (articulo.estado == null || articulo.estado.trim().isEmpty()) {
+            articulo.estado = "Activo";
+        }
+
         articulo.persistAndFlush();
 
         int anioCorto = LocalDate.now().getYear() % 100;
