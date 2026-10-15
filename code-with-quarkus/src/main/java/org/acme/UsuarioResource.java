@@ -14,6 +14,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
+import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -34,11 +35,17 @@ public class UsuarioResource {
     @Inject
     ObjectMapper mapper;
 
-    @ConfigProperty(name = "keycloak.admin.url", defaultValue = "http://localhost:8080")
-    String keycloakBaseUrl;
+    @Inject
+    EntityManager em;
 
-    @ConfigProperty(name = "keycloak.admin.realm", defaultValue = "setab-erp")
-    String targetRealm;
+    @ConfigProperty(name = "quarkus.oidc.auth-server-url")
+    Optional<String> oidcAuthServerUrl;
+
+    @ConfigProperty(name = "keycloak.admin.url")
+    Optional<String> customKeycloakUrl;
+
+    @ConfigProperty(name = "keycloak.admin.realm")
+    Optional<String> customTargetRealm;
 
     @ConfigProperty(name = "keycloak.admin.master-realm", defaultValue = "master")
     String adminRealm;
@@ -72,11 +79,47 @@ public class UsuarioResource {
         public String nuevaPassword;
     }
 
+    private String resolverKeycloakBaseUrl() {
+        if (customKeycloakUrl.isPresent() && !customKeycloakUrl.get().isBlank()) {
+            return customKeycloakUrl.get().trim();
+        }
+        if (oidcAuthServerUrl.isPresent() && oidcAuthServerUrl.get().contains("/realms/")) {
+            String url = oidcAuthServerUrl.get().trim();
+            return url.substring(0, url.indexOf("/realms/"));
+        }
+        return "http://localhost:8080";
+    }
+
+    private String resolverTargetRealm() {
+        if (customTargetRealm.isPresent() && !customTargetRealm.get().isBlank()) {
+            return customTargetRealm.get().trim();
+        }
+        if (oidcAuthServerUrl.isPresent() && oidcAuthServerUrl.get().contains("/realms/")) {
+            String url = oidcAuthServerUrl.get().trim();
+            String resto = url.substring(url.indexOf("/realms/") + 8);
+            int slash = resto.indexOf('/');
+            return slash > 0 ? resto.substring(0, slash) : resto;
+        }
+        return "setab-erp";
+    }
+
+    private void sincronizarSecuencias() {
+        try {
+            em.createNativeQuery("SELECT setval(pg_get_serial_sequence('empleado', 'id_empleado'), COALESCE((SELECT MAX(id_empleado) FROM empleado), 1))").getSingleResult();
+        } catch (Exception ignored) {
+        }
+        try {
+            em.createNativeQuery("SELECT setval(pg_get_serial_sequence('usuario', 'id'), COALESCE((SELECT MAX(id) FROM usuario), 1))").getSingleResult();
+        } catch (Exception ignored) {
+        }
+    }
+
     @GET
     @Transactional
     public Response listarUsuarios() {
         List<Usuario> usuarios = Usuario.listAll();
         if (usuarios.isEmpty()) {
+            sincronizarSecuencias();
             List<Empleado> empleados = Empleado.listAll();
             for (Empleado emp : empleados) {
                 if (emp.usuario != null && !emp.usuario.trim().isEmpty()) {
@@ -100,59 +143,67 @@ public class UsuarioResource {
     @POST
     @Transactional
     public Response crearUsuario(NuevoUsuarioDTO dto) {
-        if (dto.username == null || dto.username.trim().isEmpty()) {
+        try {
+            if (dto == null || dto.username == null || dto.username.trim().isEmpty()) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("{\"error\": \"El nombre de usuario es obligatorio.\"}").build();
+            }
+
+            sincronizarSecuencias();
+
+            String cleanUsername = dto.username.trim().toUpperCase();
+            Usuario existente = Usuario.find("upper(username) = ?1", cleanUsername).firstResult();
+            if (existente != null) {
+                return Response.status(Response.Status.BAD_REQUEST)
+                        .entity("{\"error\": \"El usuario o RFC ya está registrado.\"}").build();
+            }
+
+            String nombreCompleto = ((dto.nombre != null ? dto.nombre.trim() : "") + " " + (dto.apellidos != null ? dto.apellidos.trim() : "")).trim().toUpperCase();
+            String rolNormalizado = (dto.rol != null && dto.rol.equalsIgnoreCase("SUPERADMIN")) ? "SUPERADMIN" : "Admin";
+            String rolKeycloak = rolNormalizado.equals("SUPERADMIN") ? "SUPERADMIN" : "admin";
+
+            String keycloakUserId = sincronizarCreacionKeycloak(
+                    cleanUsername,
+                    dto.nombre != null ? dto.nombre.trim().toUpperCase() : cleanUsername,
+                    dto.apellidos != null ? dto.apellidos.trim().toUpperCase() : "",
+                    dto.email != null ? dto.email.trim() : cleanUsername.toLowerCase() + "@setab.gob.mx",
+                    dto.password != null ? dto.password : "Setab2026*",
+                    rolKeycloak
+            );
+
+            Empleado emp = Empleado.find("upper(usuario) = ?1", cleanUsername).firstResult();
+            if (emp == null) {
+                emp = new Empleado();
+            }
+            emp.nombre = nombreCompleto;
+            emp.rfc = cleanUsername;
+            emp.usuario = cleanUsername;
+            emp.cct = dto.cct != null ? dto.cct.trim().toUpperCase() : "CENTRAL";
+            emp.nombreEscuela = dto.nombreEscuela != null ? dto.nombreEscuela.trim().toUpperCase() : "ALMACÉN CENTRAL";
+            emp.area = dto.nivelEducativo != null ? dto.nivelEducativo : "Área Central";
+            emp.cargo = rolNormalizado.equals("SUPERADMIN") ? "Administrador de Almacén" : "Director de Escuela";
+            emp.persistAndFlush();
+
+            Usuario nuevo = new Usuario();
+            nuevo.username = cleanUsername;
+            nuevo.password = dto.password;
+            nuevo.nombreCompleto = nombreCompleto;
+            nuevo.email = dto.email;
+            nuevo.cct = emp.cct;
+            nuevo.nivelEducativo = emp.area;
+            nuevo.nombreEscuela = emp.nombreEscuela;
+            nuevo.rol = rolNormalizado;
+            nuevo.estado = "Activo";
+            nuevo.keycloakId = keycloakUserId;
+            nuevo.idEmpleado = emp.idEmpleado;
+            nuevo.persistAndFlush();
+
+            return Response.status(Response.Status.CREATED).entity(nuevo).build();
+        } catch (Exception e) {
+            String msg = e.getMessage() != null ? e.getMessage().replace("\"", "'") : "Error al guardar usuario";
             return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("{\"error\": \"El nombre de usuario es obligatorio.\"}").build();
+                    .entity("{\"error\": \"" + msg + "\"}").build();
         }
-
-        String cleanUsername = dto.username.trim().toUpperCase();
-        Usuario existente = Usuario.find("upper(username)", cleanUsername).firstResult();
-        if (existente != null) {
-            return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("{\"error\": \"El usuario o RFC ya está registrado.\"}").build();
-        }
-
-        String nombreCompleto = ((dto.nombre != null ? dto.nombre.trim() : "") + " " + (dto.apellidos != null ? dto.apellidos.trim() : "")).trim().toUpperCase();
-        String rolNormalizado = (dto.rol != null && dto.rol.equalsIgnoreCase("SUPERADMIN")) ? "SUPERADMIN" : "Admin";
-        String rolKeycloak = rolNormalizado.equals("SUPERADMIN") ? "SUPERADMIN" : "admin";
-
-        String keycloakUserId = sincronizarCreacionKeycloak(
-                cleanUsername,
-                dto.nombre != null ? dto.nombre.trim().toUpperCase() : cleanUsername,
-                dto.apellidos != null ? dto.apellidos.trim().toUpperCase() : "",
-                dto.email != null ? dto.email.trim() : cleanUsername.toLowerCase() + "@setab.gob.mx",
-                dto.password != null ? dto.password : "Setab2026*",
-                rolKeycloak
-        );
-
-        Empleado emp = Empleado.find("upper(usuario)", cleanUsername).firstResult();
-        if (emp == null) {
-            emp = new Empleado();
-        }
-        emp.nombre = nombreCompleto;
-        emp.rfc = cleanUsername;
-        emp.usuario = cleanUsername;
-        emp.cct = dto.cct != null ? dto.cct.trim().toUpperCase() : "CENTRAL";
-        emp.nombreEscuela = dto.nombreEscuela != null ? dto.nombreEscuela.trim().toUpperCase() : "ALMACÉN CENTRAL";
-        emp.area = dto.nivelEducativo != null ? dto.nivelEducativo : "Área Central";
-        emp.cargo = rolNormalizado.equals("SUPERADMIN") ? "Administrador de Almacén" : "Director de Escuela";
-        emp.persist();
-
-        Usuario nuevo = new Usuario();
-        nuevo.username = cleanUsername;
-        nuevo.password = dto.password;
-        nuevo.nombreCompleto = nombreCompleto;
-        nuevo.email = dto.email;
-        nuevo.cct = emp.cct;
-        nuevo.nivelEducativo = emp.area;
-        nuevo.nombreEscuela = emp.nombreEscuela;
-        nuevo.rol = rolNormalizado;
-        nuevo.estado = "Activo";
-        nuevo.keycloakId = keycloakUserId;
-        nuevo.idEmpleado = emp.idEmpleado;
-        nuevo.persist();
-
-        return Response.status(Response.Status.CREATED).entity(nuevo).build();
     }
 
     @PUT
@@ -191,6 +242,7 @@ public class UsuarioResource {
     }
 
     private String obtenerAdminTokenKeycloak() {
+        String baseUrl = resolverKeycloakBaseUrl();
         try {
             String form = "client_id=" + URLEncoder.encode(adminClientId, StandardCharsets.UTF_8)
                     + "&username=" + URLEncoder.encode(adminUser, StandardCharsets.UTF_8)
@@ -198,7 +250,7 @@ public class UsuarioResource {
                     + "&grant_type=password";
 
             HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create(keycloakBaseUrl + "/realms/" + adminRealm + "/protocol/openid-connect/token"))
+                    .uri(URI.create(baseUrl + "/realms/" + adminRealm + "/protocol/openid-connect/token"))
                     .header("Content-Type", "application/x-www-form-urlencoded")
                     .POST(HttpRequest.BodyPublishers.ofString(form))
                     .build();
@@ -216,9 +268,11 @@ public class UsuarioResource {
     }
 
     private String buscarKeycloakUserId(String token, String username) {
+        String baseUrl = resolverKeycloakBaseUrl();
+        String realm = resolverTargetRealm();
         try {
             HttpRequest req = HttpRequest.newBuilder()
-                    .uri(URI.create(keycloakBaseUrl + "/admin/realms/" + targetRealm + "/users?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&exact=true"))
+                    .uri(URI.create(baseUrl + "/admin/realms/" + realm + "/users?username=" + URLEncoder.encode(username, StandardCharsets.UTF_8) + "&exact=true"))
                     .header("Authorization", "Bearer " + token)
                     .GET()
                     .build();
@@ -238,6 +292,9 @@ public class UsuarioResource {
         String token = obtenerAdminTokenKeycloak();
         if (token == null) return null;
 
+        String baseUrl = resolverKeycloakBaseUrl();
+        String realm = resolverTargetRealm();
+
         try {
             String userJson = mapper.createObjectNode()
                     .put("username", username)
@@ -249,7 +306,7 @@ public class UsuarioResource {
                     .toString();
 
             HttpRequest createReq = HttpRequest.newBuilder()
-                    .uri(URI.create(keycloakBaseUrl + "/admin/realms/" + targetRealm + "/users"))
+                    .uri(URI.create(baseUrl + "/admin/realms/" + realm + "/users"))
                     .header("Authorization", "Bearer " + token)
                     .header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(userJson))
@@ -282,6 +339,8 @@ public class UsuarioResource {
     }
 
     private void setKeycloakPassword(String token, String userId, String password) {
+        String baseUrl = resolverKeycloakBaseUrl();
+        String realm = resolverTargetRealm();
         try {
             String credJson = mapper.createObjectNode()
                     .put("type", "password")
@@ -290,7 +349,7 @@ public class UsuarioResource {
                     .toString();
 
             HttpRequest passReq = HttpRequest.newBuilder()
-                    .uri(URI.create(keycloakBaseUrl + "/admin/realms/" + targetRealm + "/users/" + userId + "/reset-password"))
+                    .uri(URI.create(baseUrl + "/admin/realms/" + realm + "/users/" + userId + "/reset-password"))
                     .header("Authorization", "Bearer " + token)
                     .header("Content-Type", "application/json")
                     .PUT(HttpRequest.BodyPublishers.ofString(credJson))
@@ -302,9 +361,11 @@ public class UsuarioResource {
     }
 
     private void asignarRolKeycloak(String token, String userId, String rolName) {
+        String baseUrl = resolverKeycloakBaseUrl();
+        String realm = resolverTargetRealm();
         try {
             HttpRequest roleGet = HttpRequest.newBuilder()
-                    .uri(URI.create(keycloakBaseUrl + "/admin/realms/" + targetRealm + "/roles/" + URLEncoder.encode(rolName, StandardCharsets.UTF_8)))
+                    .uri(URI.create(baseUrl + "/admin/realms/" + realm + "/roles/" + URLEncoder.encode(rolName, StandardCharsets.UTF_8)))
                     .header("Authorization", "Bearer " + token)
                     .GET()
                     .build();
@@ -312,7 +373,7 @@ public class UsuarioResource {
             HttpResponse<String> roleResp = httpClient.send(roleGet, HttpResponse.BodyHandlers.ofString());
             if (roleResp.statusCode() != 200 && "admin".equalsIgnoreCase(rolName)) {
                 roleGet = HttpRequest.newBuilder()
-                        .uri(URI.create(keycloakBaseUrl + "/admin/realms/" + targetRealm + "/roles/Admin"))
+                        .uri(URI.create(baseUrl + "/admin/realms/" + realm + "/roles/Admin"))
                         .header("Authorization", "Bearer " + token)
                         .GET()
                         .build();
@@ -322,7 +383,7 @@ public class UsuarioResource {
             if (roleResp.statusCode() == 200) {
                 String payload = "[" + roleResp.body() + "]";
                 HttpRequest mapReq = HttpRequest.newBuilder()
-                        .uri(URI.create(keycloakBaseUrl + "/admin/realms/" + targetRealm + "/users/" + userId + "/role-mappings/realm"))
+                        .uri(URI.create(baseUrl + "/admin/realms/" + realm + "/users/" + userId + "/role-mappings/realm"))
                         .header("Authorization", "Bearer " + token)
                         .header("Content-Type", "application/json")
                         .POST(HttpRequest.BodyPublishers.ofString(payload))
@@ -347,10 +408,12 @@ public class UsuarioResource {
         if (token == null) return;
         String uid = (keycloakId != null && !keycloakId.isEmpty()) ? keycloakId : buscarKeycloakUserId(token, username);
         if (uid != null) {
+            String baseUrl = resolverKeycloakBaseUrl();
+            String realm = resolverTargetRealm();
             try {
                 String body = mapper.createObjectNode().put("enabled", enabled).toString();
                 HttpRequest req = HttpRequest.newBuilder()
-                        .uri(URI.create(keycloakBaseUrl + "/admin/realms/" + targetRealm + "/users/" + uid))
+                        .uri(URI.create(baseUrl + "/admin/realms/" + realm + "/users/" + uid))
                         .header("Authorization", "Bearer " + token)
                         .header("Content-Type", "application/json")
                         .PUT(HttpRequest.BodyPublishers.ofString(body))
