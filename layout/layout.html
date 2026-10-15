@@ -95,16 +95,16 @@
             @click="sidebarAbierto = false"></div>
         <aside :class="sidebarAbierto ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'"
             class="fixed inset-y-0 left-0 z-50 w-64 bg-caqui border-r border-caqui-dark transition-transform duration-300 flex flex-col justify-between shadow-sm">
-            <div class="flex justify-center pt-6 pb-2">
+            <div class="flex justify-center pt-3.5 pb-1.5">
                 <img src="../img/BANNER_LOGO.png" alt="Logo SETAB"
-                    class="w-24 md:w-28 object-contain mx-auto drop-shadow-sm transition-all">
+                    class="w-16 md:w-20 max-h-12 object-contain mx-auto drop-shadow-sm transition-all">
             </div>
-            <div class="mt-2 mx-4 pb-4 border-b border-dorado/30 text-center">
-                <p class="text-[10px] text-gray-500 uppercase tracking-widest font-bold mb-1"
+            <div class="mt-1 mx-4 pb-2.5 border-b border-dorado/30 text-center">
+                <p class="text-[9px] text-gray-500 uppercase tracking-widest font-bold mb-0.5"
                     x-text="rolUsuario === 'SUPERADMIN' ? 'Almacén Central' : 'Director Escolar'"></p>
-                <p class="text-sm font-bold text-guinda truncate" x-text="nombreUsuario"></p>
+                <p class="text-xs font-bold text-guinda truncate" x-text="nombreUsuario"></p>
             </div>
-            <ul class="space-y-2 mt-4 px-3 flex-1 overflow-y-auto custom-scrollbar pb-6"
+            <ul class="space-y-2 mt-3 px-3 flex-1 overflow-y-auto custom-scrollbar pb-4"
                 x-data="{ menuAbierto: 'archivos' }">
                 <template x-if="rolUsuario === 'SUPERADMIN'">
                     <div class="space-y-2">
@@ -244,13 +244,13 @@
                     </div>
                 </template>
             </ul>
-            <div class="sticky inset-x-0 bottom-0 bg-guinda p-6 border-t border-guinda-dark">
-                <div class="flex justify-center mb-6"><img
+            <div class="sticky inset-x-0 bottom-0 bg-guinda px-4 py-3 border-t border-guinda-dark">
+                <div class="flex justify-center mb-2.5"><img
                         src="https://tabasco.gob.mx/sites/default/files/inline-images/Logo_Cacao_Footer.png"
                         alt="Gobierno de Tabasco"
-                        class="h-16 object-contain opacity-90 hover:opacity-100 transition-opacity"></div>
+                        class="h-10 object-contain opacity-90 hover:opacity-100 transition-opacity"></div>
                 <button @click="cerrarSesion()"
-                    class="flex items-center justify-center gap-2 bg-white/10 p-2.5 hover:bg-white/20 w-full rounded-lg text-white font-medium text-sm transition-all focus:ring-2 focus:ring-white/50"><i
+                    class="flex items-center justify-center gap-2 bg-white/10 py-2 px-3 hover:bg-white/20 w-full rounded-lg text-white font-medium text-xs transition-all focus:ring-2 focus:ring-white/50"><i
                         class="fas fa-sign-out-alt"></i> Cerrar Sesión</button>
             </div>
         </aside>
@@ -981,7 +981,10 @@
                         };
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/usuarios/${this.usuarioSeleccionado.id}/reset-password`, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
                         if (respuesta.ok) { this.notificar("¡Contraseña actualizada y sincronizada!", "exito"); this.cerrarModalReset(); }
-                        else { this.notificar("Error al intentar cambiar la contraseña.", "error"); }
+                        else {
+                            const err = await respuesta.json().catch(() => ({}));
+                            this.notificar(err.error || "Error al intentar cambiar la contraseña.", "error");
+                        }
                     } catch (error) { this.notificar("Fallo de conexión al servidor.", "error"); } finally { this.guardando = false; }
                 },
 
@@ -1187,18 +1190,26 @@
                 async guardarNuevoArticulo() {
                     this.guardando = true;
                     try {
-                        if (this.nuevoArticulo.precioSinIva) {
-                            const totalNeto = parseFloat((this.nuevoArticulo.precioSinIva * 1.16).toFixed(2));
+                        if (this.nuevoArticulo.precioSinIva !== null && this.nuevoArticulo.precioSinIva !== '' && !isNaN(parseFloat(this.nuevoArticulo.precioSinIva))) {
+                            const base = parseFloat(this.nuevoArticulo.precioSinIva);
+                            const totalNeto = parseFloat((base * 1.16).toFixed(2));
+                            this.nuevoArticulo.precioSinIva = base;
                             this.nuevoArticulo.precio = totalNeto;
                             this.nuevoArticulo.valorInicial = totalNeto;
+                        } else {
+                            this.nuevoArticulo.precioSinIva = null;
+                            this.nuevoArticulo.precio = null;
+                            this.nuevoArticulo.valorInicial = null;
                         }
-                        this.nuevoArticulo.numeroSerie = this.nuevoArticulo.serie;
+                        this.nuevoArticulo.numeroSerie = this.nuevoArticulo.serie ? String(this.nuevoArticulo.serie).trim().toUpperCase() : '';
                         this.nuevoArticulo.cantidadStock = parseFloat(this.nuevoArticulo.cantidadStock) || 1;
                         this.nuevoArticulo.estado = 'Activo';
 
                         const payload = { ...this.nuevoArticulo };
+                        delete payload.id;
                         if (!payload.fechaFactura || String(payload.fechaFactura).trim() === '') payload.fechaFactura = null;
                         if (!payload.vigenciaPoliza || String(payload.vigenciaPoliza).trim() === '') payload.vigenciaPoliza = null;
+                        if (!payload.fechaAdquisicion || String(payload.fechaAdquisicion).trim() === '') payload.fechaAdquisicion = null;
 
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
                         if (respuesta.ok) {
@@ -1218,13 +1229,17 @@
                 async guardarCambios() {
                     this.guardando = true;
                     try {
-                        this.articuloSeleccionado.cantidadStock = parseFloat(this.articuloSeleccionado.cantidadStock);
+                        this.articuloSeleccionado.cantidadStock = parseFloat(this.articuloSeleccionado.cantidadStock) || 0;
                         if (this.articuloSeleccionado.serie && !this.articuloSeleccionado.numeroSerie) {
                             this.articuloSeleccionado.numeroSerie = this.articuloSeleccionado.serie;
                         }
                         const payload = { ...this.articuloSeleccionado };
                         if (!payload.fechaFactura || String(payload.fechaFactura).trim() === '') payload.fechaFactura = null;
                         if (!payload.vigenciaPoliza || String(payload.vigenciaPoliza).trim() === '') payload.vigenciaPoliza = null;
+                        if (!payload.fechaAdquisicion || String(payload.fechaAdquisicion).trim() === '') payload.fechaAdquisicion = null;
+                        if (payload.precioSinIva === '' || isNaN(parseFloat(payload.precioSinIva))) payload.precioSinIva = null;
+                        if (payload.valorInicial === '' || isNaN(parseFloat(payload.valorInicial))) payload.valorInicial = null;
+                        if (payload.precio === '' || isNaN(parseFloat(payload.precio))) payload.precio = null;
 
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes/${this.articuloSeleccionado.id}`, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
                         if (respuesta.ok) { this.cerrarModal(); this.cargarArticulos(); this.notificar("Cambios guardados", "exito"); }

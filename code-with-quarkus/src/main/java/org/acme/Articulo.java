@@ -1,9 +1,14 @@
 package org.acme;
 
+import java.io.IOException;
 import java.time.LocalDate;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSetter;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -11,6 +16,40 @@ import jakarta.persistence.Entity;
 @Entity
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Articulo extends PanacheEntity {
+
+    public static class LocalDateFlexibleDeserializer extends JsonDeserializer<LocalDate> {
+        @Override
+        public LocalDate deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+            String valor = p.getValueAsString();
+            if (valor == null || valor.trim().isEmpty()) {
+                return null;
+            }
+            String limpio = valor.trim();
+            try {
+                if (limpio.length() > 10 && limpio.contains("T")) {
+                    limpio = limpio.substring(0, 10);
+                }
+                return LocalDate.parse(limpio);
+            } catch (Exception e) {
+                return null;
+            }
+        }
+    }
+
+    public static class DoubleFlexibleDeserializer extends JsonDeserializer<Double> {
+        @Override
+        public Double deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
+            String valor = p.getValueAsString();
+            if (valor == null || valor.trim().isEmpty()) {
+                return null;
+            }
+            try {
+                return Double.valueOf(valor.trim().replace(",", ""));
+            } catch (Exception e) {
+                return null;
+            }
+        }
+    }
 
     public String numeroInventario;
     public String tokenQR;
@@ -26,18 +65,32 @@ public class Articulo extends PanacheEntity {
     public String color;
     public String categoria;
     public String areaUbicacion;
+
+    @JsonDeserialize(using = DoubleFlexibleDeserializer.class)
     public Double cantidadStock = 1.0;
+
     public String estadoFisico;
     public String estado = "Activo";
 
     public String proveedor;
     public String factura;
+
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
     public LocalDate fechaFactura;
+
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
     public LocalDate fechaAdquisicion;
 
+    @JsonDeserialize(using = DoubleFlexibleDeserializer.class)
     public Double precioSinIva;
+
+    @JsonDeserialize(using = DoubleFlexibleDeserializer.class)
     public Double valorInicial;
+
+    @JsonDeserialize(using = DoubleFlexibleDeserializer.class)
     public Double valorUmas;
+
+    @JsonDeserialize(using = DoubleFlexibleDeserializer.class)
     public Double porcentajeDepreciacion;
 
     public String pedido;
@@ -48,9 +101,28 @@ public class Articulo extends PanacheEntity {
     public String motor;
     public String placa;
     public String poliza;
+
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
     public LocalDate vigenciaPoliza;
 
     @JsonSetter("fechaFactura")
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
+    public void setFechaFactura(LocalDate valor) {
+        this.fechaFactura = valor;
+    }
+
+    @JsonSetter("vigenciaPoliza")
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
+    public void setVigenciaPoliza(LocalDate valor) {
+        this.vigenciaPoliza = valor;
+    }
+
+    @JsonSetter("fechaAdquisicion")
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
+    public void setFechaAdquisicion(LocalDate valor) {
+        this.fechaAdquisicion = valor;
+    }
+
     public void setFechaFacturaSegura(String valor) {
         if (valor == null || valor.trim().isEmpty()) {
             this.fechaFactura = null;
@@ -63,7 +135,6 @@ public class Articulo extends PanacheEntity {
         }
     }
 
-    @JsonSetter("vigenciaPoliza")
     public void setVigenciaPolizaSegura(String valor) {
         if (valor == null || valor.trim().isEmpty()) {
             this.vigenciaPoliza = null;
@@ -76,7 +147,6 @@ public class Articulo extends PanacheEntity {
         }
     }
 
-    @JsonSetter("fechaAdquisicion")
     public void setFechaAdquisicionSegura(String valor) {
         if (valor == null || valor.trim().isEmpty()) {
             this.fechaAdquisicion = null;
@@ -102,6 +172,7 @@ public class Articulo extends PanacheEntity {
     }
 
     @JsonProperty("precio")
+    @JsonDeserialize(using = DoubleFlexibleDeserializer.class)
     public void setPrecioAlias(Double precio) {
         if (precio != null) {
             this.valorInicial = precio;

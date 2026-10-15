@@ -5,6 +5,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.quarkus.hibernate.orm.panache.PanacheQuery;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -42,6 +43,7 @@ public class ArticuloResource {
         return adminNombre;
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class PaginacionResponse {
         public java.util.List<Articulo> articulos;
         public int pageCount;
@@ -102,6 +104,11 @@ public class ArticuloResource {
     @POST
     @Transactional
     public Response guardar(Articulo articulo) {
+        if (articulo == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("{\"error\": \"Los datos del artículo son obligatorios.\"}")
+                    .build();
+        }
         articulo.id = null;
 
         if (articulo.cantidadStock == null || articulo.cantidadStock <= 0) {
@@ -170,12 +177,16 @@ public class ArticuloResource {
         articuloExistente.fechaFactura = articuloActualizado.fechaFactura;
         articuloExistente.precioSinIva = articuloActualizado.precioSinIva;
         articuloExistente.pedido = articuloActualizado.pedido;
+        articuloExistente.requisicion = articuloActualizado.requisicion;
         articuloExistente.naturalezaGasto = articuloActualizado.naturalezaGasto;
         articuloExistente.partida = articuloActualizado.partida;
         articuloExistente.motor = articuloActualizado.motor;
         articuloExistente.placa = articuloActualizado.placa;
         articuloExistente.poliza = articuloActualizado.poliza;
         articuloExistente.vigenciaPoliza = articuloActualizado.vigenciaPoliza;
+        if (articuloActualizado.fechaAdquisicion != null) {
+            articuloExistente.fechaAdquisicion = articuloActualizado.fechaAdquisicion;
+        }
         
         HistorialTrazabilidad historial = new HistorialTrazabilidad();
         historial.articulo = articuloExistente;

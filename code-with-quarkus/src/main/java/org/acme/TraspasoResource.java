@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -37,6 +38,7 @@ public class TraspasoResource {
         return adminNombre;
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class TraspasoRequest {
         public Long idEmpleadoSaliente;
         public Long idEmpleadoEntrante;
@@ -44,6 +46,7 @@ public class TraspasoResource {
         public String firmaSalienteBase64;
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ActaTraspasoDTO {
         public String cct;
         public String nombreEscuela;
@@ -153,7 +156,7 @@ public class TraspasoResource {
 
     @GET
     @Path("/acta/{idEmpleadoEntrante}")
-    @RolesAllowed({"SUPERADMIN", "admin"})
+    @RolesAllowed({"SUPERADMIN", "admin", "Admin"})
     public Response obtenerDatosActaTraspaso(@PathParam("idEmpleadoEntrante") Long idEmpleadoEntrante) {
         Empleado entrante = Empleado.findById(idEmpleadoEntrante);
         if (entrante == null) {
@@ -162,7 +165,7 @@ public class TraspasoResource {
 
         String cctLimpia = entrante.cct != null ? entrante.cct.trim().toUpperCase() : "S/N";
         List<Resguardo> vigentes = Resguardo.find("empleado.idEmpleado = ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo = 'PENDIENTE_FIRMA')", idEmpleadoEntrante).list();
-        List<Resguardo> traspasados = Resguardo.find("upper(empleado.cct) = ?1 and estadoResguardo = 'TRASPASADO' order by idResguardo desc", cctLimpia).list();
+        List<Resguardo> traspasados = Resguardo.find("upper(empleado.cct) = ?1 and estadoResguardo = 'TRASPASADO' order by id desc", cctLimpia).list();
 
         ActaTraspasoDTO acta = new ActaTraspasoDTO();
         acta.cct = cctLimpia;

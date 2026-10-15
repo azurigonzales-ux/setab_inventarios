@@ -3,6 +3,7 @@ package org.acme;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.ws.rs.Consumes;
@@ -19,6 +20,7 @@ import jakarta.ws.rs.core.Response;
 @RolesAllowed({"SUPERADMIN"})
 public class TrazabilidadResource {
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class MovimientoDTO {
         @JsonProperty("id_trazabilidad")
         public Long idTrazabilidad;

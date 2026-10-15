@@ -1,5 +1,6 @@
 package org.acme;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
@@ -11,6 +12,7 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "empleado")
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Empleado extends PanacheEntityBase {
     
     @Id

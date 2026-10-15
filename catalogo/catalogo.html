@@ -721,8 +721,8 @@
                                 class="mb-2 block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2.5 px-3 focus:ring-guinda focus:border-guinda">
                             <select x-model="datosResguardo.idEmpleado" size="5"
                                 class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 focus:ring-guinda focus:border-guinda">
-                                <template x-for="emp in empleadosFiltrados" :key="emp.id_empleado">
-                                    <option :value="emp.id_empleado" x-text="`${emp.nombre} - RFC: ${emp.rfc || 'S/N'}`"
+                                <template x-for="emp in empleadosFiltradosList" :key="emp.id_empleado">
+                                    <option :value="emp.id_empleado" x-text="`${emp.nombre} - RFC: ${emp.rfc || 'S/N'} (${emp.cct || 'SIN CCT'})`"
                                         class="py-1 border-b border-gray-100"></option>
                                 </template>
                             </select>

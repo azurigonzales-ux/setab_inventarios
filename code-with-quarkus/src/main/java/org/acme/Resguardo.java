@@ -2,6 +2,8 @@ package org.acme;
 
 import java.time.LocalDate;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -9,6 +11,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 
 @Entity
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Resguardo extends PanacheEntity {
     
     @ManyToOne
@@ -19,6 +22,7 @@ public class Resguardo extends PanacheEntity {
     @JoinColumn(name = "id_empleado")
     public Empleado empleado;
     
+    @JsonDeserialize(using = Articulo.LocalDateFlexibleDeserializer.class)
     public LocalDate fechaAsignacion;
     
     public double cantidadAsignada; 
@@ -58,5 +62,6 @@ public class Resguardo extends PanacheEntity {
     @Column(columnDefinition = "TEXT")
     public String firmaDirectorBajaBase64;
 
+    @JsonDeserialize(using = Articulo.LocalDateFlexibleDeserializer.class)
     public LocalDate fechaBaja;
 }

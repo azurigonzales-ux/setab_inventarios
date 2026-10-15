@@ -12,6 +12,7 @@ import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.eclipse.microprofile.jwt.JsonWebToken;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -33,12 +34,14 @@ public class ResguardoResource {
     @Inject
     JsonWebToken jwt;
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class AsignacionRequest {
         public Long idEmpleado;
         public double cantidad; 
         public String firmaEmpleadoBase64; 
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class LiberarRequest {
         public double cantidad;
         public String firmaBase64; 
@@ -46,16 +49,19 @@ public class ResguardoResource {
         public String longitudGPS; 
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class FirmarRequest {
         public String firmaBase64;
         public String latitudGPS;          
         public String longitudGPS; 
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class AprobarBajaRequest {
         public String firmaSuperAdminBase64;
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class PendienteDTO {
         public Long idResguardo;
         public String equipoMarca;
@@ -67,6 +73,7 @@ public class ResguardoResource {
         public String numeroInventario; 
     }
 
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class ResguardoExtendidoDTO {
         public Long idResguardo;
         public Long idArticulo;
@@ -88,7 +95,7 @@ public class ResguardoResource {
                 return fullName;
             }
             if (jwt.getName() != null) {
-                Usuario adminUser = Usuario.find("username", jwt.getName()).firstResult();
+                Usuario adminUser = Usuario.find("upper(username) = ?1", jwt.getName().trim().toUpperCase()).firstResult();
                 if (adminUser != null && adminUser.nombreCompleto != null) {
                     return adminUser.nombreCompleto;
                 }
@@ -96,6 +103,21 @@ public class ResguardoResource {
             }
         }
         return "Administrador del Sistema";
+    }
+
+    private Empleado obtenerEmpleadoAutenticado() {
+        if (jwt == null || jwt.getName() == null || jwt.getName().trim().isEmpty()) {
+            return null;
+        }
+        String uname = jwt.getName().trim().toUpperCase();
+        Empleado empleado = Empleado.find("upper(usuario) = ?1 or upper(rfc) = ?1", uname).firstResult();
+        if (empleado == null) {
+            Usuario u = Usuario.find("upper(username) = ?1", uname).firstResult();
+            if (u != null && u.idEmpleado != null) {
+                empleado = Empleado.findById(u.idEmpleado);
+            }
+        }
+        return empleado;
     }
 
     @POST
@@ -152,7 +174,7 @@ public class ResguardoResource {
     @Path("/empleado/{idEmpleado}")
     @RolesAllowed("SUPERADMIN")
     public Response resguardosPorEmpleado(@PathParam("idEmpleado") Long idEmpleado) {
-        List<Resguardo> resguardos = Resguardo.find("empleado.idEmpleado", idEmpleado).list();
+        List<Resguardo> resguardos = Resguardo.find("empleado.idEmpleado = ?1", idEmpleado).list();
         List<ResguardoExtendidoDTO> lista = new ArrayList<>();
 
         for (Resguardo r : resguardos) {
@@ -175,13 +197,13 @@ public class ResguardoResource {
 
     @GET
     @Path("/mis-equipos")
-    @RolesAllowed("admin")
+    @RolesAllowed({"admin", "Admin", "SUPERADMIN"})
     public Response misEquipos() {
         if (jwt == null || jwt.getName() == null) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        Empleado empleado = Empleado.find("usuario", jwt.getName()).firstResult();
+        Empleado empleado = obtenerEmpleadoAutenticado();
         if (empleado == null) {
             return Response.ok(new ArrayList<>()).build();
         }
@@ -206,13 +228,13 @@ public class ResguardoResource {
 
     @GET
     @Path("/pendientes-firma")
-    @RolesAllowed("admin")
+    @RolesAllowed({"admin", "Admin", "SUPERADMIN"})
     public Response pendientesFirma() {
         if (jwt == null || jwt.getName() == null) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        Empleado empleado = Empleado.find("usuario", jwt.getName()).firstResult();
+        Empleado empleado = obtenerEmpleadoAutenticado();
         if (empleado == null) {
             return Response.ok(new ArrayList<>()).build();
         }
@@ -239,7 +261,7 @@ public class ResguardoResource {
     @Path("/solicitudes-baja")
     @RolesAllowed("SUPERADMIN")
     public Response obtenerSolicitudesBaja() {
-        List<Resguardo> pendientes = Resguardo.find("estadoResguardo", "SOLICITUD_BAJA").list();
+        List<Resguardo> pendientes = Resguardo.find("estadoResguardo = ?1", "SOLICITUD_BAJA").list();
         List<ResguardoExtendidoDTO> lista = new ArrayList<>();
 
         for (Resguardo r : pendientes) {
@@ -263,11 +285,11 @@ public class ResguardoResource {
     @PUT
     @Path("/firmar/{idResguardo}")
     @Transactional
-    @RolesAllowed("admin")
+    @RolesAllowed({"admin", "Admin", "SUPERADMIN"})
     public Response firmarResguardo(@PathParam("idResguardo") Long idResguardo, FirmarRequest request) {
         if (jwt == null || jwt.getName() == null) return Response.status(Response.Status.UNAUTHORIZED).build();
 
-        Empleado empleado = Empleado.find("usuario", jwt.getName()).firstResult();
+        Empleado empleado = obtenerEmpleadoAutenticado();
         if (empleado == null) return Response.status(Response.Status.NOT_FOUND).build();
 
         Resguardo resguardo = Resguardo.findById(idResguardo);
@@ -401,7 +423,7 @@ public class ResguardoResource {
         String adminNombre = resguardo.nombreAdminAsignador != null ? resguardo.nombreAdminAsignador : "Almacén Central";
 
         if ("superadmin".equalsIgnoreCase(adminNombre) || "admin".equalsIgnoreCase(adminNombre)) {
-            Usuario userDb = Usuario.find("username", adminNombre).firstResult();
+            Usuario userDb = Usuario.find("upper(username) = ?1", adminNombre.trim().toUpperCase()).firstResult();
             if (userDb != null && userDb.nombreCompleto != null) {
                 adminNombre = userDb.nombreCompleto;
             }
@@ -549,7 +571,7 @@ public class ResguardoResource {
         String adminNombre = resguardo.nombreAdminAsignador != null ? resguardo.nombreAdminAsignador : "Almacén Central";
 
         if ("superadmin".equalsIgnoreCase(adminNombre) || "admin".equalsIgnoreCase(adminNombre)) {
-            Usuario userDb = Usuario.find("username", adminNombre).firstResult();
+            Usuario userDb = Usuario.find("upper(username) = ?1", adminNombre.trim().toUpperCase()).firstResult();
             if (userDb != null && userDb.nombreCompleto != null) {
                 adminNombre = userDb.nombreCompleto;
             }
@@ -678,6 +700,7 @@ public class ResguardoResource {
             return Response.serverError().entity("Error interno al generar el acta PDF de devolucion: " + e.getMessage()).build();
         }
     }
+    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class TraspasoRequest {
         public Long idEmpleadoEntrante;
         public String firmaSalienteBase64;

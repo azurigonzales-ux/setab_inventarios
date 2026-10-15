@@ -30,9 +30,10 @@ public class AuthResource {
     @POST
     @Path("/login")
     public Response login(Usuario credenciales) {
-        Usuario usuarioDB = Usuario.find("username", credenciales.username).firstResult();
+        String uname = (credenciales != null && credenciales.username != null) ? credenciales.username.trim().toUpperCase() : "";
+        Usuario usuarioDB = Usuario.find("upper(username) = ?1", uname).firstResult();
 
-        if (usuarioDB != null && usuarioDB.password.equals(credenciales.password)) {
+        if (usuarioDB != null && usuarioDB.password != null && usuarioDB.password.equals(credenciales.password)) {
             
             if ("Inactivo".equalsIgnoreCase(usuarioDB.estado)) {
                 return Response.status(Response.Status.UNAUTHORIZED)
