@@ -125,39 +125,12 @@
                                 class="bg-white/50 px-2 py-2 space-y-1 text-sm border-t border-gray-100">
                                 <li><a href="#" @click.prevent="cambiarVista('catalogo', '../catalogo/catalogo.html')"
                                         class="block p-2 rounded transition-colors"
-                                        :class="vistaActiva === 'catalogo' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Registrar
-                                        Mobiliario y Equipo</a></li>
-                                <li><a href="#"
-                                        @click.prevent="cambiarVista('resguardos_nuevos', '../personal/resguardos_nuevos.html')"
-                                        class="block p-2 rounded transition-colors"
-                                        :class="vistaActiva === 'resguardos_nuevos' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Resguardos
-                                        Nuevos</a></li>
+                                        :class="vistaActiva === 'catalogo' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Catálogo
+                                        Central</a></li>
                                 <li><a href="#" @click.prevent="cambiarVista('resguardos', '../personal/personal.html')"
                                         class="block p-2 rounded transition-colors"
-                                        :class="vistaActiva === 'resguardos' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Cambio
+                                        :class="vistaActiva === 'resguardos' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Gestor
                                         de Resguardos</a></li>
-                                <li><a href="#"
-                                        @click.prevent="cambiarVista('solicitudes', '../personal/personal.html')"
-                                        class="flex justify-between p-2 rounded transition-colors"
-                                        :class="vistaActiva === 'solicitudes' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Trámite
-                                        de Bajas <span x-show="solicitudesBaja.length > 0"
-                                            class="bg-red-500 text-white text-[10px] px-2 rounded-full font-bold flex items-center"
-                                            x-text="solicitudesBaja.length"></span></a></li>
-                                <li><a href="#"
-                                        @click.prevent="cambiarVista('cambio_resguardos_bajas', '../personal/cambio_resguardos_bajas.html')"
-                                        class="block p-2 rounded transition-colors"
-                                        :class="vistaActiva === 'cambio_resguardos_bajas' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Cambio
-                                        de Resguardos Bajas</a></li>
-                                <li><a href="#"
-                                        @click.prevent="cambiarVista('asignar_acta_bajas', '../personal/asignar_acta_bajas.html')"
-                                        class="block p-2 rounded transition-colors"
-                                        :class="vistaActiva === 'asignar_acta_bajas' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Asignar
-                                        Acta de Bajas</a></li>
-                                <li><a href="#"
-                                        @click.prevent="cambiarVista('cambio_resguardos_bode', '../personal/cambio_resguardos_bode.html')"
-                                        class="block p-2 rounded transition-colors"
-                                        :class="vistaActiva === 'cambio_resguardos_bode' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Cambio
-                                        de Resguardos Bode</a></li>
                             </ul>
                         </li>
 
@@ -234,11 +207,6 @@
                                         class="block p-2 rounded transition-colors"
                                         :class="vistaActiva === 'qr' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Control
                                         QR</a></li>
-                                <li><a href="#"
-                                        @click.prevent="cambiarVista('historial', '../historial/historial.html')"
-                                        class="block p-2 rounded transition-colors"
-                                        :class="vistaActiva === 'historial' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Historial
-                                        y Trazabilidad</a></li>
                             </ul>
                         </li>
                     </div>
