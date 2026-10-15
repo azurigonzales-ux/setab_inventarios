@@ -190,8 +190,9 @@
                             </button>
                             <ul x-show="menuAbierto === 'reportes'" x-collapse
                                 class="bg-white/50 px-2 py-2 space-y-1 text-sm border-t border-gray-100">
-                                <li><a href="#"
-                                        class="block p-2 rounded transition-colors hover:bg-guinda hover:text-white">Reportes
+                                <li><a href="#" @click.prevent="cambiarVista('reportes', '../reportes/reportes.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'reportes' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Reportes
                                         Semestrales</a></li>
                             </ul>
                         </li>
@@ -361,6 +362,127 @@
                     vialidPost: '', refVialid: '', zonaEscolar: '', sector: '', director: ''
                 },
 
+                filtroSemestreReporte: '2026-2',
+                filtroCategoriaReporte: '',
+                filtroAreaReporte: '',
+                filtroEstadoReporte: '',
+
+                get articulosReporteFiltrados() {
+                    return this.articulos.filter(a => {
+                        const matchCat = !this.filtroCategoriaReporte || a.categoria === this.filtroCategoriaReporte;
+                        const matchArea = !this.filtroAreaReporte || a.areaUbicacion === this.filtroAreaReporte;
+                        const matchEst = !this.filtroEstadoReporte || (a.estadoFisico || 'BUENO') === this.filtroEstadoReporte;
+                        return matchCat && matchArea && matchEst;
+                    });
+                },
+
+                get metricasReporte() {
+                    const lista = this.articulosReporteFiltrados;
+                    const stockTotal = lista.reduce((acc, item) => acc + (Number(item.cantidadStock) || 0), 0);
+                    const valorTotal = lista.reduce((acc, item) => {
+                        const unitario = Number(item.valorInicial || item.precio || 0);
+                        const cant = Number(item.cantidadStock) > 0 ? Number(item.cantidadStock) : 1;
+                        return acc + (unitario * cant);
+                    }, 0);
+                    return {
+                        stockTotal: stockTotal,
+                        valorPatrimonial: valorTotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    };
+                },
+
+                exportarReporteCSV() {
+                    const filas = [
+                        ['FOLIO INVENTARIO', 'DESCRIPCION', 'MARCA', 'MODELO', 'SERIE', 'CATEGORIA', 'AREA', 'ESTADO FISICO', 'STOCK', 'VALOR INICIAL MXN']
+                    ];
+                    this.articulosReporteFiltrados.forEach(a => {
+                        filas.push([
+                            a.numeroInventario || 'S/N',
+                            (a.descripcion || '').replace(/,/g, ' '),
+                            (a.marca || '').replace(/,/g, ' '),
+                            (a.modelo || '').replace(/,/g, ' '),
+                            a.numeroSerie || a.serie || 'S/N',
+                            a.categoria || 'General',
+                            a.areaUbicacion || 'Almacen',
+                            a.estadoFisico || 'BUENO',
+                            a.cantidadStock ?? 0,
+                            Number(a.valorInicial || a.precio || 0).toFixed(2)
+                        ]);
+                    });
+                    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + filas.map(e => e.join(",")).join("\n");
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodedUri);
+                    link.setAttribute("download", `Reporte_Semestral_SETAB_${this.filtroSemestreReporte}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    this.notificar("Archivo CSV descargado correctamente", "exito");
+                },
+
+                imprimirReporteSemestral() {
+                    const ventana = window.open('', '_blank', 'width=1000,height=800');
+                    const filasHtml = this.articulosReporteFiltrados.map(a => `
+                        <tr>
+                            <td style="border:1px solid #cbd5e1;padding:6px;font-family:monospace;font-weight:bold;color:#981A35;">${a.numeroInventario || 'S/N'}</td>
+                            <td style="border:1px solid #cbd5e1;padding:6px;">${a.descripcion || ''} (${a.marca || 'S/N'})</td>
+                            <td style="border:1px solid #cbd5e1;padding:6px;font-family:monospace;">${a.numeroSerie || a.serie || 'S/N'}</td>
+                            <td style="border:1px solid #cbd5e1;padding:6px;">${a.areaUbicacion || 'Almacén Central'}</td>
+                            <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;">${a.estadoFisico || 'BUENO'}</td>
+                            <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;font-weight:bold;">${a.cantidadStock ?? 0}</td>
+                            <td style="border:1px solid #cbd5e1;padding:6px;text-align:right;font-family:monospace;">$ ${Number(a.valorInicial || a.precio || 0).toFixed(2)}</td>
+                        </tr>
+                    `).join('');
+
+                    ventana.document.write(`
+                        <html>
+                        <head>
+                            <title>Dictamen Semestral de Inventario - SETAB (${this.filtroSemestreReporte})</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; padding: 24px; color: #1e293b; }
+                                .header { border-bottom: 4px solid #981A35; padding-bottom: 12px; margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center; }
+                                h1 { color: #981A35; margin: 0; font-size: 20px; }
+                                table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 15px; }
+                                th { background: #981A35; color: white; padding: 8px; border: 1px solid #981A35; text-align: left; }
+                                .firmas { margin-top: 60px; display: flex; justify-content: space-around; text-align: center; font-size: 12px; }
+                                .linea { border-top: 1px solid #1e293b; width: 240px; padding-top: 6px; font-weight: bold; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="header">
+                                <div>
+                                    <h1>SECRETARÍA DE EDUCACIÓN DEL ESTADO DE TABASCO</h1>
+                                    <p style="margin:4px 0 0 0;font-size:12px;font-weight:bold;color:#BC955C;">DIRECCIÓN DE TECNOLOGÍAS DE LA INFORMACIÓN Y COMUNICACIÓN - REPORTE SEMESTRAL (${this.filtroSemestreReporte})</p>
+                                </div>
+                                <div style="text-align:right;font-size:11px;">
+                                    <p style="margin:0;"><strong>Fecha de Emisión:</strong> ${new Date().toLocaleDateString('es-MX')}</p>
+                                    <p style="margin:4px 0 0 0;"><strong>Valor Patrimonial:</strong> $ ${this.metricasReporte.valorPatrimonial} MXN</p>
+                                </div>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Folio Oficial</th>
+                                        <th>Descripción / Marca</th>
+                                        <th>No. Serie</th>
+                                        <th>Ubicación</th>
+                                        <th>Estado</th>
+                                        <th>Stock</th>
+                                        <th>Valor Unitario</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${filasHtml}</tbody>
+                            </table>
+                            <div class="firmas">
+                                <div class="linea">ELABORÓ (ALMACÉN CENTRAL)<br><span style="font-weight:normal;">${this.nombreUsuario}</span></div>
+                                <div class="linea">VO. BO. DIRECCIÓN DE TIC SETAB<br><span style="font-weight:normal;">Sello y Firma Institucional</span></div>
+                            </div>
+                        </body>
+                        </html>
+                    `);
+                    ventana.document.close();
+                    setTimeout(() => { ventana.print(); }, 400);
+                },
+
                 get centrosFiltrados() {
                     if (!this.busquedaCT) return this.centrosTrabajo;
                     const b = this.busquedaCT.toLowerCase();
@@ -513,7 +635,8 @@
                     return this.articulos.filter(a =>
                         (a.numeroInventario && a.numeroInventario.toLowerCase().includes(b)) ||
                         (a.descripcion && a.descripcion.toLowerCase().includes(b)) ||
-                        (a.marca && a.marca.toLowerCase().includes(b))
+                        (a.marca && a.marca.toLowerCase().includes(b)) ||
+                        (a.numeroSerie && a.numeroSerie.toLowerCase().includes(b))
                     );
                 },
 
@@ -534,8 +657,65 @@
 
                 imprimirEtiquetasSeleccionadas() {
                     if (this.itemsSeleccionadosQR.length === 0) return;
-                    this.notificar("Generando plantilla de impresión para " + this.itemsSeleccionadosQR.length + " equipos...", "exito");
-                    setTimeout(() => { this.itemsSeleccionadosQR = []; }, 1000);
+                    const seleccionados = this.articulos.filter(a => this.itemsSeleccionadosQR.includes(a.id));
+                    const ventana = window.open('', '_blank', 'width=900,height=700');
+
+                    const tarjetasHtml = seleccionados.map((art, idx) => `
+                        <div class="etiqueta">
+                            <div class="etiqueta-header">SETAB - PATRIMONIO ESTATAL</div>
+                            <div class="etiqueta-body">
+                                <div id="qr-print-${idx}" class="qr-box"></div>
+                                <div class="etiqueta-info">
+                                    <div class="folio">${art.numeroInventario || 'S/N'}</div>
+                                    <div class="desc">${(art.descripcion || art.marca || 'BIEN INSTITUCIONAL').substring(0, 42)}</div>
+                                    <div class="meta">SERIE: ${art.numeroSerie || art.serie || 'S/N'}</div>
+                                    <div class="meta">ÁREA: ${art.areaUbicacion || 'ALMACÉN CENTRAL'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+
+                    const datosSerializados = JSON.stringify(seleccionados.map(a => a.numeroInventario || String(a.id)));
+
+                    ventana.document.write(`
+                        <html>
+                        <head>
+                            <title>Impresión de Etiquetas QR - SETAB</title>
+                            <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"><\/script>
+                            <style>
+                                body { font-family: Arial, sans-serif; margin: 16px; }
+                                .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+                                .etiqueta { border: 2px solid #981A35; border-radius: 8px; overflow: hidden; page-break-inside: avoid; }
+                                .etiqueta-header { background: #981A35; color: #ffffff; font-size: 10px; font-weight: bold; text-align: center; padding: 4px; letter-spacing: 1px; }
+                                .etiqueta-body { display: flex; align-items: center; padding: 10px; gap: 12px; }
+                                .qr-box { width: 84px; height: 84px; flex-shrink: 0; }
+                                .etiqueta-info { font-size: 11px; line-height: 1.35; }
+                                .folio { font-family: monospace; font-size: 14px; font-weight: bold; color: #981A35; margin-bottom: 4px; }
+                                .desc { font-weight: bold; color: #1e293b; text-transform: uppercase; margin-bottom: 3px; }
+                                .meta { font-size: 9px; color: #475569; font-family: monospace; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="grid">${tarjetasHtml}</div>
+                            <script>
+                                const folios = ${datosSerializados};
+                                folios.forEach((texto, i) => {
+                                    new QRCode(document.getElementById('qr-print-' + i), {
+                                        text: texto,
+                                        width: 84,
+                                        height: 84,
+                                        colorDark: "#981A35",
+                                        colorLight: "#ffffff",
+                                        correctLevel: QRCode.CorrectLevel.H
+                                    });
+                                });
+                                setTimeout(() => { window.print(); }, 600);
+                            <\/script>
+                        </body>
+                        </html>
+                    `);
+                    ventana.document.close();
+                    this.itemsSeleccionadosQR = [];
                 },
 
                 iniciarEscaner() {
@@ -723,7 +903,8 @@
                     if (nombreVista === 'solicitudes') { this.cargarSolicitudesBaja(); }
                     if (nombreVista === 'centros_trabajo') this.cargarCentrosTrabajo();
                     if (nombreVista === 'catalogos_lista') this.cargarDatosCatalogoSelectivo();
-                    if (nombreVista === 'qr') this.cambiarTabQR('generar');
+                    if (nombreVista === 'qr') { this.cargarArticulos(); this.cambiarTabQR('generar'); }
+                    if (nombreVista === 'reportes') { this.cargarArticulos(); this.cargarSolicitudesBaja(); }
                     if (nombreVista === 'historial') { this.busquedaFolioHistorial = ''; this.equipoAuditado = null; }
                 },
 
@@ -1133,14 +1314,17 @@
 
                     this.procesandoTraspaso = true;
                     const firmaSaliente = document.getElementById('canvas-firma-traspaso').toDataURL("image/png");
+                    const idEntrante = parseInt(this.idDirectorEntrante);
 
                     try {
                         const payload = {
-                            idEmpleadoEntrante: parseInt(this.idDirectorEntrante),
+                            idEmpleadoSaliente: this.empleadoSeleccionado.id_empleado,
+                            idEmpleadoEntrante: idEntrante,
+                            cct: this.empleadoSeleccionado.cct,
                             firmaSalienteBase64: firmaSaliente
                         };
 
-                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/traspaso/${this.empleadoSeleccionado.cct}`, {
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/traspasos`, {
                             method: 'POST',
                             mode: 'cors',
                             headers: {
@@ -1151,7 +1335,8 @@
                         });
 
                         if (respuesta.ok) {
-                            this.notificar("¡Traspaso masivo ejecutado con éxito!", "exito");
+                            this.notificar("¡Traspaso ejecutado! Generando Acta de Entrega-Recepción...", "exito");
+                            await this.imprimirActaTraspaso(idEntrante);
                             this.cerrarModalTraspaso();
                             this.cargarEmpleados();
                         } else {
@@ -1164,11 +1349,73 @@
                         this.procesandoTraspaso = false;
                     }
                 },
+
+                async imprimirActaTraspaso(idEmpleadoTarget) {
+                    try {
+                        const resp = await fetch(`${SETAB_CONFIG.backendUrl}/api/traspasos/acta/${encodeURIComponent(idEmpleadoTarget)}`, {
+                            headers: { 'Authorization': `Bearer ${this.token}` }
+                        });
+                        if (!resp.ok) return;
+                        const acta = await resp.json();
+                        const ventana = window.open('', '_blank', 'width=950,height=800');
+                        const filas = (acta.bienesTraspasados || []).map(r => `
+                            <tr>
+                                <td style="border:1px solid #cbd5e1;padding:6px;font-family:monospace;">${r.articulo?.numeroInventario || 'S/N'}</td>
+                                <td style="border:1px solid #cbd5e1;padding:6px;">${r.articulo?.descripcion || r.articulo?.marca || 'Equipo'}</td>
+                                <td style="border:1px solid #cbd5e1;padding:6px;font-family:monospace;">${r.articulo?.numeroSerie || 'S/N'}</td>
+                                <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;">${r.cantidadAsignada || 1}</td>
+                            </tr>
+                        `).join('');
+
+                        ventana.document.write(`
+                            <html>
+                            <head>
+                                <title>Acta de Traspaso y Actualización CCT ${acta.cct}</title>
+                                <style>
+                                    body { font-family: Arial, sans-serif; padding: 30px; color: #1e293b; font-size: 12px; line-height: 1.5; }
+                                    h1 { color: #981A35; font-size: 18px; margin-bottom: 4px; }
+                                    table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 11px; }
+                                    th { background: #981A35; color: #fff; padding: 7px; text-align: left; }
+                                    .firmas { margin-top: 50px; display: flex; justify-content: space-between; text-align: center; }
+                                    .caja-firma { width: 42%; border-top: 1px solid #000; padding-top: 8px; }
+                                </style>
+                            </head>
+                            <body>
+                                <h1>SECRETARÍA DE EDUCACIÓN DEL ESTADO DE TABASCO</h1>
+                                <p><strong>ACTA DE ENTREGA-RECEPCIÓN Y ACTUALIZACIÓN DE RESGUARDO POR ROTACIÓN DE DIRECTOR</strong></p>
+                                <p><strong>Clave CCT:</strong> ${acta.cct} | <strong>Centro de Trabajo:</strong> ${acta.nombreEscuela || 'S/N'} | <strong>Fecha:</strong> ${acta.fechaTraspaso}</p>
+                                <p>Por medio de la presente se hace constar la transferencia de custodia y actualización de los bienes muebles propiedad de la SETAB asignados al Centro de Trabajo <strong>${acta.cct}</strong>, entregando el <strong>C. ${acta.directorSaliente}</strong> y recibiendo de conformidad el responsable <strong>C. ${acta.directorEntrante}</strong>, sin que ello implique baja del inventario central.</p>
+                                <table>
+                                    <thead>
+                                        <tr><th>Folio Inventario</th><th>Descripción del Bien</th><th>No. Serie</th><th>Cantidad</th></tr>
+                                    </thead>
+                                    <tbody>${filas}</tbody>
+                                </table>
+                                <div class="firmas">
+                                    <div class="caja-firma">
+                                        ${acta.firmaSalienteBase64 ? `<img src="${acta.firmaSalienteBase64}" style="height:60px;display:block;margin:0 auto 5px auto;">` : '<div style="height:65px;"></div>'}
+                                        <strong>ENTREGA (DIRECTOR SALIENTE)</strong><br>${acta.directorSaliente}
+                                    </div>
+                                    <div class="caja-firma">
+                                        <div style="height:65px;"></div>
+                                        <strong>RECIBE (DIRECTOR ENTRANTE)</strong><br>${acta.directorEntrante}
+                                    </div>
+                                </div>
+                            </body>
+                            </html>
+                        `);
+                        ventana.document.close();
+                        setTimeout(() => { ventana.print(); }, 400);
+                    } catch (e) {
+                        console.error(e);
+                    }
+                },
                 abrirModalQR(articulo) {
                     this.articuloSeleccionado = articulo;
                     this.modalQRAbierto = true;
                     this.$nextTick(() => {
-                        const container = document.getElementById('qr-container');
+                        const container = document.getElementById('qr-container') || document.getElementById('qr-container-vista');
+                        if (!container) return;
                         container.innerHTML = '';
                         new QRCode(container, {
                             text: articulo.numeroInventario || articulo.id.toString(),

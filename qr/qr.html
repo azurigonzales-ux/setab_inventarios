@@ -8,7 +8,8 @@
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div>
             <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">Control y Etiquetado QR</h1>
-            <p class="mt-1.5 text-sm text-gray-500">Genera etiquetas físicas o escanea equipos para auditoría.</p>
+            <p class="mt-1.5 text-sm text-gray-500">Genera etiquetas físicas institucionales o escanea equipos para
+                auditoría.</p>
         </div>
 
         <div class="flex bg-gray-100 p-1 rounded-lg shadow-inner">
@@ -29,7 +30,7 @@
         <div
             class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-dorado mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="relative w-full md:w-1/2">
-                <input type="text" x-model="busquedaQR" placeholder="Buscar por Folio, Descripción o Marca..."
+                <input type="text" x-model="busquedaQR" placeholder="Buscar por Folio, Descripción, Serie o Marca..."
                     class="w-full rounded-md border-gray-200 bg-gray-50 py-2.5 px-4 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda" />
             </div>
             <button @click="imprimirEtiquetasSeleccionadas()"
@@ -37,7 +38,7 @@
                 :disabled="itemsSeleccionadosQR.length === 0">
                 <i class="fas fa-print"></i>
                 <span
-                    x-text="itemsSeleccionadosQR.length > 0 ? `Imprimir (${itemsSeleccionadosQR.length}) Etiquetas` : 'Imprimir Etiquetas'"></span>
+                    x-text="itemsSeleccionadosQR.length > 0 ? `Imprimir (${itemsSeleccionadosQR.length}) Etiquetas Oficiales` : 'Selecciona artículos para imprimir'"></span>
             </button>
         </div>
 
@@ -55,11 +56,12 @@
                         <th class="px-4 py-4 text-left font-semibold text-gray-900 w-1/2">Descripción y Marca</th>
                         <th class="whitespace-nowrap px-4 py-4 text-center font-semibold text-gray-900">Área / Ubicación
                         </th>
-                        <th class="whitespace-nowrap px-4 py-4 text-center font-semibold text-gray-900">Código QR</th>
+                        <th class="whitespace-nowrap px-4 py-4 text-center font-semibold text-gray-900">Vista Previa QR
+                        </th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    <tr x-show="cargandoAuxiliar" x-cloak>
+                    <tr x-show="cargando" x-cloak>
                         <td colspan="5" class="px-4 py-8 text-center text-gray-500">Cargando catálogo para etiquetas...
                         </td>
                     </tr>
@@ -75,15 +77,16 @@
                             <td class="px-4 py-3 text-gray-700">
                                 <span class="font-bold uppercase" x-text="articulo.descripcion"></span><br>
                                 <span class="text-xs text-gray-500 uppercase"
-                                    x-text="'Marca: ' + (articulo.marca || 'S/N') + ' | Serie: ' + (articulo.serie || 'S/N')"></span>
+                                    x-text="'Marca: ' + (articulo.marca || 'S/N') + ' | Serie: ' + (articulo.numeroSerie || articulo.serie || 'S/N')"></span>
                             </td>
                             <td class="whitespace-nowrap px-4 py-3 text-center text-gray-600 text-xs font-medium uppercase"
                                 x-text="articulo.areaUbicacion || 'ALMACÉN'"></td>
                             <td class="whitespace-nowrap px-4 py-2 text-center flex justify-center">
-                                <div
-                                    class="w-10 h-10 border border-gray-200 bg-white p-1 rounded opacity-50 flex items-center justify-center">
-                                    <i class="fas fa-qrcode text-gray-400 text-xl"></i>
-                                </div>
+                                <button type="button" @click="abrirModalQR(articulo)"
+                                    class="w-10 h-10 border border-gray-200 bg-white p-1 rounded hover:border-guinda hover:text-guinda flex items-center justify-center transition-colors shadow-sm"
+                                    title="Ver etiqueta QR">
+                                    <i class="fas fa-qrcode text-gray-600 hover:text-guinda text-xl"></i>
+                                </button>
                             </td>
                         </tr>
                     </template>
@@ -123,8 +126,8 @@
                     <label class="block text-xs font-bold text-gray-500 uppercase text-center mb-2">Ingresar Folio
                         Manualmente</label>
                     <div class="flex gap-2">
-                        <input type="text" x-model="folioManual" placeholder="SE-AG-26-00000"
-                            class="flex-1 rounded-md border-gray-300 shadow-sm text-sm font-mono uppercase focus:ring-guinda focus:border-guinda">
+                        <input type="text" x-model="folioManual" placeholder="SE-AG-26-00001"
+                            class="flex-1 rounded-md border-gray-300 shadow-sm text-sm font-mono uppercase focus:ring-guinda focus:border-guinda py-2 px-3 border">
                         <button @click="buscarFolioManual()"
                             class="bg-dorado text-white px-4 py-2 rounded-md shadow hover:bg-opacity-90 font-bold"><i
                                 class="fas fa-search"></i></button>
@@ -132,7 +135,7 @@
                 </div>
             </div>
 
-            <div class="bg-gray-50 p-6 rounded-xl shadow-inner border border-gray-200 relative">
+            <div class="bg-gray-50 p-6 rounded-xl shadow-inner border border-gray-200 relative min-h-[420px]">
                 <div x-show="!resultadoEscaneo"
                     class="absolute inset-0 flex flex-col items-center justify-center text-gray-400 p-8 text-center">
                     <i class="fas fa-expand text-6xl mb-4 opacity-50"></i>
@@ -171,7 +174,7 @@
                             <div>
                                 <p class="text-[10px] text-gray-500 uppercase font-bold">Número de Serie</p>
                                 <p class="text-sm font-mono font-medium text-gray-800"
-                                    x-text="resultadoEscaneo?.serie || 'S/N'"></p>
+                                    x-text="resultadoEscaneo?.numeroSerie || resultadoEscaneo?.serie || 'S/N'"></p>
                             </div>
                         </div>
 
@@ -184,7 +187,7 @@
                             <span
                                 class="inline-flex mt-2 items-center px-2.5 py-0.5 rounded-full text-xs font-medium border"
                                 :class="resultadoEscaneo?.estado === 'Activo' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'"
-                                x-text="'Estado Físico: ' + (resultadoEscaneo?.estado || 'Desconocido')">
+                                x-text="'Estado Operativo: ' + (resultadoEscaneo?.estado || 'Activo')">
                             </span>
                         </div>
                     </div>
@@ -192,7 +195,7 @@
                     <div class="mt-4 pt-4 border-t border-gray-200 flex gap-3">
                         <button @click="abrirModalHistorial(resultadoEscaneo)"
                             class="flex-1 bg-white border border-guinda text-guinda py-2.5 rounded-lg font-bold hover:bg-guinda hover:text-white transition-colors flex justify-center items-center gap-2 text-sm shadow-sm">
-                            <i class="fas fa-history"></i> Ver Historial
+                            <i class="fas fa-history"></i> Ver Historial Auditable
                         </button>
                     </div>
                 </div>
@@ -201,4 +204,26 @@
     </div>
 </div>
 
-<div id="zona-impresion-qr" class="hidden"></div>
+<div x-show="modalQRAbierto && vistaActiva === 'qr'" x-cloak class="relative z-50" role="dialog" aria-modal="true">
+    <div class="fixed inset-0 bg-gray-900 bg-opacity-75 transition-opacity"></div>
+    <div class="fixed inset-0 z-20 w-screen overflow-y-auto">
+        <div class="flex min-h-full items-center justify-center p-4 text-center sm:p-0">
+            <div
+                class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-sm border-t-8 border-dorado">
+                <div class="bg-white px-6 pb-4 pt-6 flex flex-col items-center">
+                    <h3 class="text-xl font-bold leading-6 text-gray-900 mb-2 text-center">Etiqueta QR Oficial</h3>
+                    <p class="text-xs text-gray-500 text-center mb-4">Folio: <span
+                            class="font-bold text-guinda font-mono"
+                            x-text="articuloSeleccionado.numeroInventario"></span></p>
+                    <div id="qr-container-vista"
+                        class="bg-white p-4 border border-gray-200 rounded-lg shadow-inner mb-4 flex justify-center w-full">
+                    </div>
+                </div>
+                <div class="bg-gray-50 px-6 py-4 flex justify-center">
+                    <button type="button" @click="cerrarModalQR()"
+                        class="inline-flex w-full justify-center rounded-md bg-white px-6 py-2.5 text-sm font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Cerrar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

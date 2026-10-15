@@ -1,0 +1,142 @@
+<div x-show="!cargandoVista && rolUsuario !== 'SUPERADMIN'" x-cloak
+    class="bg-red-50 text-red-700 p-6 rounded-xl border border-red-200 text-center shadow-sm">
+    <h2 class="text-xl font-bold mb-2">Acceso Denegado</h2>
+    <p>Solo el Almacén Central puede generar los Reportes Semestrales del inventario.</p>
+</div>
+
+<div x-show="rolUsuario === 'SUPERADMIN' && vistaActiva === 'reportes'" x-cloak x-transition.opacity>
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">Reportes Semestrales y Auditoría</h1>
+            <p class="mt-1.5 text-sm text-gray-500">Concentrado ejecutivo del patrimonio institucional, valoración
+                financiera y estatus operativo.</p>
+        </div>
+        <div class="flex flex-wrap gap-3">
+            <button @click="exportarReporteCSV()"
+                class="inline-flex items-center gap-2 rounded-lg bg-white border border-gray-300 px-4 py-2.5 text-sm font-bold text-gray-700 transition hover:bg-gray-50 shadow-sm">
+                <i class="fas fa-file-csv text-green-600"></i>
+                Exportar Excel (CSV)
+            </button>
+            <button @click="imprimirReporteSemestral()"
+                class="inline-flex items-center gap-2 rounded-lg bg-guinda px-5 py-2.5 text-sm font-bold text-white transition hover:bg-guinda-dark shadow-sm">
+                <i class="fas fa-file-pdf"></i>
+                Emitir Dictamen PDF
+            </button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-guinda">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Partidas / Registros</p>
+            <p class="text-2xl font-extrabold text-gray-900 mt-1" x-text="articulosReporteFiltrados.length"></p>
+            <p class="text-xs text-gray-500 mt-1">Bienes catalogados</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-green-600">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Unidades en Stock Libre</p>
+            <p class="text-2xl font-extrabold text-green-700 mt-1" x-text="metricasReporte.stockTotal"></p>
+            <p class="text-xs text-gray-500 mt-1">Disponibles en almacén</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-red-500">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Solicitudes de Baja</p>
+            <p class="text-2xl font-extrabold text-red-600 mt-1" x-text="solicitudesBaja.length"></p>
+            <p class="text-xs text-gray-500 mt-1">En proceso de dictamen</p>
+        </div>
+        <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-l-4 border-l-dorado">
+            <p class="text-xs font-bold text-gray-400 uppercase tracking-wider">Valor Patrimonial Neto</p>
+            <p class="text-2xl font-extrabold text-dorado font-mono mt-1"
+                x-text="'$ ' + metricasReporte.valorPatrimonial"></p>
+            <p class="text-xs text-gray-500 mt-1">Acumulado MXN (Con IVA)</p>
+        </div>
+    </div>
+
+    <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-dorado mb-6">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Periodo Semestral</label>
+                <select x-model="filtroSemestreReporte"
+                    class="w-full rounded-md border-gray-200 bg-white py-2 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda">
+                    <option value="2026-2">2do Semestre 2026 (Ago - Dic)</option>
+                    <option value="2026-1">1er Semestre 2026 (Ene - Jul)</option>
+                    <option value="2027-1">1er Semestre 2027 (Ene - Jun)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Categoría</label>
+                <select x-model="filtroCategoriaReporte"
+                    class="w-full rounded-md border-gray-200 bg-white py-2 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda">
+                    <option value="">Todas las Categorías</option>
+                    <option value="Tecnologia">Tecnología</option>
+                    <option value="Insumos">Insumos</option>
+                    <option value="Mobiliario">Mobiliario</option>
+                    <option value="Vehiculos">Vehículos</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Área / Adscripción</label>
+                <select x-model="filtroAreaReporte"
+                    class="w-full rounded-md border-gray-200 bg-white py-2 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda">
+                    <option value="">Todas las Áreas</option>
+                    <option value="TI">Dirección de TI</option>
+                    <option value="RecursosHumanos">Recursos Humanos</option>
+                    <option value="AlmacenGeneral">Almacén General</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-xs font-bold text-gray-600 uppercase mb-1">Estado Físico</label>
+                <select x-model="filtroEstadoReporte"
+                    class="w-full rounded-md border-gray-200 bg-white py-2 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda">
+                    <option value="">Todos los Estados</option>
+                    <option value="NUEVO">NUEVO</option>
+                    <option value="BUENO">BUENO</option>
+                    <option value="REGULAR">REGULAR</option>
+                    <option value="MALO">MALO</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
+        <table class="min-w-full divide-y-2 divide-gray-200 text-sm">
+            <thead class="bg-gray-50">
+                <tr>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-900">Folio Oficial</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-900">Descripción / Marca / Serie</th>
+                    <th class="px-4 py-3 text-left font-semibold text-gray-900">Categoría / Área</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-900">Estado Físico</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-900">Stock</th>
+                    <th class="px-4 py-3 text-right font-semibold text-gray-900">Valor Unitario</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+                <template x-for="item in articulosReporteFiltrados" :key="item.id">
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-4 py-3 font-mono font-bold text-guinda text-xs"
+                            x-text="item.numeroInventario || 'S/N'"></td>
+                        <td class="px-4 py-3">
+                            <p class="font-bold text-gray-900 uppercase text-xs"
+                                x-text="item.descripcion || item.marca"></p>
+                            <p class="text-xs text-gray-500 font-mono"
+                                x-text="(item.marca || 'S/N') + ' | Serie: ' + (item.numeroSerie || item.serie || 'S/N')">
+                            </p>
+                        </td>
+                        <td class="px-4 py-3 text-xs text-gray-700">
+                            <span class="font-semibold block" x-text="item.categoria || 'General'"></span>
+                            <span class="text-gray-500" x-text="item.areaUbicacion || 'Almacén Central'"></span>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <span class="px-2 py-0.5 rounded text-xs font-bold bg-gray-100 text-gray-700"
+                                x-text="item.estadoFisico || 'BUENO'"></span>
+                        </td>
+                        <td class="px-4 py-3 text-center font-bold" x-text="item.cantidadStock"></td>
+                        <td class="px-4 py-3 text-right font-mono font-semibold text-gray-900"
+                            x-text="'$ ' + Number(item.valorInicial || item.precio || 0).toFixed(2)"></td>
+                    </tr>
+                </template>
+                <tr x-show="articulosReporteFiltrados.length === 0">
+                    <td colspan="6" class="px-4 py-8 text-center text-gray-500">No hay registros que coincidan con los
+                        criterios del reporte.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
