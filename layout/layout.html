@@ -306,10 +306,13 @@
 
     <script>
         function layoutMaestro() {
+            const rawRol = sessionStorage.getItem('rolSETAB') ? sessionStorage.getItem('rolSETAB').replace(/['"]+/g, '').trim() : '';
+            const rolNormalizado = rawRol.toUpperCase() === 'SUPERADMIN' ? 'SUPERADMIN' : (rawRol.toLowerCase() === 'admin' ? 'admin' : rawRol);
+
             return {
                 sidebarAbierto: false,
                 token: sessionStorage.getItem('tokenSETAB') ? sessionStorage.getItem('tokenSETAB').replace(/['"]+/g, '') : null,
-                rolUsuario: sessionStorage.getItem('rolSETAB') ? sessionStorage.getItem('rolSETAB').replace(/['"]+/g, '') : '',
+                rolUsuario: rolNormalizado,
                 nombreUsuario: sessionStorage.getItem('nombreSETAB') || 'Usuario',
 
                 vistaActiva: '',
@@ -334,10 +337,10 @@
                 nuevoArticulo: {
                     numeroInventario: '', tipoMaterial: '', subClave: '', categoria: '', areaUbicacion: '', descripcion: '',
                     marca: '', modelo: '', serie: '', numeroSerie: '', color: '', estadoFisico: 'NUEVO', estado: 'Activo',
-                    proveedor: '', factura: '', fechaFactura: '',
+                    proveedor: '', factura: '', fechaFactura: null,
                     precioSinIva: null, precio: null, valorInicial: null,
                     pedido: '', requisicion: '', naturalezaGasto: '', partida: '',
-                    motor: '', placa: '', poliza: '', vigenciaPoliza: '',
+                    motor: '', placa: '', poliza: '', vigenciaPoliza: null,
                     centroTrabajo: '', responsable: '', boletaSalida: '', cantidadStock: 1
                 },
                 busquedaEmpleado: '', datosResguardo: { idEmpleado: '', cantidad: 1, firmaBase64: null, latitud: null, longitud: null },
@@ -945,7 +948,12 @@
                 async guardarNuevoUsuario() {
                     this.guardando = true;
                     try {
-                        const payload = { ...this.nuevoUsuario, cct: this.nuevoUsuario.cct ? this.nuevoUsuario.cct.toUpperCase() : 'CENTRAL' };
+                        const payload = {
+                            ...this.nuevoUsuario,
+                            cct: this.nuevoUsuario.cct ? this.nuevoUsuario.cct.toUpperCase() : 'CENTRAL',
+                            keycloakUrl: SETAB_CONFIG.keycloakUrl,
+                            realm: SETAB_CONFIG.realm
+                        };
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/usuarios`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
                         if (respuesta.ok) {
                             this.cerrarModalRegistro();
@@ -954,7 +962,7 @@
                             this.notificar("¡Director registrado y sincronizado!", "exito");
                         } else {
                             const err = await respuesta.json().catch(() => ({}));
-                            this.notificar(err.error || "Error al crear usuario. Verifica que el RFC/usuario no esté repetido.", "error");
+                            this.notificar(err.error || "Error al crear usuario.", "error");
                         }
                     } catch (error) { this.notificar("Error de conexión al servidor.", "error"); } finally { this.guardando = false; }
                 },
@@ -966,9 +974,13 @@
                     if (this.nuevaPassword.trim().length < 4) { this.notificar("La contraseña debe tener al menos 4 caracteres.", "error"); return; }
                     this.guardando = true;
                     try {
-                        const payload = { nuevaPassword: this.nuevaPassword };
+                        const payload = {
+                            nuevaPassword: this.nuevaPassword.trim(),
+                            keycloakUrl: SETAB_CONFIG.keycloakUrl,
+                            realm: SETAB_CONFIG.realm
+                        };
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/usuarios/${this.usuarioSeleccionado.id}/reset-password`, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
-                        if (respuesta.ok) { this.notificar("¡Contraseña actualizada!", "exito"); this.cerrarModalReset(); }
+                        if (respuesta.ok) { this.notificar("¡Contraseña actualizada y sincronizada!", "exito"); this.cerrarModalReset(); }
                         else { this.notificar("Error al intentar cambiar la contraseña.", "error"); }
                     } catch (error) { this.notificar("Fallo de conexión al servidor.", "error"); } finally { this.guardando = false; }
                 },
@@ -1158,10 +1170,10 @@
                         numeroInventario: folioAutogenerado,
                         tipoMaterial: '', subClave: '', categoria: '', areaUbicacion: '', descripcion: '',
                         marca: '', modelo: '', serie: '', numeroSerie: '', color: '', estadoFisico: 'NUEVO', estado: 'Activo',
-                        proveedor: '', factura: '', fechaFactura: '',
+                        proveedor: '', factura: '', fechaFactura: null,
                         precioSinIva: null, precio: null, valorInicial: null,
                         pedido: '', requisicion: '', naturalezaGasto: '', partida: '',
-                        motor: '', placa: '', poliza: '', vigenciaPoliza: '',
+                        motor: '', placa: '', poliza: '', vigenciaPoliza: null,
                         centroTrabajo: '', responsable: '', boletaSalida: '', cantidadStock: 1
                     };
                     this.nuevoUsuario = {
@@ -1184,9 +1196,19 @@
                         this.nuevoArticulo.cantidadStock = parseFloat(this.nuevoArticulo.cantidadStock) || 1;
                         this.nuevoArticulo.estado = 'Activo';
 
-                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(this.nuevoArticulo) });
-                        if (respuesta.ok) { this.cerrarModalRegistro(); this.cargarArticulos(); this.notificar("Registro guardado con éxito", "exito"); }
-                        else { this.notificar("Error al guardar", "error"); }
+                        const payload = { ...this.nuevoArticulo };
+                        if (!payload.fechaFactura || String(payload.fechaFactura).trim() === '') payload.fechaFactura = null;
+                        if (!payload.vigenciaPoliza || String(payload.vigenciaPoliza).trim() === '') payload.vigenciaPoliza = null;
+
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
+                        if (respuesta.ok) {
+                            this.cerrarModalRegistro();
+                            this.cargarArticulos();
+                            this.notificar("Registro guardado con éxito", "exito");
+                        } else {
+                            const err = await respuesta.json().catch(() => ({}));
+                            this.notificar(err.error || "Error al guardar el artículo", "error");
+                        }
                     } catch (error) { this.notificar("Error de conexión", "error"); } finally { this.guardando = false; }
                 },
 
@@ -1200,9 +1222,16 @@
                         if (this.articuloSeleccionado.serie && !this.articuloSeleccionado.numeroSerie) {
                             this.articuloSeleccionado.numeroSerie = this.articuloSeleccionado.serie;
                         }
-                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes/${this.articuloSeleccionado.id}`, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(this.articuloSeleccionado) });
+                        const payload = { ...this.articuloSeleccionado };
+                        if (!payload.fechaFactura || String(payload.fechaFactura).trim() === '') payload.fechaFactura = null;
+                        if (!payload.vigenciaPoliza || String(payload.vigenciaPoliza).trim() === '') payload.vigenciaPoliza = null;
+
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes/${this.articuloSeleccionado.id}`, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
                         if (respuesta.ok) { this.cerrarModal(); this.cargarArticulos(); this.notificar("Cambios guardados", "exito"); }
-                        else { this.notificar("Error al guardar cambios", "error"); }
+                        else {
+                            const err = await respuesta.json().catch(() => ({}));
+                            this.notificar(err.error || "Error al guardar cambios", "error");
+                        }
                     } catch (error) { this.notificar("Error de conexión", "error"); } finally { this.guardando = false; }
                 },
 

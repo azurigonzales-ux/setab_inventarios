@@ -32,7 +32,7 @@ public class ArticuloResource {
     private String obtenerNombreAdmin() {
         String adminNombre = "Administrador del Sistema";
         if (jwt != null && jwt.getName() != null) {
-            Usuario adminUser = Usuario.find("username", jwt.getName()).firstResult();
+            Usuario adminUser = Usuario.find("upper(username) = ?1", jwt.getName().trim().toUpperCase()).firstResult();
             if (adminUser != null && adminUser.nombreCompleto != null && !adminUser.nombreCompleto.isEmpty()) {
                 adminNombre = adminUser.nombreCompleto;
             } else {
@@ -102,11 +102,16 @@ public class ArticuloResource {
     @POST
     @Transactional
     public Response guardar(Articulo articulo) {
+        articulo.id = null;
+
         if (articulo.cantidadStock == null || articulo.cantidadStock <= 0) {
             articulo.cantidadStock = 1.0;
         }
         if (articulo.estado == null || articulo.estado.trim().isEmpty()) {
             articulo.estado = "Activo";
+        }
+        if (articulo.estadoFisico == null || articulo.estadoFisico.trim().isEmpty()) {
+            articulo.estadoFisico = "NUEVO";
         }
 
         articulo.persistAndFlush();
@@ -114,7 +119,6 @@ public class ArticuloResource {
         int anioCorto = LocalDate.now().getYear() % 100;
         String secuencial = String.format("%05d", articulo.id);
         articulo.numeroInventario = "SE-AG-" + anioCorto + "-" + secuencial;
-        
         articulo.tokenQR = UUID.randomUUID().toString();
         
         if (articulo.fechaAdquisicion == null) {
@@ -142,7 +146,7 @@ public class ArticuloResource {
         
         if (articuloExistente == null) {
             return Response.status(Response.Status.NOT_FOUND)
-                           .entity("El artículo con ID " + id + " no existe.")
+                           .entity("{\"error\": \"El artículo con ID " + id + " no existe.\"}")
                            .build();
         }
         
@@ -158,6 +162,20 @@ public class ArticuloResource {
         articuloExistente.valorUmas = articuloActualizado.valorUmas;
         articuloExistente.valorInicial = articuloActualizado.valorInicial;
         articuloExistente.porcentajeDepreciacion = articuloActualizado.porcentajeDepreciacion;
+        articuloExistente.tipoMaterial = articuloActualizado.tipoMaterial;
+        articuloExistente.subClave = articuloActualizado.subClave;
+        articuloExistente.color = articuloActualizado.color;
+        articuloExistente.proveedor = articuloActualizado.proveedor;
+        articuloExistente.factura = articuloActualizado.factura;
+        articuloExistente.fechaFactura = articuloActualizado.fechaFactura;
+        articuloExistente.precioSinIva = articuloActualizado.precioSinIva;
+        articuloExistente.pedido = articuloActualizado.pedido;
+        articuloExistente.naturalezaGasto = articuloActualizado.naturalezaGasto;
+        articuloExistente.partida = articuloActualizado.partida;
+        articuloExistente.motor = articuloActualizado.motor;
+        articuloExistente.placa = articuloActualizado.placa;
+        articuloExistente.poliza = articuloActualizado.poliza;
+        articuloExistente.vigenciaPoliza = articuloActualizado.vigenciaPoliza;
         
         HistorialTrazabilidad historial = new HistorialTrazabilidad();
         historial.articulo = articuloExistente;

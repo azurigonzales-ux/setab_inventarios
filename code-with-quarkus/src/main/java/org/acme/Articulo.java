@@ -1,12 +1,15 @@
 package org.acme;
 
 import java.time.LocalDate;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 
 @Entity
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class Articulo extends PanacheEntity {
 
     public String numeroInventario;
@@ -46,6 +49,45 @@ public class Articulo extends PanacheEntity {
     public String placa;
     public String poliza;
     public LocalDate vigenciaPoliza;
+
+    @JsonSetter("fechaFactura")
+    public void setFechaFacturaSegura(String valor) {
+        if (valor == null || valor.trim().isEmpty()) {
+            this.fechaFactura = null;
+        } else {
+            try {
+                this.fechaFactura = LocalDate.parse(valor.trim());
+            } catch (Exception e) {
+                this.fechaFactura = null;
+            }
+        }
+    }
+
+    @JsonSetter("vigenciaPoliza")
+    public void setVigenciaPolizaSegura(String valor) {
+        if (valor == null || valor.trim().isEmpty()) {
+            this.vigenciaPoliza = null;
+        } else {
+            try {
+                this.vigenciaPoliza = LocalDate.parse(valor.trim());
+            } catch (Exception e) {
+                this.vigenciaPoliza = null;
+            }
+        }
+    }
+
+    @JsonSetter("fechaAdquisicion")
+    public void setFechaAdquisicionSegura(String valor) {
+        if (valor == null || valor.trim().isEmpty()) {
+            this.fechaAdquisicion = null;
+        } else {
+            try {
+                this.fechaAdquisicion = LocalDate.parse(valor.trim());
+            } catch (Exception e) {
+                this.fechaAdquisicion = null;
+            }
+        }
+    }
 
     @JsonProperty("serie")
     public void setSerieAlias(String serie) {
