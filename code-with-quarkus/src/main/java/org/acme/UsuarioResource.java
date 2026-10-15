@@ -14,7 +14,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -34,9 +33,6 @@ public class UsuarioResource {
 
     @Inject
     ObjectMapper mapper;
-
-    @Inject
-    EntityManager em;
 
     @ConfigProperty(name = "quarkus.oidc.auth-server-url")
     Optional<String> oidcAuthServerUrl;
@@ -103,23 +99,11 @@ public class UsuarioResource {
         return "setab-erp";
     }
 
-    private void sincronizarSecuencias() {
-        try {
-            em.createNativeQuery("SELECT setval(pg_get_serial_sequence('empleado', 'id_empleado'), COALESCE((SELECT MAX(id_empleado) FROM empleado), 1))").getSingleResult();
-        } catch (Exception ignored) {
-        }
-        try {
-            em.createNativeQuery("SELECT setval(pg_get_serial_sequence('usuario', 'id'), COALESCE((SELECT MAX(id) FROM usuario), 1))").getSingleResult();
-        } catch (Exception ignored) {
-        }
-    }
-
     @GET
     @Transactional
     public Response listarUsuarios() {
         List<Usuario> usuarios = Usuario.listAll();
         if (usuarios.isEmpty()) {
-            sincronizarSecuencias();
             List<Empleado> empleados = Empleado.listAll();
             for (Empleado emp : empleados) {
                 if (emp.usuario != null && !emp.usuario.trim().isEmpty()) {
@@ -143,67 +127,59 @@ public class UsuarioResource {
     @POST
     @Transactional
     public Response crearUsuario(NuevoUsuarioDTO dto) {
-        try {
-            if (dto == null || dto.username == null || dto.username.trim().isEmpty()) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity("{\"error\": \"El nombre de usuario es obligatorio.\"}").build();
-            }
-
-            sincronizarSecuencias();
-
-            String cleanUsername = dto.username.trim().toUpperCase();
-            Usuario existente = Usuario.find("upper(username) = ?1", cleanUsername).firstResult();
-            if (existente != null) {
-                return Response.status(Response.Status.BAD_REQUEST)
-                        .entity("{\"error\": \"El usuario o RFC ya está registrado.\"}").build();
-            }
-
-            String nombreCompleto = ((dto.nombre != null ? dto.nombre.trim() : "") + " " + (dto.apellidos != null ? dto.apellidos.trim() : "")).trim().toUpperCase();
-            String rolNormalizado = (dto.rol != null && dto.rol.equalsIgnoreCase("SUPERADMIN")) ? "SUPERADMIN" : "Admin";
-            String rolKeycloak = rolNormalizado.equals("SUPERADMIN") ? "SUPERADMIN" : "admin";
-
-            String keycloakUserId = sincronizarCreacionKeycloak(
-                    cleanUsername,
-                    dto.nombre != null ? dto.nombre.trim().toUpperCase() : cleanUsername,
-                    dto.apellidos != null ? dto.apellidos.trim().toUpperCase() : "",
-                    dto.email != null ? dto.email.trim() : cleanUsername.toLowerCase() + "@setab.gob.mx",
-                    dto.password != null ? dto.password : "Setab2026*",
-                    rolKeycloak
-            );
-
-            Empleado emp = Empleado.find("upper(usuario) = ?1", cleanUsername).firstResult();
-            if (emp == null) {
-                emp = new Empleado();
-            }
-            emp.nombre = nombreCompleto;
-            emp.rfc = cleanUsername;
-            emp.usuario = cleanUsername;
-            emp.cct = dto.cct != null ? dto.cct.trim().toUpperCase() : "CENTRAL";
-            emp.nombreEscuela = dto.nombreEscuela != null ? dto.nombreEscuela.trim().toUpperCase() : "ALMACÉN CENTRAL";
-            emp.area = dto.nivelEducativo != null ? dto.nivelEducativo : "Área Central";
-            emp.cargo = rolNormalizado.equals("SUPERADMIN") ? "Administrador de Almacén" : "Director de Escuela";
-            emp.persistAndFlush();
-
-            Usuario nuevo = new Usuario();
-            nuevo.username = cleanUsername;
-            nuevo.password = dto.password;
-            nuevo.nombreCompleto = nombreCompleto;
-            nuevo.email = dto.email;
-            nuevo.cct = emp.cct;
-            nuevo.nivelEducativo = emp.area;
-            nuevo.nombreEscuela = emp.nombreEscuela;
-            nuevo.rol = rolNormalizado;
-            nuevo.estado = "Activo";
-            nuevo.keycloakId = keycloakUserId;
-            nuevo.idEmpleado = emp.idEmpleado;
-            nuevo.persistAndFlush();
-
-            return Response.status(Response.Status.CREATED).entity(nuevo).build();
-        } catch (Exception e) {
-            String msg = e.getMessage() != null ? e.getMessage().replace("\"", "'") : "Error al guardar usuario";
+        if (dto == null || dto.username == null || dto.username.trim().isEmpty()) {
             return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("{\"error\": \"" + msg + "\"}").build();
+                    .entity("{\"error\": \"El nombre de usuario es obligatorio.\"}").build();
         }
+
+        String cleanUsername = dto.username.trim().toUpperCase();
+        Usuario existente = Usuario.find("upper(username) = ?1", cleanUsername).firstResult();
+        if (existente != null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("{\"error\": \"El usuario o RFC ya está registrado.\"}").build();
+        }
+
+        String nombreCompleto = ((dto.nombre != null ? dto.nombre.trim() : "") + " " + (dto.apellidos != null ? dto.apellidos.trim() : "")).trim().toUpperCase();
+        String rolNormalizado = (dto.rol != null && dto.rol.equalsIgnoreCase("SUPERADMIN")) ? "SUPERADMIN" : "Admin";
+        String rolKeycloak = rolNormalizado.equals("SUPERADMIN") ? "SUPERADMIN" : "admin";
+
+        String keycloakUserId = sincronizarCreacionKeycloak(
+                cleanUsername,
+                dto.nombre != null ? dto.nombre.trim().toUpperCase() : cleanUsername,
+                dto.apellidos != null ? dto.apellidos.trim().toUpperCase() : "",
+                dto.email != null ? dto.email.trim() : cleanUsername.toLowerCase() + "@setab.gob.mx",
+                dto.password != null ? dto.password : "Setab2026*",
+                rolKeycloak
+        );
+
+        Empleado emp = Empleado.find("upper(usuario) = ?1", cleanUsername).firstResult();
+        if (emp == null) {
+            emp = new Empleado();
+        }
+        emp.nombre = nombreCompleto;
+        emp.rfc = cleanUsername;
+        emp.usuario = cleanUsername;
+        emp.cct = dto.cct != null ? dto.cct.trim().toUpperCase() : "CENTRAL";
+        emp.nombreEscuela = dto.nombreEscuela != null ? dto.nombreEscuela.trim().toUpperCase() : "ALMACÉN CENTRAL";
+        emp.area = dto.nivelEducativo != null ? dto.nivelEducativo : "Área Central";
+        emp.cargo = rolNormalizado.equals("SUPERADMIN") ? "Administrador de Almacén" : "Director de Escuela";
+        emp.persist();
+
+        Usuario nuevo = new Usuario();
+        nuevo.username = cleanUsername;
+        nuevo.password = dto.password;
+        nuevo.nombreCompleto = nombreCompleto;
+        nuevo.email = dto.email;
+        nuevo.cct = emp.cct;
+        nuevo.nivelEducativo = emp.area;
+        nuevo.nombreEscuela = emp.nombreEscuela;
+        nuevo.rol = rolNormalizado;
+        nuevo.estado = "Activo";
+        nuevo.keycloakId = keycloakUserId;
+        nuevo.idEmpleado = emp.idEmpleado;
+        nuevo.persist();
+
+        return Response.status(Response.Status.CREATED).entity(nuevo).build();
     }
 
     @PUT

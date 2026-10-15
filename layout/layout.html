@@ -263,8 +263,8 @@
                 <span class="font-bold text-guinda"
                     x-text="rolUsuario === 'SUPERADMIN' ? 'INVENTARIO CENTRAL' : 'SISTEMA DIRECTORES'"></span>
             </header>
-            <main class="p-6 md:p-8 w-full h-full relative overflow-y-auto" x-html="contenidoVista">
-                <div x-show="cargandoVista"
+            <main class="p-6 md:p-8 w-full h-full relative overflow-y-auto">
+                <div x-show="cargandoVista" x-cloak
                     class="absolute inset-0 bg-gray-50 flex flex-col items-center justify-center z-10">
                     <svg class="animate-spin h-10 w-10 text-guinda mb-4" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
@@ -275,6 +275,7 @@
                     </svg>
                     <p class="text-gray-500 font-medium">Cargando módulo...</p>
                 </div>
+                <div x-html="contenidoVista"></div>
             </main>
         </div>
     </div>
