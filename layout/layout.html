@@ -662,6 +662,11 @@
                     }
                 },
 
+                generarTextoQRArticulo(articulo) {
+                    if (!articulo) return 'SETAB';
+                    return `SETAB\nFOLIO: ${articulo.numeroInventario || articulo.id}\nBIEN: ${(articulo.descripcion || 'S/N').substring(0, 32)}\nMARCA: ${articulo.marca || 'S/N'}\nSERIE: ${articulo.numeroSerie || articulo.serie || 'S/N'}\nAREA: ${articulo.areaUbicacion || 'ALMACEN'}`;
+                },
+
                 imprimirEtiquetasSeleccionadas() {
                     if (this.itemsSeleccionadosQR.length === 0) return;
                     const seleccionados = this.articulos.filter(a => this.itemsSeleccionadosQR.includes(a.id));
@@ -675,6 +680,7 @@
                                 <div class="etiqueta-info">
                                     <div class="folio">${art.numeroInventario || 'S/N'}</div>
                                     <div class="desc">${(art.descripcion || art.marca || 'BIEN INSTITUCIONAL').substring(0, 42)}</div>
+                                    <div class="meta">MARCA: ${art.marca || 'S/N'}</div>
                                     <div class="meta">SERIE: ${art.numeroSerie || art.serie || 'S/N'}</div>
                                     <div class="meta">ÁREA: ${art.areaUbicacion || 'ALMACÉN CENTRAL'}</div>
                                 </div>
@@ -682,7 +688,7 @@
                         </div>
                     `).join('');
 
-                    const datosSerializados = JSON.stringify(seleccionados.map(a => a.numeroInventario || String(a.id)));
+                    const datosSerializados = JSON.stringify(seleccionados.map(a => this.generarTextoQRArticulo(a)));
 
                     ventana.document.write(`
                         <html>
@@ -695,7 +701,7 @@
                                 .etiqueta { border: 2px solid #981A35; border-radius: 8px; overflow: hidden; page-break-inside: avoid; }
                                 .etiqueta-header { background: #981A35; color: #ffffff; font-size: 10px; font-weight: bold; text-align: center; padding: 4px; letter-spacing: 1px; }
                                 .etiqueta-body { display: flex; align-items: center; padding: 10px; gap: 12px; }
-                                .qr-box { width: 84px; height: 84px; flex-shrink: 0; }
+                                .qr-box { width: 92px; height: 92px; flex-shrink: 0; }
                                 .etiqueta-info { font-size: 11px; line-height: 1.35; }
                                 .folio { font-family: monospace; font-size: 14px; font-weight: bold; color: #981A35; margin-bottom: 4px; }
                                 .desc { font-weight: bold; color: #1e293b; text-transform: uppercase; margin-bottom: 3px; }
@@ -705,15 +711,15 @@
                         <body>
                             <div class="grid">${tarjetasHtml}</div>
                             <script>
-                                const folios = ${datosSerializados};
-                                folios.forEach((texto, i) => {
+                                const textosQR = ${datosSerializados};
+                                textosQR.forEach((texto, i) => {
                                     new QRCode(document.getElementById('qr-print-' + i), {
                                         text: texto,
-                                        width: 84,
-                                        height: 84,
+                                        width: 92,
+                                        height: 92,
                                         colorDark: "#981A35",
                                         colorLight: "#ffffff",
-                                        correctLevel: QRCode.CorrectLevel.H
+                                        correctLevel: QRCode.CorrectLevel.M
                                     });
                                 });
                                 setTimeout(() => { window.print(); }, 600);
@@ -763,7 +769,13 @@
                     this.reproducirBeep();
                     this.detenerEscaner();
                     this.notificar("Código leído con éxito", "exito");
-                    this.buscarItemPorFolio(textoQR);
+                    const raw = String(textoQR || '').trim();
+                    const matchFolioEtiqueta = raw.match(/FOLIO:\s*([A-Za-z0-9\-_]+)/i);
+                    const matchFolioSEP = raw.match(/(SE-AG-\d{2}-\d+)/i);
+                    const folioExtraido = matchFolioEtiqueta
+                        ? matchFolioEtiqueta[1].trim().toUpperCase()
+                        : (matchFolioSEP ? matchFolioSEP[1].trim().toUpperCase() : raw);
+                    this.buscarItemPorFolio(folioExtraido);
                 },
 
                 buscarFolioManual() {
@@ -1267,7 +1279,10 @@
                         const payload = { idEmpleado: parseInt(this.datosResguardo.idEmpleado), cantidad: parseFloat(this.datosResguardo.cantidad), firmaEmpleadoBase64: this.datosResguardo.firmaBase64 };
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/asignar/${this.articuloSeleccionado.id}`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
                         if (respuesta.ok) { this.notificar("Asignado correctamente", "exito"); this.modalConfirmacionAbierto = false; this.cargarArticulos(); }
-                        else { this.notificar("Error en la asignación", "error"); }
+                        else {
+                            const err = await respuesta.json().catch(() => ({}));
+                            this.notificar(err.error || "Error en la asignación", "error");
+                        }
                     } catch (error) { this.notificar("Error de conexión", "error"); } finally { this.guardando = false; this.limpiarFirma('canvas-firma'); }
                 },
 
@@ -1477,12 +1492,12 @@
                         if (!container) return;
                         container.innerHTML = '';
                         new QRCode(container, {
-                            text: articulo.numeroInventario || articulo.id.toString(),
+                            text: this.generarTextoQRArticulo(articulo),
                             width: 200,
                             height: 200,
                             colorDark: "#981A35",
                             colorLight: "#ffffff",
-                            correctLevel: QRCode.CorrectLevel.H
+                            correctLevel: QRCode.CorrectLevel.M
                         });
                     });
                 },

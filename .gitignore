@@ -1,0 +1,40 @@
+# Datos locales y respaldos
+setab_datos/
+
+# Maven y Quarkus
+target/
+**/target/
+.quarkus/
+**/.quarkus/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+release.properties
+.flattened-pom.xml
+
+# IDEs y Editores
+.idea/
+*.ipr
+*.iml
+*.iws
+.project
+.classpath
+.settings/
+bin/
+.vscode/
+.factorypath
+nb-configuration.xml
+
+# Archivos temporales y Sistema Operativo
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.orig
+*.rej
+*.log
+*.tmp
+
+# Entorno local y certificados
+.env
+.certs/

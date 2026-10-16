@@ -27,7 +27,7 @@
     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-dorado mt-6">
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
             <div class="relative md:col-span-2">
-                <input type="text" x-model="filtroBusqueda" @input.debounce.500ms="aplicarFiltros()"
+                <input type="text" x-model="filtroBusqueda" @input.debounce.350ms="aplicarFiltros()"
                     placeholder="Buscar por marca, modelo o descripción..."
                     class="w-full rounded-md border-gray-200 bg-white py-2.5 px-4 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda" />
             </div>

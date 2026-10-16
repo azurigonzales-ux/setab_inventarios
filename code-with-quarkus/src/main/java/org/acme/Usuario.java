@@ -4,8 +4,14 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 
 @Entity
+@Table(indexes = {
+    @Index(name = "idx_usuario_username", columnList = "username"),
+    @Index(name = "idx_usuario_cct", columnList = "cct")
+})
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Usuario extends PanacheEntity {
 

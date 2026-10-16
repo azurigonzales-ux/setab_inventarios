@@ -12,8 +12,17 @@ import com.fasterxml.jackson.databind.annotation.JsonDeserialize;
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.Index;
+import jakarta.persistence.Table;
 
 @Entity
+@Table(indexes = {
+    @Index(name = "idx_articulo_num_inventario", columnList = "numeroInventario"),
+    @Index(name = "idx_articulo_num_serie", columnList = "numeroSerie"),
+    @Index(name = "idx_articulo_token_qr", columnList = "tokenQR"),
+    @Index(name = "idx_articulo_categoria", columnList = "categoria"),
+    @Index(name = "idx_articulo_area_ubicacion", columnList = "areaUbicacion")
+})
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Articulo extends PanacheEntity {
 

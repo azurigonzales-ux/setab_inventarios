@@ -125,21 +125,35 @@ public class ResguardoResource {
     @Transactional
     @RolesAllowed("SUPERADMIN")
     public Response asignar(@PathParam("idEquipo") Long idEquipo, AsignacionRequest request) {
-        Articulo articulo = Articulo.findById(idEquipo);
+        if (request == null || request.idEmpleado == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("{\"error\": \"Los datos de asignación y el servidor público son obligatorios.\"}")
+                    .build();
+        }
+
+        Articulo articulo = Articulo.findById(idEquipo, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
         Empleado empleado = Empleado.findById(request.idEmpleado);
 
         if (articulo == null || empleado == null) {
-            return Response.status(Response.Status.NOT_FOUND).entity("Artículo o Empleado no existe.").build();
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity("{\"error\": \"El artículo o el servidor público seleccionado no existe.\"}")
+                    .build();
         }
 
-        if (request.cantidad <= 0 || request.cantidad > articulo.cantidadStock) {
-            return Response.status(Response.Status.BAD_REQUEST).entity("Cantidad inválida o superior al stock disponible.").build();
+        double stockActual = articulo.cantidadStock != null ? articulo.cantidadStock : 0.0;
+        if (Double.isNaN(request.cantidad) || request.cantidad <= 0 || request.cantidad > stockActual) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("{\"error\": \"Stock insuficiente o cantidad inválida. Disponible actual: " + stockActual + "\"}")
+                    .build();
         }
 
-        articulo.cantidadStock -= request.cantidad;
+        double nuevoStock = Math.max(0.0, stockActual - request.cantidad);
+        articulo.cantidadStock = nuevoStock;
         if (articulo.cantidadStock <= 0) {
+            articulo.cantidadStock = 0.0;
             articulo.estado = "Agotado";
         }
+        articulo.persist();
 
         Resguardo resguardo = new Resguardo();
         resguardo.articulo = articulo;

@@ -211,12 +211,18 @@
             <div
                 class="relative transform overflow-hidden rounded-xl bg-white text-left shadow-2xl transition-all sm:my-8 sm:w-full sm:max-w-sm border-t-8 border-dorado">
                 <div class="bg-white px-6 pb-4 pt-6 flex flex-col items-center">
-                    <h3 class="text-xl font-bold leading-6 text-gray-900 mb-2 text-center">Etiqueta QR Oficial</h3>
-                    <p class="text-xs text-gray-500 text-center mb-4">Folio: <span
+                    <h3 class="text-xl font-bold leading-6 text-gray-900 mb-1 text-center">Etiqueta QR Oficial</h3>
+                    <p class="text-xs text-gray-500 text-center mb-3">Folio: <span
                             class="font-bold text-guinda font-mono"
-                            x-text="articuloSeleccionado.numeroInventario"></span></p>
+                            x-text="articuloSeleccionado.numeroInventario || articuloSeleccionado.id"></span></p>
                     <div id="qr-container-vista"
-                        class="bg-white p-4 border border-gray-200 rounded-lg shadow-inner mb-4 flex justify-center w-full">
+                        class="bg-white p-4 border border-gray-200 rounded-lg shadow-inner mb-3 flex justify-center w-full">
+                    </div>
+                    <div class="w-full bg-gray-50 border border-gray-200 rounded-lg p-3 text-[11px] font-mono text-gray-700 space-y-1">
+                        <div><span class="font-bold text-guinda">BIEN:</span> <span x-text="(articuloSeleccionado.descripcion || 'S/N').substring(0, 32)"></span></div>
+                        <div><span class="font-bold text-guinda">MARCA:</span> <span x-text="articuloSeleccionado.marca || 'S/N'"></span></div>
+                        <div><span class="font-bold text-guinda">SERIE:</span> <span x-text="articuloSeleccionado.numeroSerie || articuloSeleccionado.serie || 'S/N'"></span></div>
+                        <div><span class="font-bold text-guinda">ÁREA:</span> <span x-text="articuloSeleccionado.areaUbicacion || 'ALMACEN'"></span></div>
                     </div>
                 </div>
                 <div class="bg-gray-50 px-6 py-4 flex justify-center">
