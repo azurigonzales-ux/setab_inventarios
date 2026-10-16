@@ -442,6 +442,7 @@ public class UsuarioResource {
                         String token = intentarTokenConCredenciales(baseUrl, authRealm, clientId, cred[0], cred[1]);
                         if (token != null) {
                             if (tokenTienePermisoAdminUsuarios(baseUrl, targetRealm, token)) {
+                                configurarDuracionSesionRealmKeycloak(baseUrl, targetRealm, token);
                                 return new SesionAdminKeycloak(baseUrl, targetRealm, token);
                             }
                             if (fallbackTokenSinVerificar == null) {
@@ -454,16 +455,58 @@ public class UsuarioResource {
 
             if (jwt != null && jwt.getRawToken() != null && !jwt.getRawToken().isBlank()) {
                 if (tokenTienePermisoAdminUsuarios(baseUrl, targetRealm, jwt.getRawToken())) {
+                    configurarDuracionSesionRealmKeycloak(baseUrl, targetRealm, jwt.getRawToken());
                     return new SesionAdminKeycloak(baseUrl, targetRealm, jwt.getRawToken());
                 }
             }
         }
 
         if (fallbackTokenSinVerificar != null) {
+            configurarDuracionSesionRealmKeycloak(fallbackTokenSinVerificar.baseUrl, fallbackTokenSinVerificar.realm, fallbackTokenSinVerificar.token);
             return fallbackTokenSinVerificar;
         }
 
         throw new IllegalStateException("No se pudo obtener un token de administración válido en Keycloak (" + String.join(", ", baseUrls) + ") para el realm '" + targetRealm + "'. Verifique las credenciales de Keycloak Admin.");
+    }
+
+    private static volatile boolean realmLifespanConfigurado = false;
+
+    public void sincronizarDuracionSesionKeycloakAsync() {
+        if (realmLifespanConfigurado) return;
+        Thread.startVirtualThread(() -> {
+            try {
+                String targetRealm = resolverTargetRealm(null);
+                List<String> baseUrls = resolverCandidatosKeycloakBaseUrl(null);
+                abrirSesionAdminKeycloak(baseUrls, targetRealm);
+            } catch (Exception ignored) {
+            }
+        });
+    }
+
+    private void configurarDuracionSesionRealmKeycloak(String baseUrl, String realm, String token) {
+        if (realmLifespanConfigurado || baseUrl == null || realm == null || token == null) return;
+        try {
+            ObjectNode realmConfig = mapper.createObjectNode();
+            realmConfig.put("realm", realm);
+            realmConfig.put("accessTokenLifespan", 28800);
+            realmConfig.put("ssoSessionIdleTimeout", 28800);
+            realmConfig.put("ssoSessionMaxLifespan", 43200);
+            realmConfig.put("clientSessionIdleTimeout", 28800);
+            realmConfig.put("clientSessionMaxLifespan", 43200);
+
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(baseUrl + "/admin/realms/" + realm))
+                    .timeout(Duration.ofSeconds(10))
+                    .header("Authorization", "Bearer " + token)
+                    .header("Content-Type", "application/json")
+                    .PUT(HttpRequest.BodyPublishers.ofString(realmConfig.toString()))
+                    .build();
+            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() == 204 || resp.statusCode() == 200) {
+                realmLifespanConfigurado = true;
+            }
+        } catch (Exception ignored) {
+        }
     }
 
     private String buscarKeycloakUserId(String baseUrl, String realm, String token, String username) {

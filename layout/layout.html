@@ -23,11 +23,14 @@
             }
         }
     </script>
-    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/collapse@3.x.x/dist/cdn.min.js"></script>
     <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script defer src="https://unpkg.com/html5-qrcode"></script>
     <style>
         [x-cloak] {
             display: none !important;
@@ -65,9 +68,6 @@
             touch-action: none;
         }
 
-        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
-
-        *,
         html,
         body,
         p,
@@ -83,8 +83,12 @@
         input,
         button,
         select,
-        table {
-            font-family: 'Montserrat', sans-serif !important;
+        textarea,
+        table,
+        th,
+        td,
+        label {
+            font-family: 'Montserrat', sans-serif;
         }
     </style>
 </head>
@@ -310,18 +314,42 @@
 
     <script>
         function layoutMaestro() {
-            const rawRol = sessionStorage.getItem('rolSETAB') ? sessionStorage.getItem('rolSETAB').replace(/['"]+/g, '').trim() : '';
+            const DURACION_MAX_SESION_MS = 8 * 60 * 60 * 1000;
+            const rawInicio = sessionStorage.getItem('inicioSesionSETAB') || localStorage.getItem('inicioSesionSETAB');
+            const tsInicio = rawInicio ? parseInt(rawInicio, 10) : Date.now();
+            const sesionVigente = !isNaN(tsInicio) && (Date.now() - tsInicio < DURACION_MAX_SESION_MS);
+
+            if (sesionVigente && !sessionStorage.getItem('tokenSETAB') && localStorage.getItem('tokenSETAB')) {
+                sessionStorage.setItem('tokenSETAB', localStorage.getItem('tokenSETAB'));
+                sessionStorage.setItem('inicioSesionSETAB', String(tsInicio));
+                if (localStorage.getItem('refreshTokenSETAB')) sessionStorage.setItem('refreshTokenSETAB', localStorage.getItem('refreshTokenSETAB'));
+                if (localStorage.getItem('idTokenSETAB')) sessionStorage.setItem('idTokenSETAB', localStorage.getItem('idTokenSETAB'));
+                if (localStorage.getItem('rolSETAB')) sessionStorage.setItem('rolSETAB', localStorage.getItem('rolSETAB'));
+                if (localStorage.getItem('nombreSETAB')) sessionStorage.setItem('nombreSETAB', localStorage.getItem('nombreSETAB'));
+            } else if (!sessionStorage.getItem('inicioSesionSETAB') && sessionStorage.getItem('tokenSETAB')) {
+                const ahora = String(Date.now());
+                sessionStorage.setItem('inicioSesionSETAB', ahora);
+                localStorage.setItem('inicioSesionSETAB', ahora);
+            }
+
+            const rawRol = (sessionStorage.getItem('rolSETAB') || localStorage.getItem('rolSETAB') || '').replace(/['"]+/g, '').trim();
             const rolNormalizado = rawRol.toUpperCase() === 'SUPERADMIN' ? 'SUPERADMIN' : (rawRol.toLowerCase() === 'admin' ? 'admin' : rawRol);
 
             return {
                 sidebarAbierto: false,
                 token: sessionStorage.getItem('tokenSETAB') ? sessionStorage.getItem('tokenSETAB').replace(/['"]+/g, '') : null,
                 refreshToken: sessionStorage.getItem('refreshTokenSETAB') ? sessionStorage.getItem('refreshTokenSETAB').replace(/['"]+/g, '') : null,
+                inicioSesion: tsInicio,
+                duracionMaxSesionMs: DURACION_MAX_SESION_MS,
+                _promesaRefresh: null,
+                _audioCtx: null,
                 rolUsuario: rolNormalizado,
-                nombreUsuario: sessionStorage.getItem('nombreSETAB') || 'Usuario',
+                nombreUsuario: sessionStorage.getItem('nombreSETAB') || localStorage.getItem('nombreSETAB') || 'Usuario',
 
                 vistaActiva: '',
                 vistaSubMenuActiva: 'resguardos',
+                rutaArchivoActiva: '',
+                cacheVistas: {},
                 contenidoVista: '',
                 cargandoVista: false,
 
@@ -502,7 +530,8 @@
                     );
                 },
 
-                async cargarCentrosTrabajo() {
+                async cargarCentrosTrabajo(forzar = false) {
+                    if (!forzar && Array.isArray(this.centrosTrabajo) && this.centrosTrabajo.length > 0) return;
                     this.cargandoAuxiliar = true;
                     try {
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/centros-trabajo`, { method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` } });
@@ -531,7 +560,7 @@
                         const respuesta = await fetch(url, { method: metodo, mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(this.nuevoCT) });
                         if (respuesta.ok) {
                             this.cerrarModalCT();
-                            this.cargarCentrosTrabajo();
+                            this.cargarCentrosTrabajo(true);
                             this.notificar("Centro de Trabajo guardado.", "exito");
                         } else {
                             const err = await respuesta.json().catch(() => ({}));
@@ -552,23 +581,37 @@
                 ],
                 datosCatalogo: [],
                 catalogosAuxiliares: [],
+                catalogosMapa: {},
                 busquedaCatalogo: '',
                 modalCatalogoAbierto: false,
                 itemCatalogo: { id: null, clave: '', descripcion: '' },
 
                 catalogoPorTipo(tipo) {
-                    if (!Array.isArray(this.catalogosAuxiliares)) return [];
                     const t = (tipo || '').toLowerCase();
+                    if (this.catalogosMapa && Array.isArray(this.catalogosMapa[t])) {
+                        return this.catalogosMapa[t];
+                    }
+                    if (!Array.isArray(this.catalogosAuxiliares)) return [];
                     return this.catalogosAuxiliares.filter(i => i && (i.tipoCatalogo || '').toLowerCase() === t);
                 },
 
-                async cargarCatalogosAuxiliares() {
+                async cargarCatalogosAuxiliares(forzar = false) {
+                    if (!forzar && Array.isArray(this.catalogosAuxiliares) && this.catalogosAuxiliares.length > 0) return;
                     try {
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/catalogos/todos`, {
                             method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` }
                         });
                         if (respuesta.ok) {
-                            this.catalogosAuxiliares = await respuesta.json();
+                            const lista = await respuesta.json();
+                            this.catalogosAuxiliares = Array.isArray(lista) ? lista : [];
+                            const mapa = {};
+                            for (const item of this.catalogosAuxiliares) {
+                                if (!item) continue;
+                                const k = (item.tipoCatalogo || '').toLowerCase();
+                                if (!mapa[k]) mapa[k] = [];
+                                mapa[k].push(item);
+                            }
+                            this.catalogosMapa = mapa;
                         }
                     } catch (error) {
                         console.error("Error al cargar catálogos auxiliares:", error);
@@ -651,7 +694,7 @@
                         if (respuesta.ok) {
                             this.cerrarModalCatalogo();
                             this.cargarDatosCatalogoSelectivo();
-                            this.cargarCatalogosAuxiliares();
+                            this.cargarCatalogosAuxiliares(true);
                             this.notificar("Registro guardado exitosamente.", "exito");
                         } else {
                             this.notificar("Error al guardar en el catálogo.", "error");
@@ -845,13 +888,18 @@
 
                 reproducirBeep() {
                     try {
-                        const context = new (window.AudioContext || window.webkitAudioContext)();
-                        const oscillator = context.createOscillator();
+                        if (!this._audioCtx) {
+                            this._audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                        }
+                        if (this._audioCtx.state === 'suspended') {
+                            this._audioCtx.resume();
+                        }
+                        const oscillator = this._audioCtx.createOscillator();
                         oscillator.type = "sine";
                         oscillator.frequency.value = 800;
-                        oscillator.connect(context.destination);
+                        oscillator.connect(this._audioCtx.destination);
                         oscillator.start();
-                        setTimeout(() => { oscillator.stop(); }, 150);
+                        setTimeout(() => { try { oscillator.stop(); oscillator.disconnect(); } catch (err) {} }, 150);
                     } catch (e) { }
                 },
                 busquedaFolioHistorial: '',
@@ -907,45 +955,73 @@
                         this.cargandoHistorial = false;
                     }
                 },
+
+                sesionExpiradaPorTiempo() {
+                    const rawInicio = sessionStorage.getItem('inicioSesionSETAB') || localStorage.getItem('inicioSesionSETAB') || String(this.inicioSesion);
+                    const ts = parseInt(rawInicio, 10);
+                    if (isNaN(ts)) return false;
+                    return (Date.now() - ts) >= this.duracionMaxSesionMs;
+                },
+
                 async renovarTokenKeycloak() {
-                    const currentRefresh = this.refreshToken || sessionStorage.getItem('refreshTokenSETAB');
-                    if (!currentRefresh) return false;
-                    try {
-                        const params = new URLSearchParams();
-                        params.append('grant_type', 'refresh_token');
-                        params.append('client_id', SETAB_CONFIG.clientId);
-                        params.append('refresh_token', currentRefresh);
-
-                        const nativeFetch = window.__originalSetabFetch || window.fetch.bind(window);
-                        const resp = await nativeFetch(`${SETAB_CONFIG.keycloakUrl}/realms/${SETAB_CONFIG.realm}/protocol/openid-connect/token`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                            body: params.toString()
-                        });
-
-                        if (resp.ok) {
-                            const data = await resp.json();
-                            if (data.access_token) {
-                                this.token = data.access_token;
-                                sessionStorage.setItem('tokenSETAB', data.access_token);
-                            }
-                            if (data.refresh_token) {
-                                this.refreshToken = data.refresh_token;
-                                sessionStorage.setItem('refreshTokenSETAB', data.refresh_token);
-                            }
-                            if (data.id_token) {
-                                sessionStorage.setItem('idTokenSETAB', data.id_token);
-                            }
-                            return true;
-                        }
-                    } catch (e) {
-                        console.warn("No fue posible refrescar token:", e);
+                    if (this.sesionExpiradaPorTiempo()) {
+                        this.cerrarSesion();
+                        return false;
                     }
-                    return false;
+                    if (this._promesaRefresh) {
+                        return this._promesaRefresh;
+                    }
+                    const currentRefresh = this.refreshToken || sessionStorage.getItem('refreshTokenSETAB') || localStorage.getItem('refreshTokenSETAB');
+                    if (!currentRefresh) return false;
+
+                    this._promesaRefresh = (async () => {
+                        try {
+                            const params = new URLSearchParams();
+                            params.append('grant_type', 'refresh_token');
+                            params.append('client_id', SETAB_CONFIG.clientId);
+                            params.append('refresh_token', currentRefresh);
+
+                            const nativeFetch = window.__originalSetabFetch || window.fetch.bind(window);
+                            const resp = await nativeFetch(`${SETAB_CONFIG.keycloakUrl}/realms/${SETAB_CONFIG.realm}/protocol/openid-connect/token`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: params.toString()
+                            });
+
+                            if (resp.ok) {
+                                const data = await resp.json();
+                                if (data.access_token) {
+                                    this.token = data.access_token;
+                                    sessionStorage.setItem('tokenSETAB', data.access_token);
+                                    localStorage.setItem('tokenSETAB', data.access_token);
+                                }
+                                if (data.refresh_token) {
+                                    this.refreshToken = data.refresh_token;
+                                    sessionStorage.setItem('refreshTokenSETAB', data.refresh_token);
+                                    localStorage.setItem('refreshTokenSETAB', data.refresh_token);
+                                }
+                                if (data.id_token) {
+                                    sessionStorage.setItem('idTokenSETAB', data.id_token);
+                                    localStorage.setItem('idTokenSETAB', data.id_token);
+                                }
+                                return true;
+                            }
+                        } catch (e) {
+                            console.warn("Aviso al refrescar token en segundo plano:", e);
+                        } finally {
+                            this._promesaRefresh = null;
+                        }
+                        return false;
+                    })();
+
+                    return this._promesaRefresh;
                 },
 
                 init() {
-                    if (!this.token) { window.location.href = '../login/index.html'; return; }
+                    if (!this.token || this.sesionExpiradaPorTiempo()) {
+                        this.cerrarSesion();
+                        return;
+                    }
 
                     const self = this;
                     if (!window.__originalSetabFetch) {
@@ -966,6 +1042,10 @@
 
                             let respuesta = await window.__originalSetabFetch(input, initOpts);
                             if (esBackend && respuesta.status === 401) {
+                                if (self.sesionExpiradaPorTiempo()) {
+                                    self.cerrarSesion();
+                                    return respuesta;
+                                }
                                 const renovado = await self.renovarTokenKeycloak();
                                 if (renovado && self.token) {
                                     const retryOpts = { ...initOpts, headers: { ...(initOpts.headers || {}), 'Authorization': `Bearer ${self.token}` } };
@@ -977,26 +1057,52 @@
                     }
 
                     setInterval(() => {
-                        this.renovarTokenKeycloak();
+                        if (this.sesionExpiradaPorTiempo()) {
+                            this.cerrarSesion();
+                        } else {
+                            this.renovarTokenKeycloak();
+                        }
                     }, 210000);
+
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') {
+                            if (this.sesionExpiradaPorTiempo()) {
+                                this.cerrarSesion();
+                            } else {
+                                this.renovarTokenKeycloak();
+                            }
+                        }
+                    });
+
+                    window.addEventListener('focus', () => {
+                        if (this.sesionExpiradaPorTiempo()) {
+                            this.cerrarSesion();
+                        } else {
+                            this.renovarTokenKeycloak();
+                        }
+                    });
 
                     if (this.rolUsuario === 'SUPERADMIN') {
                         this.cambiarVista('catalogo', '../catalogo/catalogo.html');
                         this.cargarEmpleados();
                         this.cargarSolicitudesBaja();
                         this.cargarUsuarios();
-                        this.cargarCatalogosAuxiliares();
                         this.cargarCentrosTrabajo();
                     } else if (this.rolUsuario === 'admin') {
                         this.cambiarVista('mi_escuela', '../catalogo/catalogo.html');
+                        this.cargarPendientes();
                     }
                 },
 
                 async cambiarVista(nombreVista, rutaArchivo = null) {
-                    if (this.vistaActiva === nombreVista && this.contenidoVista !== '' && nombreVista !== 'resguardos' && nombreVista !== 'solicitudes') return;
+                    if (this.vistaActiva === nombreVista && this.contenidoVista !== '') return;
 
                     if (this.vistaActiva === 'qr' && nombreVista !== 'qr') {
                         this.detenerEscaner();
+                    }
+
+                    if (nombreVista === 'catalogo' && this.articulos.length > 50) {
+                        this.articulos = this.articulos.slice(0, 50);
                     }
 
                     this.vistaActiva = nombreVista;
@@ -1004,24 +1110,34 @@
                         this.vistaSubMenuActiva = nombreVista;
                     }
 
-                    if (rutaArchivo) {
-                        this.cargandoVista = true;
-                        this.contenidoVista = '';
-
-                        try {
-                            const respuesta = await fetch(rutaArchivo);
-                            if (respuesta.ok) {
-                                this.contenidoVista = await respuesta.text();
-                            } else {
-                                this.contenidoVista = `<div class="bg-red-50 text-red-600 p-6 rounded-xl border border-red-200">Error al cargar ${rutaArchivo}</div>`;
-                            }
-                        } catch (error) {
-                            console.error("Error SPA:", error);
-                        } finally {
-                            this.cargandoVista = false;
+                    if (rutaArchivo && (rutaArchivo !== this.rutaArchivoActiva || this.contenidoVista === '')) {
+                        if (this.cacheVistas[rutaArchivo]) {
+                            this.contenidoVista = this.cacheVistas[rutaArchivo];
+                            this.rutaArchivoActiva = rutaArchivo;
                             if (window.innerWidth < 1024) this.sidebarAbierto = false;
+                        } else {
+                            this.cargandoVista = true;
+                            try {
+                                const respuesta = await fetch(rutaArchivo);
+                                if (respuesta.ok) {
+                                    const html = await respuesta.text();
+                                    this.cacheVistas[rutaArchivo] = html;
+                                    this.contenidoVista = html;
+                                    this.rutaArchivoActiva = rutaArchivo;
+                                } else {
+                                    this.contenidoVista = `<div class="bg-red-50 text-red-600 p-6 rounded-xl border border-red-200">Error al cargar ${rutaArchivo}</div>`;
+                                }
+                            } catch (error) {
+                                console.error("Error SPA:", error);
+                            } finally {
+                                this.cargandoVista = false;
+                                if (window.innerWidth < 1024) this.sidebarAbierto = false;
+                            }
                         }
+                    } else if (window.innerWidth < 1024) {
+                        this.sidebarAbierto = false;
                     }
+
                     if (nombreVista === 'catalogo') { this.cargarArticulos(50); this.cargarCatalogosAuxiliares(); }
                     if (nombreVista === 'mi_escuela') this.cargarMisEquipos();
                     if (nombreVista === 'firmas') this.cargarPendientes();
@@ -1079,7 +1195,7 @@
                             this.cerrarModalRegistro();
                             this.cargarUsuarios();
                             this.cargarEmpleados();
-                            this.cargarCentrosTrabajo();
+                            this.cargarCentrosTrabajo(true);
                             this.notificar("¡Director registrado y sincronizado!", "exito");
                         } else {
                             const err = await respuesta.json().catch(() => ({}));
@@ -1168,7 +1284,7 @@
                     try {
                         const payload = { firmaSuperAdminBase64: this.firmaBase64 };
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/aprobar-baja/${this.equipoADevolver.idResguardo}`, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + this.token }, body: JSON.stringify(payload) });
-                        if (respuesta.status === 401) { this.cerrarSesion(); return; }
+                        if (respuesta.status === 401 && this.sesionExpiradaPorTiempo()) { this.cerrarSesion(); return; }
                         if (respuesta.ok) {
                             this.notificar("Baja autorizada. Enviada a bandeja del Director.", "exito");
                             this.cerrarModalAprobarBaja(); this.cargarSolicitudesBaja();
@@ -1259,7 +1375,7 @@
                         url.searchParams.append('size', limite);
 
                         const respuesta = await fetch(url, { method: 'GET', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` } });
-                        if (respuesta.status === 401) { this.cerrarSesion(); return; }
+                        if (respuesta.status === 401 && this.sesionExpiradaPorTiempo()) { this.cerrarSesion(); return; }
 
                         if (respuesta.ok) {
                             const datos = await respuesta.json();
@@ -1273,7 +1389,7 @@
                     this.cargando = true; this.errorMensaje = '';
                     try {
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/mis-equipos`, { method: 'GET', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` } });
-                        if (respuesta.status === 401) { this.cerrarSesion(); return; }
+                        if (respuesta.status === 401 && this.sesionExpiradaPorTiempo()) { this.cerrarSesion(); return; }
                         if (respuesta.ok) { this.misEquipos = await respuesta.json(); }
                         else { this.errorMensaje = "Error " + respuesta.status; }
                     } catch (error) { this.errorMensaje = 'Error de conexión'; } finally { this.cargando = false; }
@@ -1483,8 +1599,9 @@
                 },
 
                 cerrarSesion() {
-                    const idToken = sessionStorage.getItem('idTokenSETAB');
+                    const idToken = sessionStorage.getItem('idTokenSETAB') || localStorage.getItem('idTokenSETAB');
                     sessionStorage.clear();
+                    ['tokenSETAB', 'refreshTokenSETAB', 'idTokenSETAB', 'rolSETAB', 'nombreSETAB', 'inicioSesionSETAB'].forEach(k => localStorage.removeItem(k));
                     const baseUrl = window.location.origin;
                     if (!idToken) { window.location.href = '../login/index.html'; return; }
                     const logoutUrl = `${SETAB_CONFIG.keycloakUrl}/realms/${SETAB_CONFIG.realm}/protocol/openid-connect/logout?client_id=${SETAB_CONFIG.clientId}&post_logout_redirect_uri=${encodeURIComponent(baseUrl + '/login/index.html')}&id_token_hint=${idToken}`;
@@ -1635,10 +1752,14 @@
                 },
                 imprimirEtiquetaIndividual(articulo) {
                     if (!articulo || !articulo.id) return;
-                    const previos = [...this.articulosSeleccionadosQR];
-                    this.articulosSeleccionadosQR = [articulo.id];
+                    const previos = Array.isArray(this.itemsSeleccionadosQR) ? [...this.itemsSeleccionadosQR] : [];
+                    const existeEnLista = this.articulos.some(a => a && a.id === articulo.id);
+                    if (!existeEnLista) {
+                        this.articulos.push(articulo);
+                    }
+                    this.itemsSeleccionadosQR = [articulo.id];
                     this.imprimirEtiquetasSeleccionadas();
-                    this.articulosSeleccionadosQR = previos;
+                    this.itemsSeleccionadosQR = previos;
                 },
                 cerrarModalQR() {
                     this.modalQRAbierto = false;

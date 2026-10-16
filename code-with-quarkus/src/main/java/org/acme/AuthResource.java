@@ -52,7 +52,7 @@ public class AuthResource {
             String token = Jwt.issuer("sistema-inventario-setab")
                               .upn(usuarioDB.username)
                               .groups(new HashSet<>(Arrays.asList("Admin", rolUsuario)))
-                              .expiresIn(7200)
+                              .expiresIn(28800)
                               .sign();
 
             return Response.ok("{\"token\": \"" + token + "\", \"rol\": \"" + rolUsuario + "\"}").build();

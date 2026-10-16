@@ -77,13 +77,22 @@
                     this.keycloak.init({ onLoad: 'login-required', checkLoginIframe: false }).then((authenticated) => {
                         if (authenticated) {
                             this.mensaje = '¡Acceso concedido! Preparando sistema...';
+                            const ahora = String(Date.now());
+                            sessionStorage.setItem('inicioSesionSETAB', ahora);
+                            localStorage.setItem('inicioSesionSETAB', ahora);
                             sessionStorage.setItem('tokenSETAB', this.keycloak.token);
-                            sessionStorage.setItem('idTokenSETAB', this.keycloak.idToken);
+                            localStorage.setItem('tokenSETAB', this.keycloak.token);
+                            if (this.keycloak.idToken) {
+                                sessionStorage.setItem('idTokenSETAB', this.keycloak.idToken);
+                                localStorage.setItem('idTokenSETAB', this.keycloak.idToken);
+                            }
                             if (this.keycloak.refreshToken) {
                                 sessionStorage.setItem('refreshTokenSETAB', this.keycloak.refreshToken);
+                                localStorage.setItem('refreshTokenSETAB', this.keycloak.refreshToken);
                             }
                             let nombreReal = this.keycloak.tokenParsed.name || this.keycloak.tokenParsed.given_name || this.keycloak.tokenParsed.preferred_username;
                             sessionStorage.setItem('nombreSETAB', nombreReal);
+                            localStorage.setItem('nombreSETAB', nombreReal);
                             let rolPrincipal = 'Usuario';
                             if (this.keycloak.realmAccess && this.keycloak.realmAccess.roles) {
                                 let roles = this.keycloak.realmAccess.roles;
@@ -94,6 +103,7 @@
                                 }
                             }
                             sessionStorage.setItem('rolSETAB', rolPrincipal);
+                            localStorage.setItem('rolSETAB', rolPrincipal);
                             window.location.href = '../layout/layout.html';
                         }
                     }).catch((e) => {
