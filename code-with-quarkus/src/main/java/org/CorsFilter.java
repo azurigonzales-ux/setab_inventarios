@@ -40,6 +40,16 @@ public class CorsFilter implements ContainerRequestFilter, ContainerResponseFilt
     public static class GlobalErrorMapper implements ExceptionMapper<Throwable> {
         @Override
         public Response toResponse(Throwable exception) {
+            int status = Response.Status.BAD_REQUEST.getStatusCode();
+            String exName = exception.getClass().getName();
+            if (exception instanceof jakarta.ws.rs.WebApplicationException webEx && webEx.getResponse() != null) {
+                status = webEx.getResponse().getStatus();
+            } else if (exName.contains("Unauthorized") || exName.contains("AuthenticationFailed")) {
+                status = Response.Status.UNAUTHORIZED.getStatusCode();
+            } else if (exName.contains("Forbidden")) {
+                status = Response.Status.FORBIDDEN.getStatusCode();
+            }
+
             Throwable root = exception;
             while (root.getCause() != null && root.getCause() != root) {
                 root = root.getCause();
@@ -52,7 +62,7 @@ public class CorsFilter implements ContainerRequestFilter, ContainerResponseFilt
                     .replace("\r", " ")
                     .replace("\t", " ");
 
-            return Response.status(Response.Status.BAD_REQUEST)
+            return Response.status(status)
                     .header("Access-Control-Allow-Origin", "*")
                     .header("Access-Control-Allow-Credentials", "true")
                     .header("Access-Control-Allow-Headers", "origin, content-type, accept, authorization, x-requested-with")

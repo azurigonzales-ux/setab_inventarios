@@ -168,9 +168,16 @@
                             <div class="grid grid-cols-2 gap-4 border-t border-dorado/30 pt-4 mt-2">
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-1">CCT *</label>
-                                    <input type="text" x-model="nuevoUsuario.cct" required placeholder="Ej: 27DPR0000X"
+                                    <input type="text" x-model="nuevoUsuario.cct" list="lista-cct-oficiales"
+                                        @input="autocompletarEscuelaPorCCT()" @change="autocompletarEscuelaPorCCT()"
+                                        required placeholder="Ej: 27DPR0000X"
                                         class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border font-mono uppercase focus:ring-guinda focus:border-guinda"
                                         autocomplete="off">
+                                    <datalist id="lista-cct-oficiales">
+                                        <template x-for="ct in centrosTrabajo" :key="ct.id || ct.claveCT">
+                                            <option :value="ct.claveCT" x-text="ct.nombreCT"></option>
+                                        </template>
+                                    </datalist>
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-1">Nivel

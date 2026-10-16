@@ -225,9 +225,13 @@
                         <div><span class="font-bold text-guinda">ÁREA:</span> <span x-text="articuloSeleccionado.areaUbicacion || 'ALMACEN'"></span></div>
                     </div>
                 </div>
-                <div class="bg-gray-50 px-6 py-4 flex justify-center">
+                <div class="bg-gray-50 px-6 py-4 flex gap-3 justify-center">
+                    <button type="button" @click="imprimirEtiquetaIndividual(articuloSeleccionado)"
+                        class="inline-flex flex-1 justify-center items-center gap-2 rounded-md bg-guinda px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-guinda-dark transition-colors">
+                        <i class="fas fa-print"></i> Imprimir
+                    </button>
                     <button type="button" @click="cerrarModalQR()"
-                        class="inline-flex w-full justify-center rounded-md bg-white px-6 py-2.5 text-sm font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Cerrar</button>
+                        class="inline-flex flex-1 justify-center rounded-md bg-white px-4 py-2.5 text-sm font-bold text-gray-700 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Cerrar</button>
                 </div>
             </div>
         </div>

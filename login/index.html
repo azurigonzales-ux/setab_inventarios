@@ -79,6 +79,9 @@
                             this.mensaje = '¡Acceso concedido! Preparando sistema...';
                             sessionStorage.setItem('tokenSETAB', this.keycloak.token);
                             sessionStorage.setItem('idTokenSETAB', this.keycloak.idToken);
+                            if (this.keycloak.refreshToken) {
+                                sessionStorage.setItem('refreshTokenSETAB', this.keycloak.refreshToken);
+                            }
                             let nombreReal = this.keycloak.tokenParsed.name || this.keycloak.tokenParsed.given_name || this.keycloak.tokenParsed.preferred_username;
                             sessionStorage.setItem('nombreSETAB', nombreReal);
                             let rolPrincipal = 'Usuario';

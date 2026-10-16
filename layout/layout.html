@@ -216,6 +216,10 @@
                                         class="block p-2 rounded transition-colors"
                                         :class="vistaActiva === 'qr' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Control
                                         QR</a></li>
+                                <li><a href="#" @click.prevent="cambiarVista('historial', '../historial/historial.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'historial' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Trazabilidad /
+                                        Historial</a></li>
                             </ul>
                         </li>
                     </div>
@@ -312,6 +316,7 @@
             return {
                 sidebarAbierto: false,
                 token: sessionStorage.getItem('tokenSETAB') ? sessionStorage.getItem('tokenSETAB').replace(/['"]+/g, '') : null,
+                refreshToken: sessionStorage.getItem('refreshTokenSETAB') ? sessionStorage.getItem('refreshTokenSETAB').replace(/['"]+/g, '') : null,
                 rolUsuario: rolNormalizado,
                 nombreUsuario: sessionStorage.getItem('nombreSETAB') || 'Usuario',
 
@@ -546,9 +551,38 @@
                     { id: 'asentamientos', nombre: 'Tipos de Asentamientos', icono: 'fas fa-map-marker-alt' }
                 ],
                 datosCatalogo: [],
+                catalogosAuxiliares: [],
                 busquedaCatalogo: '',
                 modalCatalogoAbierto: false,
                 itemCatalogo: { id: null, clave: '', descripcion: '' },
+
+                catalogoPorTipo(tipo) {
+                    if (!Array.isArray(this.catalogosAuxiliares)) return [];
+                    const t = (tipo || '').toLowerCase();
+                    return this.catalogosAuxiliares.filter(i => i && (i.tipoCatalogo || '').toLowerCase() === t);
+                },
+
+                async cargarCatalogosAuxiliares() {
+                    try {
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/catalogos/todos`, {
+                            method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` }
+                        });
+                        if (respuesta.ok) {
+                            this.catalogosAuxiliares = await respuesta.json();
+                        }
+                    } catch (error) {
+                        console.error("Error al cargar catálogos auxiliares:", error);
+                    }
+                },
+
+                autocompletarEscuelaPorCCT() {
+                    if (!this.nuevoUsuario || !this.nuevoUsuario.cct) return;
+                    const clave = this.nuevoUsuario.cct.trim().toUpperCase();
+                    const ct = (this.centrosTrabajo || []).find(c => c && c.claveCT && c.claveCT.trim().toUpperCase() === clave);
+                    if (ct && ct.nombreCT) {
+                        this.nuevoUsuario.nombreEscuela = ct.nombreCT;
+                    }
+                },
 
                 get datosCatalogoFiltrados() {
                     if (!this.busquedaCatalogo) return this.datosCatalogo;
@@ -617,6 +651,7 @@
                         if (respuesta.ok) {
                             this.cerrarModalCatalogo();
                             this.cargarDatosCatalogoSelectivo();
+                            this.cargarCatalogosAuxiliares();
                             this.notificar("Registro guardado exitosamente.", "exito");
                         } else {
                             this.notificar("Error al guardar en el catálogo.", "error");
@@ -872,13 +907,86 @@
                         this.cargandoHistorial = false;
                     }
                 },
+                async renovarTokenKeycloak() {
+                    const currentRefresh = this.refreshToken || sessionStorage.getItem('refreshTokenSETAB');
+                    if (!currentRefresh) return false;
+                    try {
+                        const params = new URLSearchParams();
+                        params.append('grant_type', 'refresh_token');
+                        params.append('client_id', SETAB_CONFIG.clientId);
+                        params.append('refresh_token', currentRefresh);
+
+                        const nativeFetch = window.__originalSetabFetch || window.fetch.bind(window);
+                        const resp = await nativeFetch(`${SETAB_CONFIG.keycloakUrl}/realms/${SETAB_CONFIG.realm}/protocol/openid-connect/token`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                            body: params.toString()
+                        });
+
+                        if (resp.ok) {
+                            const data = await resp.json();
+                            if (data.access_token) {
+                                this.token = data.access_token;
+                                sessionStorage.setItem('tokenSETAB', data.access_token);
+                            }
+                            if (data.refresh_token) {
+                                this.refreshToken = data.refresh_token;
+                                sessionStorage.setItem('refreshTokenSETAB', data.refresh_token);
+                            }
+                            if (data.id_token) {
+                                sessionStorage.setItem('idTokenSETAB', data.id_token);
+                            }
+                            return true;
+                        }
+                    } catch (e) {
+                        console.warn("No fue posible refrescar token:", e);
+                    }
+                    return false;
+                },
+
                 init() {
                     if (!this.token) { window.location.href = '../login/index.html'; return; }
+
+                    const self = this;
+                    if (!window.__originalSetabFetch) {
+                        window.__originalSetabFetch = window.fetch.bind(window);
+                        window.fetch = async (input, initOpts = {}) => {
+                            const urlStr = typeof input === 'string' ? input : (input instanceof URL ? input.toString() : (input.url || ''));
+                            const esBackend = urlStr.startsWith(SETAB_CONFIG.backendUrl);
+
+                            if (esBackend && initOpts && initOpts.headers && self.token) {
+                                if (initOpts.headers instanceof Headers) {
+                                    if (initOpts.headers.has('Authorization')) {
+                                        initOpts.headers.set('Authorization', `Bearer ${self.token}`);
+                                    }
+                                } else if (typeof initOpts.headers === 'object' && initOpts.headers['Authorization']) {
+                                    initOpts.headers['Authorization'] = `Bearer ${self.token}`;
+                                }
+                            }
+
+                            let respuesta = await window.__originalSetabFetch(input, initOpts);
+                            if (esBackend && respuesta.status === 401) {
+                                const renovado = await self.renovarTokenKeycloak();
+                                if (renovado && self.token) {
+                                    const retryOpts = { ...initOpts, headers: { ...(initOpts.headers || {}), 'Authorization': `Bearer ${self.token}` } };
+                                    respuesta = await window.__originalSetabFetch(input, retryOpts);
+                                }
+                            }
+                            return respuesta;
+                        };
+                    }
+
+                    setInterval(() => {
+                        this.renovarTokenKeycloak();
+                    }, 210000);
+
                     if (this.rolUsuario === 'SUPERADMIN') {
                         this.cambiarVista('catalogo', '../catalogo/catalogo.html');
                         this.cargarEmpleados();
                         this.cargarSolicitudesBaja();
                         this.cargarUsuarios();
+                        this.cargarCatalogosAuxiliares();
+                        this.cargarCentrosTrabajo();
                     } else if (this.rolUsuario === 'admin') {
                         this.cambiarVista('mi_escuela', '../catalogo/catalogo.html');
                     }
@@ -914,10 +1022,10 @@
                             if (window.innerWidth < 1024) this.sidebarAbierto = false;
                         }
                     }
-                    if (nombreVista === 'catalogo') this.cargarArticulos(50);
+                    if (nombreVista === 'catalogo') { this.cargarArticulos(50); this.cargarCatalogosAuxiliares(); }
                     if (nombreVista === 'mi_escuela') this.cargarMisEquipos();
                     if (nombreVista === 'firmas') this.cargarPendientes();
-                    if (nombreVista === 'usuarios') this.cargarUsuarios();
+                    if (nombreVista === 'usuarios') { this.cargarUsuarios(); this.cargarCentrosTrabajo(); }
                     if (nombreVista === 'resguardos') { this.filtrarLocal(); }
                     if (nombreVista === 'solicitudes') { this.cargarSolicitudesBaja(); }
                     if (nombreVista === 'centros_trabajo') this.cargarCentrosTrabajo();
@@ -971,6 +1079,7 @@
                             this.cerrarModalRegistro();
                             this.cargarUsuarios();
                             this.cargarEmpleados();
+                            this.cargarCentrosTrabajo();
                             this.notificar("¡Director registrado y sincronizado!", "exito");
                         } else {
                             const err = await respuesta.json().catch(() => ({}));
@@ -1074,24 +1183,32 @@
                         if (!this.canvas) return;
                         this.ctx = this.canvas.getContext('2d');
                         this.ctx.lineWidth = 3; this.ctx.lineCap = 'round'; this.ctx.strokeStyle = '#0f172a';
-                        this.canvas.addEventListener('mousedown', this.startDrawing.bind(this));
-                        this.canvas.addEventListener('mousemove', this.draw.bind(this));
-                        this.canvas.addEventListener('mouseup', this.stopDrawing.bind(this));
-                        this.canvas.addEventListener('mouseout', this.stopDrawing.bind(this));
-                        this.canvas.addEventListener('touchstart', (e) => { e.preventDefault(); this.startDrawing(e.touches[0]); }, { passive: false });
-                        this.canvas.addEventListener('touchmove', (e) => { e.preventDefault(); this.draw(e.touches[0]); }, { passive: false });
-                        this.canvas.addEventListener('touchend', this.stopDrawing.bind(this));
+                        this.canvas.onmousedown = (e) => this.startDrawing(e);
+                        this.canvas.onmousemove = (e) => this.draw(e);
+                        this.canvas.onmouseup = () => this.stopDrawing();
+                        this.canvas.onmouseout = () => this.stopDrawing();
+                        this.canvas.ontouchstart = (e) => { e.preventDefault(); this.startDrawing(e.touches[0]); };
+                        this.canvas.ontouchmove = (e) => { e.preventDefault(); this.draw(e.touches[0]); };
+                        this.canvas.ontouchend = () => this.stopDrawing();
                     }, 300);
                 },
-                startDrawing(e) { this.isDrawing = true; this.draw(e); },
-                draw(e) {
-                    if (!this.isDrawing) return;
+                startDrawing(e) {
+                    if (!this.canvas || !this.ctx || !e) return;
+                    this.isDrawing = true;
                     const rect = this.canvas.getBoundingClientRect();
-                    const x = (e.clientX || e.touches && e.touches[0].clientX) - rect.left;
-                    const y = (e.clientY || e.touches && e.touches[0].clientY) - rect.top;
+                    const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+                    const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
+                    this.ctx.beginPath();
+                    this.ctx.moveTo(x, y);
+                },
+                draw(e) {
+                    if (!this.isDrawing || !this.canvas || !this.ctx || !e) return;
+                    const rect = this.canvas.getBoundingClientRect();
+                    const x = (e.clientX || (e.touches && e.touches[0].clientX)) - rect.left;
+                    const y = (e.clientY || (e.touches && e.touches[0].clientY)) - rect.top;
                     this.ctx.lineTo(x, y); this.ctx.stroke(); this.ctx.beginPath(); this.ctx.moveTo(x, y);
                 },
-                stopDrawing() { this.isDrawing = false; this.ctx.beginPath(); },
+                stopDrawing() { this.isDrawing = false; if (this.ctx) this.ctx.beginPath(); },
                 limpiarFirma(canvasId = 'canvas-firma') {
                     const c = document.getElementById(canvasId);
                     if (c && c.getContext) { c.getContext('2d').clearRect(0, 0, c.width, c.height); }
@@ -1113,17 +1230,19 @@
                 },
 
                 async cargarEmpleados() {
+                    this.cargandoPersonal = true;
                     try {
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/empleados`, { method: 'GET', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` } });
                         if (respuesta.ok) { this.empleados = await respuesta.json(); this.empleadosFiltrados = this.empleados; }
-                    } catch (error) { console.error(error); }
+                    } catch (error) { console.error(error); } finally { this.cargandoPersonal = false; }
                 },
 
                 async cargarSolicitudesBaja() {
+                    this.cargandoPersonal = true;
                     try {
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/solicitudes-baja`, { method: 'GET', mode: 'cors', headers: { 'Authorization': 'Bearer ' + this.token } });
                         if (respuesta.ok) { this.solicitudesBaja = await respuesta.json(); }
-                    } catch (error) { console.error(error); }
+                    } catch (error) { console.error(error); } finally { this.cargandoPersonal = false; }
                 },
 
                 cambiarPagina(nuevaPagina) { if (nuevaPagina >= 0 && nuevaPagina < this.totalPaginas) { this.paginaActual = nuevaPagina; this.cargarArticulos(); } },
@@ -1302,25 +1421,38 @@
                     } catch (e) { this.notificar("Error de conexión", "error"); } finally { this.cargando = false; }
                 },
 
-                abrirModalFirmaDirector(pendiente) { this.pendienteSeleccionado = pendiente; this.modalFirmaDirectorAbierto = true; this.initCanvas('canvas-firma-director'); },
+                abrirModalFirmaDirector(pendiente) {
+                    this.pendienteSeleccionado = pendiente;
+                    this.datosResguardo.latitud = null;
+                    this.datosResguardo.longitud = null;
+                    this.modalFirmaDirectorAbierto = true;
+                    this.initCanvas('canvas-firma-director');
+                },
                 cerrarModalFirmaDirector() { this.modalFirmaDirectorAbierto = false; this.pendienteSeleccionado = {}; },
 
                 async procesarFirmaDirector() {
                     if (this.isCanvasBlank(document.getElementById('canvas-firma-director'))) { this.notificar("Firma requerida", "error"); return; }
+                    if (!this.datosResguardo.latitud || !this.datosResguardo.longitud) {
+                        this.notificar("Debes capturar tu ubicación GPS obligatoria antes de firmar.", "error");
+                        return;
+                    }
                     this.guardando = true;
                     try {
                         const isBaja = this.pendienteSeleccionado.estadoResguardo === 'BAJA_EN_PROCESO';
                         const endpoint = isBaja ? `${SETAB_CONFIG.backendUrl}/api/resguardos/liberar/${this.pendienteSeleccionado.idResguardo}` : `${SETAB_CONFIG.backendUrl}/api/resguardos/firmar/${this.pendienteSeleccionado.idResguardo}`;
                         const payload = isBaja
-                            ? { cantidad: this.pendienteSeleccionado.cantidadAsignada, firmaBase64: document.getElementById('canvas-firma-director').toDataURL("image/png"), latitudGPS: this.datosResguardo.latitud ? this.datosResguardo.latitud.toString() : null, longitudGPS: this.datosResguardo.longitud ? this.datosResguardo.longitud.toString() : null }
-                            : { firmaBase64: document.getElementById('canvas-firma-director').toDataURL("image/png"), latitudGPS: this.datosResguardo.latitud ? this.datosResguardo.latitud.toString() : null, longitudGPS: this.datosResguardo.longitud ? this.datosResguardo.longitud.toString() : null };
+                            ? { cantidad: this.pendienteSeleccionado.cantidadAsignada, firmaBase64: document.getElementById('canvas-firma-director').toDataURL("image/png"), latitudGPS: this.datosResguardo.latitud.toString(), longitudGPS: this.datosResguardo.longitud.toString() }
+                            : { firmaBase64: document.getElementById('canvas-firma-director').toDataURL("image/png"), latitudGPS: this.datosResguardo.latitud.toString(), longitudGPS: this.datosResguardo.longitud.toString() };
 
                         const respuesta = await fetch(endpoint, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
                         if (respuesta.ok) {
                             this.notificar("Autorizado", "exito");
                             this.descargarActa(this.pendienteSeleccionado.idResguardo, isBaja ? 'baja' : 'asignacion');
                             this.cerrarModalFirmaDirector(); this.cargarPendientes(); this.cargarMisEquipos();
-                        } else { this.notificar("Error al firmar", "error"); }
+                        } else {
+                            const err = await respuesta.json().catch(() => ({}));
+                            this.notificar(err.error || "Error al firmar", "error");
+                        }
                     } catch (error) { this.notificar("Error de conexión", "error"); } finally { this.guardando = false; this.limpiarFirma('canvas-firma-director'); }
                 },
 
@@ -1500,6 +1632,13 @@
                             correctLevel: QRCode.CorrectLevel.M
                         });
                     });
+                },
+                imprimirEtiquetaIndividual(articulo) {
+                    if (!articulo || !articulo.id) return;
+                    const previos = [...this.articulosSeleccionadosQR];
+                    this.articulosSeleccionadosQR = [articulo.id];
+                    this.imprimirEtiquetasSeleccionadas();
+                    this.articulosSeleccionadosQR = previos;
                 },
                 cerrarModalQR() {
                     this.modalQRAbierto = false;

@@ -44,6 +44,9 @@ public class UsuarioResource {
     @Inject
     JsonWebToken jwt;
 
+    @Inject
+    InicializadorDatos inicializadorDatos;
+
     @ConfigProperty(name = "quarkus.oidc.auth-server-url")
     Optional<String> oidcAuthServerUrl;
 
@@ -179,28 +182,18 @@ public class UsuarioResource {
     }
 
     @GET
-    @Transactional
     public Response listarUsuarios() {
         List<Usuario> usuarios = Usuario.listAll();
-        if (usuarios.isEmpty()) {
-            List<Empleado> empleados = Empleado.listAll();
-            for (Empleado emp : empleados) {
-                if (emp.usuario != null && !emp.usuario.trim().isEmpty()) {
-                    Usuario u = new Usuario();
-                    u.username = emp.usuario.trim();
-                    u.nombreCompleto = emp.nombre;
-                    u.cct = emp.cct;
-                    u.nivelEducativo = emp.area != null ? emp.area : "Primaria";
-                    u.nombreEscuela = emp.nombreEscuela;
-                    u.rol = (emp.cargo != null && emp.cargo.toUpperCase().contains("ALMAC")) ? "SUPERADMIN" : "Admin";
-                    u.estado = "Activo";
-                    u.idEmpleado = emp.idEmpleado;
-                    u.persist();
-                }
-            }
-            usuarios = Usuario.listAll();
-        }
         return Response.ok(usuarios).build();
+    }
+
+    @POST
+    @Path("/limpiar-pruebas")
+    public Response limpiarDatosPrueba() {
+        if (inicializadorDatos != null) {
+            inicializadorDatos.purgarDatosPruebaCompleto();
+        }
+        return Response.ok("{\"mensaje\": \"Datos de prueba eliminados y secuencias reiniciadas en 1 conservando exclusivamente SUPERADMIN.\"}").build();
     }
 
     @POST
@@ -275,6 +268,27 @@ public class UsuarioResource {
         usuario.keycloakId = keycloakUserId;
         usuario.idEmpleado = emp.idEmpleado;
         usuario.persist();
+
+        if (emp.cct != null && !emp.cct.trim().isEmpty() && !"CENTRAL".equalsIgnoreCase(emp.cct.trim())) {
+            String cctClave = emp.cct.trim().toUpperCase();
+            CentroTrabajo ct = CentroTrabajo.find("upper(claveCT) = ?1", cctClave).firstResult();
+            if (ct == null) {
+                ct = new CentroTrabajo();
+                ct.id = null;
+                ct.claveCT = cctClave;
+                ct.nombreCT = emp.nombreEscuela;
+                ct.director = nombreCompleto;
+                ct.departamento = emp.area;
+                ct.municipio = "CENTRO";
+                ct.persist();
+            } else {
+                ct.director = nombreCompleto;
+                if (ct.nombreCT == null || ct.nombreCT.trim().isEmpty()) {
+                    ct.nombreCT = emp.nombreEscuela;
+                }
+                ct.persist();
+            }
+        }
 
         return Response.status(Response.Status.CREATED).entity(usuario).build();
     }

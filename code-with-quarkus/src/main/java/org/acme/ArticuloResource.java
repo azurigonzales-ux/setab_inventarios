@@ -2,6 +2,7 @@ package org.acme;
 
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import org.eclipse.microprofile.jwt.JsonWebToken;
@@ -110,6 +111,7 @@ public class ArticuloResource {
                     .build();
         }
         articulo.id = null;
+        articulo.numeroInventario = null;
 
         if (articulo.cantidadStock == null || articulo.cantidadStock <= 0) {
             articulo.cantidadStock = 1.0;
@@ -124,8 +126,28 @@ public class ArticuloResource {
         articulo.persistAndFlush();
 
         int anioCorto = LocalDate.now().getYear() % 100;
-        String secuencial = String.format("%05d", articulo.id);
-        articulo.numeroInventario = "SE-AG-" + anioCorto + "-" + secuencial;
+        String prefijoFolio = "SE-AG-" + String.format("%02d", anioCorto) + "-";
+        long maxSufijo = 0L;
+        List<Articulo> existentesAnio = Articulo.find("upper(numeroInventario) like ?1", (prefijoFolio + "%").toUpperCase()).list();
+        for (Articulo art : existentesAnio) {
+            if (art != null && art.numeroInventario != null && art.numeroInventario.length() > prefijoFolio.length()) {
+                String sufijoStr = art.numeroInventario.substring(prefijoFolio.length()).trim();
+                try {
+                    long valor = Long.parseLong(sufijoStr);
+                    if (valor > maxSufijo) {
+                        maxSufijo = valor;
+                    }
+                } catch (NumberFormatException ignored) {
+                }
+            }
+        }
+        long consecutivo = Math.max(Math.max(1L, Articulo.count()), maxSufijo + 1L);
+        String folioCandidato = prefijoFolio + String.format("%05d", consecutivo);
+        while (Articulo.count("upper(numeroInventario) = ?1", folioCandidato.toUpperCase()) > 0) {
+            consecutivo++;
+            folioCandidato = prefijoFolio + String.format("%05d", consecutivo);
+        }
+        articulo.numeroInventario = folioCandidato;
         articulo.tokenQR = UUID.randomUUID().toString();
         
         if (articulo.fechaAdquisicion == null) {

@@ -84,7 +84,7 @@ public class TraspasoResource {
             if (directorSaliente != null) {
                 resguardosActivos = Resguardo.find("empleado.idEmpleado = ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo is null or estadoResguardo = 'PENDIENTE_FIRMA')", directorSaliente.idEmpleado).list();
             } else {
-                resguardosActivos = Resguardo.find("upper(empleado.cct) = ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo is null)", cctLimpia).list();
+                resguardosActivos = Resguardo.find("upper(empleado.cct) = ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo is null or estadoResguardo = 'PENDIENTE_FIRMA')", cctLimpia).list();
             }
 
             if (resguardosActivos.isEmpty()) {

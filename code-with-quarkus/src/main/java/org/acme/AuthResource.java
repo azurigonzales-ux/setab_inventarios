@@ -5,6 +5,7 @@ import java.util.HashSet;
 
 import io.smallrye.jwt.build.Jwt;
 import jakarta.annotation.security.PermitAll;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.POST;
@@ -22,7 +23,13 @@ public class AuthResource {
     @POST
     @Path("/registrar")
     @Transactional
+    @RolesAllowed("SUPERADMIN")
     public Response registrar(Usuario nuevoUsuario) {
+        if (nuevoUsuario == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("{\"error\": \"Datos de usuario inválidos.\"}").build();
+        }
+        nuevoUsuario.id = null;
         nuevoUsuario.persist();
         return Response.status(Response.Status.CREATED).entity(nuevoUsuario).build();
     }

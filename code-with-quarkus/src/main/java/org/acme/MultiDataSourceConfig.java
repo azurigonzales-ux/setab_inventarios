@@ -81,6 +81,7 @@ public class MultiDataSourceConfig {
      * abre la conexión dedicada; de lo contrario, utiliza el pool primario de Inventarios.
      */
     public Connection obtenerConexion(OrigenDatos origen) throws SQLException {
+        DriverManager.setLoginTimeout(5);
         if (origen == OrigenDatos.CENTROS_TRABAJO_CCT && cctExternalEnabled && cctJdbcUrl.isPresent() && !cctJdbcUrl.get().isBlank()) {
             return DriverManager.getConnection(
                     cctJdbcUrl.get().trim(),

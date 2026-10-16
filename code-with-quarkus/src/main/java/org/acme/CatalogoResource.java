@@ -20,9 +20,17 @@ import jakarta.ws.rs.core.Response;
 public class CatalogoResource {
 
     @GET
+    @Path("/todos")
+    public Response listarTodos() {
+        List<CatalogoGeneral> items = CatalogoGeneral.find("upper(tipoCatalogo) <> ?1", "SISTEMA_CONFIG").list();
+        return Response.ok(items).build();
+    }
+
+    @GET
     @Path("/{tipo}")
     public Response listarPorTipo(@PathParam("tipo") String tipo) {
-        List<CatalogoGeneral> items = CatalogoGeneral.find("tipoCatalogo", tipo.toLowerCase()).list();
+        String tipoLimpio = tipo != null ? tipo.trim().toLowerCase() : "";
+        List<CatalogoGeneral> items = CatalogoGeneral.find("lower(tipoCatalogo) = ?1", tipoLimpio).list();
         return Response.ok(items).build();
     }
 
