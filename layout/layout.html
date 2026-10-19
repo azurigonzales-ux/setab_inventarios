@@ -359,7 +359,18 @@
                 errorMensaje: '',
 
                 articulos: [], totalRegistros: 0,
-                filtroBusqueda: '', filtroCategoria: '', filtroArea: '', paginaActual: 0, totalPaginas: 1,
+                filtroBusqueda: '', indiceBusqueda: 'TODOS', filtroFondo: '', filtroCategoria: '', filtroArea: '', paginaActual: 0, totalPaginas: 1,
+                tabModalAlta: 'identificacion',
+                tabModalEdicion: 'identificacion',
+                listaFondosOrigen: [
+                    { id: 'OFICIAL', nombre: 'OFICIAL (Patrimonio Estatal)' },
+                    { id: 'INTERNO', nombre: 'INTERNO (Control Interno)' },
+                    { id: 'VEHICULOS', nombre: 'VEHÍCULOS (Parque Vehicular)' },
+                    { id: 'INV_DONACION', nombre: 'INV_DONACION (Donaciones)' },
+                    { id: 'INV_CONAFE', nombre: 'INV_CONAFE (CONAFE)' },
+                    { id: 'INV_CAPECE', nombre: 'INV_CAPECE (CAPECE)' },
+                    { id: 'ITIFE', nombre: 'ITIFE (Infraestructura Educativa)' }
+                ],
                 misEquipos: [], pendientes: [], pendienteSeleccionado: {},
 
                 modalAbierto: false, modalRegistroAbierto: false, modalResguardoAbierto: false,
@@ -368,13 +379,18 @@
 
                 articuloSeleccionado: {},
                 nuevoArticulo: {
-                    numeroInventario: '', tipoMaterial: '', subClave: '', categoria: '', areaUbicacion: '', descripcion: '',
+                    numeroInventario: '', numeroInventarioAnterior: '', fondoOrigen: 'OFICIAL',
+                    tipoMaterial: '', subClave: '', cuentaContable: '', categoria: '', areaUbicacion: '',
+                    descripcion: '', descripcionSecundaria: '',
                     marca: '', modelo: '', serie: '', numeroSerie: '', color: '', estadoFisico: 'NUEVO', estado: 'Activo',
-                    proveedor: '', factura: '', fechaFactura: null,
-                    precioSinIva: null, precio: null, valorInicial: null,
-                    pedido: '', requisicion: '', naturalezaGasto: '', partida: '',
-                    motor: '', placa: '', poliza: '', vigenciaPoliza: null,
-                    centroTrabajo: '', responsable: '', boletaSalida: '', cantidadStock: 1
+                    unidadResponsable: '', subdireccion: '', departamento: '', centroTrabajo: '',
+                    resguardanteActual: '', resguardanteHistorico: '', folioResguardo: '', tipoFolioResguardo: 'OFICIAL', documentoResguardo: '', fechaResguardo: null,
+                    proveedor: '', factura: '', folioFiscalUuid: '', fechaFactura: null,
+                    precioSinIva: null, precio: null, valorInicial: null, porcentajeDepreciacion: 10,
+                    pedido: '', requisicion: '', boletaSalida: '', naturalezaGasto: '', partida: '',
+                    motor: '', placa: '', poliza: '', vigenciaDesde: null, vigenciaPoliza: null,
+                    tipoBaja: '', carpetaInvestigacion: '', oficioBaja: '', fechaBaja: null, numeroActa: '', fechaActa: null,
+                    responsable: '', cantidadStock: 1
                 },
                 busquedaEmpleado: '', datosResguardo: { idEmpleado: '', cantidad: 1, firmaBase64: null, latitud: null, longitud: null },
                 historialArticulo: [], cargandoHistorial: false, canvas: null, ctx: null, isDrawing: false,
@@ -399,17 +415,29 @@
                     vialidPost: '', refVialid: '', zonaEscolar: '', sector: '', director: ''
                 },
 
+                tabReporteActivo: 'padron',
+                tipoCuantificacion: 'partida',
                 filtroSemestreReporte: '2026-2',
+                filtroFondoReporte: '',
                 filtroCategoriaReporte: '',
                 filtroAreaReporte: '',
                 filtroEstadoReporte: '',
+                itemsResguardoLote: [],
+                firmantesResguardo: {
+                    jefeAlmacen: 'LIC. RESPONSABLE DE ALMACÉN CENTRAL',
+                    jefeInventario: 'ING. JEFE DE CONTROL PATRIMONIAL E INVENTARIOS',
+                    cctDestino: '',
+                    resguardanteReceptor: '',
+                    cargoReceptor: 'DIRECTOR / RESPONSABLE DE CENTRO DE TRABAJO'
+                },
 
                 get articulosReporteFiltrados() {
                     return this.articulos.filter(a => {
+                        const matchFondo = !this.filtroFondoReporte || (a.fondoOrigen || 'OFICIAL').toUpperCase() === this.filtroFondoReporte.toUpperCase();
                         const matchCat = !this.filtroCategoriaReporte || a.categoria === this.filtroCategoriaReporte;
                         const matchArea = !this.filtroAreaReporte || a.areaUbicacion === this.filtroAreaReporte;
                         const matchEst = !this.filtroEstadoReporte || (a.estadoFisico || 'BUENO') === this.filtroEstadoReporte;
-                        return matchCat && matchArea && matchEst;
+                        return matchFondo && matchCat && matchArea && matchEst;
                     });
                 },
 
@@ -423,24 +451,343 @@
                     }, 0);
                     return {
                         stockTotal: stockTotal,
+                        valorTotalNum: valorTotal,
                         valorPatrimonial: valorTotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     };
                 },
 
+                get filasCuantificacion() {
+                    const lista = this.articulosReporteFiltrados;
+                    const grupos = {};
+                    let granTotal = 0;
+
+                    for (const a of lista) {
+                        let clave = 'SIN CLASIFICAR';
+                        let desc = 'Sin especificar';
+
+                        if (this.tipoCuantificacion === 'partida') {
+                            clave = (a.partida || 'SIN PARTIDA').trim().toUpperCase();
+                            desc = a.cuentaContable ? `Cuenta Contable: ${a.cuentaContable} (${a.naturalezaGasto || 'Gasto General'})` : (a.naturalezaGasto || 'Partida Presupuestal SETAB');
+                        } else if (this.tipoCuantificacion === 'cct_articulo') {
+                            const cct = (a.centroTrabajo || a.areaUbicacion || 'ALMACÉN CENTRAL').trim().toUpperCase();
+                            const tipo = (a.tipoMaterial || a.categoria || 'BIEN GENERAL').trim().toUpperCase();
+                            clave = `${cct} — ${tipo}`;
+                            desc = `Resguardante: ${a.resguardanteActual || 'Custodia Central'} | Fondo: ${a.fondoOrigen || 'OFICIAL'}`;
+                        } else if (this.tipoCuantificacion === 'tipo_articulo') {
+                            clave = (a.tipoMaterial || a.categoria || 'SIN TIPO').trim().toUpperCase();
+                            desc = a.subClave ? `Subclave: ${a.subClave} | Categoría: ${a.categoria || 'General'}` : `Categoría: ${a.categoria || 'General'}`;
+                        } else if (this.tipoCuantificacion === 'proveedor_pedido') {
+                            const prov = (a.proveedor || 'SIN PROVEEDOR').trim().toUpperCase();
+                            const ped = (a.pedido || 'S/PED').trim().toUpperCase();
+                            const fac = (a.factura || 'S/FACT').trim().toUpperCase();
+                            clave = `${prov}`;
+                            desc = `Pedido: ${ped} | Factura: ${fac} ${a.fechaFactura ? '(' + a.fechaFactura + ')' : ''}`;
+                        }
+
+                        const groupKey = `${clave}||${desc}`;
+                        if (!grupos[groupKey]) {
+                            grupos[groupKey] = {
+                                clave,
+                                descripcion: desc,
+                                cantidadRegistros: 0,
+                                stockTotal: 0,
+                                subtotal: 0,
+                                importeTotal: 0
+                            };
+                        }
+
+                        const cant = Number(a.cantidadStock) > 0 ? Number(a.cantidadStock) : 1;
+                        const unitario = Number(a.valorInicial || a.precio || 0);
+                        const subUnitario = Number(a.precioSinIva) > 0 ? Number(a.precioSinIva) : (unitario / 1.16);
+                        const impFila = unitario * cant;
+
+                        grupos[groupKey].cantidadRegistros += 1;
+                        grupos[groupKey].stockTotal += (Number(a.cantidadStock) || 0);
+                        grupos[groupKey].subtotal += (subUnitario * cant);
+                        grupos[groupKey].importeTotal += impFila;
+                        granTotal += impFila;
+                    }
+
+                    return Object.values(grupos)
+                        .sort((x, y) => y.importeTotal - x.importeTotal)
+                        .map(g => ({
+                            ...g,
+                            porcentaje: granTotal > 0 ? ((g.importeTotal / granTotal) * 100).toFixed(1) : '0.0'
+                        }));
+                },
+
+                get totalesCuantificacion() {
+                    const filas = this.filasCuantificacion;
+                    const registros = filas.reduce((acc, f) => acc + f.cantidadRegistros, 0);
+                    const stock = filas.reduce((acc, f) => acc + f.stockTotal, 0);
+                    const subtotal = filas.reduce((acc, f) => acc + f.subtotal, 0);
+                    const total = filas.reduce((acc, f) => acc + f.importeTotal, 0);
+                    return {
+                        registros,
+                        stock,
+                        subtotalFmt: subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                        totalFmt: total.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                    };
+                },
+
+                get activosIncompletos() {
+                    const resultado = [];
+                    for (const a of this.articulosReporteFiltrados) {
+                        const faltantes = [];
+                        let tabSugerido = 'identificacion';
+
+                        if (!a.numeroSerie && !a.serie) {
+                            faltantes.push('Sin No. de Serie');
+                        }
+                        if (!a.partida || String(a.partida).trim() === '') {
+                            faltantes.push('Sin Partida Presupuestal');
+                        }
+                        if (!a.valorInicial && !a.precio) {
+                            faltantes.push('Sin Costo / Valor Inicial');
+                            tabSugerido = 'adquisicion';
+                        }
+                        if (!a.factura || !a.proveedor) {
+                            faltantes.push('Falta Proveedor o Factura');
+                            tabSugerido = 'adquisicion';
+                        }
+                        if (!a.centroTrabajo && !a.areaUbicacion) {
+                            faltantes.push('Sin CCT / Ubicación');
+                            tabSugerido = 'ubicacion';
+                        }
+                        const esVehiculo = a.categoria === 'Vehiculos' || (a.fondoOrigen || '').toUpperCase() === 'VEHICULOS';
+                        if (esVehiculo && (!a.placa || !a.motor || !a.poliza)) {
+                            faltantes.push('Vehículo sin Placa/Motor/Póliza');
+                            tabSugerido = 'identificacion';
+                        }
+
+                        if (faltantes.length > 0) {
+                            resultado.push({
+                                articulo: a,
+                                faltantes,
+                                tabSugerido
+                            });
+                        }
+                    }
+                    return resultado;
+                },
+
+                corregirActivoIncompleto(articulo, tab = 'identificacion') {
+                    this.abrirModal(articulo);
+                    this.tabModalEdicion = tab;
+                    this.cambiarVista('catalogo', '../catalogo/catalogo.html');
+                },
+
+                toggleSeleccionTodosResguardoLote(e) {
+                    if (e.target.checked) {
+                        this.itemsResguardoLote = this.articulosReporteFiltrados.map(a => a.id);
+                    } else {
+                        this.itemsResguardoLote = [];
+                    }
+                },
+
+                imprimirResguardoLoteMNREPINV(articuloUnico = null) {
+                    const seleccionados = articuloUnico
+                        ? [articuloUnico]
+                        : this.articulosReporteFiltrados.filter(a => this.itemsResguardoLote.includes(a.id));
+
+                    if (seleccionados.length === 0) {
+                        this.notificar("Selecciona al menos un bien para emitir el resguardo oficial.", "error");
+                        return;
+                    }
+
+                    const primero = seleccionados[0] || {};
+                    const cct = this.firmantesResguardo.cctDestino || primero.centroTrabajo || primero.areaUbicacion || 'ALMACÉN CENTRAL SETAB';
+                    const receptor = this.firmantesResguardo.resguardanteReceptor || primero.resguardanteActual || 'RESPONSABLE PATRIMONIAL DEL CCT';
+                    const cargo = this.firmantesResguardo.cargoReceptor || 'DIRECTOR / RESPONSABLE DE CENTRO DE TRABAJO';
+                    const jefeAlm = this.firmantesResguardo.jefeAlmacen || 'JEFE DE ALMACÉN CENTRAL';
+                    const jefeInv = this.firmantesResguardo.jefeInventario || 'JEFE DE INVENTARIOS Y ACTIVO FIJO';
+
+                    let importeTotalLote = 0;
+                    const filasHtml = seleccionados.map((a, idx) => {
+                        const unitario = Number(a.valorInicial || a.precio || 0);
+                        importeTotalLote += unitario;
+                        return `
+                            <tr>
+                                <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;">${idx + 1}</td>
+                                <td style="border:1px solid #cbd5e1;padding:6px;font-family:monospace;font-weight:bold;color:#981A35;">${a.numeroInventario || 'S/N'}<br><span style="font-size:9px;color:#64748b;">Ant: ${a.numeroInventarioAnterior || 'N/A'}</span></td>
+                                <td style="border:1px solid #cbd5e1;padding:6px;"><strong>${a.descripcion || a.tipoMaterial || 'BIEN MUEBLE'}</strong><br><span style="font-size:10px;color:#475569;">${a.descripcionSecundaria || ''} | Fondo: ${a.fondoOrigen || 'OFICIAL'}</span></td>
+                                <td style="border:1px solid #cbd5e1;padding:6px;">${a.marca || 'S/M'} / ${a.modelo || 'S/M'}</td>
+                                <td style="border:1px solid #cbd5e1;padding:6px;font-family:monospace;">${a.numeroSerie || a.serie || 'S/N'}</td>
+                                <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;">${a.estadoFisico || 'BUENO'}</td>
+                                <td style="border:1px solid #cbd5e1;padding:6px;text-align:right;font-family:monospace;">$ ${unitario.toFixed(2)}</td>
+                            </tr>
+                        `;
+                    }).join('');
+
+                    const ventana = window.open('', '_blank', 'width=1050,height=820');
+                    ventana.document.write(`
+                        <html>
+                        <head>
+                            <title>Cédula Oficial de Resguardo Patrimonial - SETAB</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; padding: 24px; color: #1e293b; font-size: 11px; }
+                                .header { border-bottom: 4px solid #981A35; padding-bottom: 10px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
+                                h1 { color: #981A35; margin: 0; font-size: 18px; }
+                                .meta-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 14px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+                                table { width: 100%; border-collapse: collapse; font-size: 10.5px; margin-top: 10px; }
+                                th { background: #981A35; color: white; padding: 7px; border: 1px solid #981A35; text-align: left; }
+                                .firmas { margin-top: 55px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; text-align: center; font-size: 11px; }
+                                .linea { border-top: 1px solid #1e293b; padding-top: 6px; font-weight: bold; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="header">
+                                <div>
+                                    <h1>SECRETARÍA DE EDUCACIÓN DEL ESTADO DE TABASCO</h1>
+                                    <p style="margin:3px 0 0 0;font-size:11px;font-weight:bold;color:#BC955C;">DIRECCIÓN DE RECURSOS MATERIALES Y SERVICIOS — CÉDULA OFICIAL DE RESGUARDO DE ACTIVO FIJO</p>
+                                </div>
+                                <div style="text-align:right;">
+                                    <p style="margin:0;"><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-MX')}</p>
+                                    <p style="margin:3px 0 0 0;"><strong>Total Bienes:</strong> ${seleccionados.length} | <strong>Importe:</strong> $ ${importeTotalLote.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN</p>
+                                </div>
+                            </div>
+                            <div class="meta-box">
+                                <div><strong>CENTRO DE TRABAJO (CCT) / ADSCRIPCIÓN:</strong> ${cct}</div>
+                                <div><strong>RESGUARDANTE RESPONSABLE:</strong> ${receptor}</div>
+                                <div><strong>CARGO:</strong> ${cargo}</div>
+                                <div><strong>FONDO / ORIGEN:</strong> ${primero.fondoOrigen || 'OFICIAL'}</div>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>No. Inventario</th>
+                                        <th>Descripción del Bien</th>
+                                        <th>Marca / Modelo</th>
+                                        <th>No. Serie</th>
+                                        <th>Estado</th>
+                                        <th>Importe MXN</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${filasHtml}</tbody>
+                            </table>
+                            <p style="margin-top:14px;font-size:10px;text-align:justify;color:#334155;">
+                                El servidor público resguardante recibe de conformidad los bienes muebles descritos, mismos que son propiedad institucional adscritos al Centro de Trabajo (CCT) señalado, comprometiéndose a su guarda, custodia y uso estrictamente oficial conforme a la normatividad patrimonial vigente de la SETAB.
+                            </p>
+                            <div class="firmas">
+                                <div class="linea">AUTORIZÓ SALIDA (JEFE DE ALMACÉN)<br><span style="font-weight:normal;">${jefeAlm}</span></div>
+                                <div class="linea">VALIDÓ REGISTRO (JEFE DE INVENTARIOS)<br><span style="font-weight:normal;">${jefeInv}</span></div>
+                                <div class="linea">RECIBE DE CONFORMIDAD (RESGUARDANTE)<br><span style="font-weight:normal;">${receptor}</span></div>
+                            </div>
+                        </body>
+                        </html>
+                    `);
+                    ventana.document.close();
+                    setTimeout(() => { ventana.print(); }, 400);
+                },
+
+                imprimirCuantificacionPDF() {
+                    const titulos = {
+                        partida: 'CUANTIFICACIÓN PATRIMONIAL POR PARTIDA PRESUPUESTAL',
+                        cct_articulo: 'CUANTIFICACIÓN PATRIMONIAL POR CENTRO DE TRABAJO (CCT) Y TIPO DE ARTÍCULO',
+                        tipo_articulo: 'CUANTIFICACIÓN PATRIMONIAL POR TIPO DE ARTÍCULO Y SUBCLAVE',
+                        proveedor_pedido: 'CUANTIFICACIÓN PATRIMONIAL POR PROVEEDOR, PEDIDO Y FACTURA'
+                    };
+                    const titulo = titulos[this.tipoCuantificacion] || 'CUANTIFICACIÓN PATRIMONIAL SETAB';
+                    const filasHtml = this.filasCuantificacion.map((f, idx) => `
+                        <tr>
+                            <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;">${idx + 1}</td>
+                            <td style="border:1px solid #cbd5e1;padding:6px;font-weight:bold;color:#981A35;">${f.clave}</td>
+                            <td style="border:1px solid #cbd5e1;padding:6px;">${f.descripcion}</td>
+                            <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;font-weight:bold;">${f.cantidadRegistros}</td>
+                            <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;">${f.stockTotal}</td>
+                            <td style="border:1px solid #cbd5e1;padding:6px;text-align:right;font-family:monospace;">$ ${f.subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="border:1px solid #cbd5e1;padding:6px;text-align:right;font-family:monospace;font-weight:bold;">$ ${f.importeTotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="border:1px solid #cbd5e1;padding:6px;text-align:right;">${f.porcentaje}%</td>
+                        </tr>
+                    `).join('');
+
+                    const ventana = window.open('', '_blank', 'width=1000,height=800');
+                    ventana.document.write(`
+                        <html>
+                        <head>
+                            <title>${titulo} - SETAB</title>
+                            <style>
+                                body { font-family: Arial, sans-serif; padding: 24px; color: #1e293b; }
+                                .header { border-bottom: 4px solid #981A35; padding-bottom: 12px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; }
+                                h1 { color: #981A35; margin: 0; font-size: 18px; }
+                                table { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 12px; }
+                                th { background: #981A35; color: white; padding: 8px; border: 1px solid #981A35; text-align: left; }
+                                .firmas { margin-top: 55px; display: flex; justify-content: space-around; text-align: center; font-size: 11px; }
+                                .linea { border-top: 1px solid #1e293b; width: 240px; padding-top: 6px; font-weight: bold; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="header">
+                                <div>
+                                    <h1>SECRETARÍA DE EDUCACIÓN DEL ESTADO DE TABASCO</h1>
+                                    <p style="margin:4px 0 0 0;font-size:12px;font-weight:bold;color:#BC955C;">${titulo} (${this.filtroSemestreReporte})</p>
+                                </div>
+                                <div style="text-align:right;font-size:11px;">
+                                    <p style="margin:0;"><strong>Emisión:</strong> ${new Date().toLocaleDateString('es-MX')}</p>
+                                    <p style="margin:4px 0 0 0;"><strong>Gran Total:</strong> $ ${this.totalesCuantificacion.totalFmt} MXN</p>
+                                </div>
+                            </div>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Agrupador / Clave</th>
+                                        <th>Detalle / Clasificación</th>
+                                        <th>Bienes</th>
+                                        <th>Stock</th>
+                                        <th>Subtotal MXN</th>
+                                        <th>Importe Total MXN</th>
+                                        <th>%</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${filasHtml}</tbody>
+                            </table>
+                            <div class="firmas">
+                                <div class="linea">JEFE DE ALMACÉN CENTRAL<br><span style="font-weight:normal;">${this.firmantesResguardo.jefeAlmacen}</span></div>
+                                <div class="linea">JEFE DE INVENTARIOS Y ACTIVO FIJO<br><span style="font-weight:normal;">${this.firmantesResguardo.jefeInventario}</span></div>
+                            </div>
+                        </body>
+                        </html>
+                    `);
+                    ventana.document.close();
+                    setTimeout(() => { ventana.print(); }, 400);
+                },
+
                 exportarReporteCSV() {
+                    const limpiar = (v) => String(v ?? '').replace(/,/g, ' ').replace(/[\r\n]+/g, ' ').trim();
                     const filas = [
-                        ['FOLIO INVENTARIO', 'DESCRIPCION', 'MARCA', 'MODELO', 'SERIE', 'CATEGORIA', 'AREA', 'ESTADO FISICO', 'STOCK', 'VALOR INICIAL MXN']
+                        ['FONDO ORIGEN', 'FOLIO OFICIAL (INVOFM)', 'INV ANTERIOR (INV_ANT)', 'TIPO BIEN', 'SUBCLAVE', 'DESCRIPCION', 'DESCRIPCION 2', 'MARCA', 'MODELO', 'SERIE', 'COLOR', 'ESTADO FISICO', 'CCT', 'RESGUARDANTE ACTUAL', 'FOLIO RESGUARDO', 'PROVEEDOR', 'PEDIDO', 'REQUISICION', 'VALE SALIDA', 'FACTURA', 'UUID FISCAL', 'FECHA FACTURA', 'PARTIDA', 'NATURALEZA GASTO', 'PLACA', 'MOTOR', 'POLIZA', 'STOCK', 'PRECIO TOTAL MXN']
                     ];
                     this.articulosReporteFiltrados.forEach(a => {
                         filas.push([
-                            a.numeroInventario || 'S/N',
-                            (a.descripcion || '').replace(/,/g, ' '),
-                            (a.marca || '').replace(/,/g, ' '),
-                            (a.modelo || '').replace(/,/g, ' '),
-                            a.numeroSerie || a.serie || 'S/N',
-                            a.categoria || 'General',
-                            a.areaUbicacion || 'Almacen',
-                            a.estadoFisico || 'BUENO',
+                            limpiar(a.fondoOrigen || 'OFICIAL'),
+                            limpiar(a.numeroInventario || 'S/N'),
+                            limpiar(a.numeroInventarioAnterior || ''),
+                            limpiar(a.tipoMaterial || a.categoria || ''),
+                            limpiar(a.subClave || ''),
+                            limpiar(a.descripcion || ''),
+                            limpiar(a.descripcionSecundaria || ''),
+                            limpiar(a.marca || ''),
+                            limpiar(a.modelo || ''),
+                            limpiar(a.numeroSerie || a.serie || 'S/N'),
+                            limpiar(a.color || ''),
+                            limpiar(a.estadoFisico || 'BUENO'),
+                            limpiar(a.centroTrabajo || a.areaUbicacion || 'ALMACEN'),
+                            limpiar(a.resguardanteActual || ''),
+                            limpiar(a.folioResguardo || ''),
+                            limpiar(a.proveedor || ''),
+                            limpiar(a.pedido || ''),
+                            limpiar(a.requisicion || ''),
+                            limpiar(a.boletaSalida || ''),
+                            limpiar(a.factura || ''),
+                            limpiar(a.folioFiscalUuid || ''),
+                            limpiar(a.fechaFactura || ''),
+                            limpiar(a.partida || ''),
+                            limpiar(a.naturalezaGasto || ''),
+                            limpiar(a.placa || ''),
+                            limpiar(a.motor || ''),
+                            limpiar(a.poliza || ''),
                             a.cantidadStock ?? 0,
                             Number(a.valorInicial || a.precio || 0).toFixed(2)
                         ]);
@@ -449,11 +796,63 @@
                     const encodedUri = encodeURI(csvContent);
                     const link = document.createElement("a");
                     link.setAttribute("href", encodedUri);
-                    link.setAttribute("download", `Reporte_Semestral_SETAB_${this.filtroSemestreReporte}.csv`);
+                    link.setAttribute("download", `EXPORTA_General_SETAB_${this.filtroSemestreReporte}.csv`);
                     document.body.appendChild(link);
                     link.click();
                     link.remove();
-                    this.notificar("Archivo CSV descargado correctamente", "exito");
+                    this.notificar("Exportación General (EXPORTA) descargada", "exito");
+                },
+
+                exportarReporteFinancieroCSV() {
+                    const limpiar = (v) => String(v ?? '').replace(/,/g, ' ').replace(/[\r\n]+/g, ' ').trim();
+                    const mapaCT = {};
+                    for (const c of (this.centrosTrabajo || [])) {
+                        if (c && c.claveCT) mapaCT[c.claveCT.trim().toUpperCase()] = c;
+                    }
+                    const filas = [
+                        ['FONDO ORIGEN', 'FOLIO OFICIAL', 'PARTIDA PRESUPUESTAL', 'CUENTA CONTABLE', 'NATURALEZA GASTO', 'PROVEEDOR', 'FACTURA', 'FOLIO FISCAL UUID', 'FECHA FACTURA', 'SUBTOTAL SIN IVA', 'IVA 16%', 'COSTO ADQUISICION MXN', '% DEPRECIACION ANUAL', 'VALOR EN LIBROS REVALUADO MXN', 'CLAVE CCT', 'NOMBRE ESCUELA / CT', 'MUNICIPIO', 'LOCALIDAD', 'ZONA ESCOLAR', 'SECTOR']
+                    ];
+                    this.articulosReporteFiltrados.forEach(a => {
+                        const total = Number(a.valorInicial || a.precio || 0);
+                        const sub = Number(a.precioSinIva) > 0 ? Number(a.precioSinIva) : (total / 1.16);
+                        const iva = Math.max(0, total - sub);
+                        const depPct = Number(a.porcentajeDepreciacion) || 10;
+                        const valorLibros = Math.max(0, total * (1 - (depPct / 100)));
+                        const cctKey = (a.centroTrabajo || '').trim().toUpperCase();
+                        const ctInfo = mapaCT[cctKey] || {};
+
+                        filas.push([
+                            limpiar(a.fondoOrigen || 'OFICIAL'),
+                            limpiar(a.numeroInventario || 'S/N'),
+                            limpiar(a.partida || ''),
+                            limpiar(a.cuentaContable || ''),
+                            limpiar(a.naturalezaGasto || ''),
+                            limpiar(a.proveedor || ''),
+                            limpiar(a.factura || ''),
+                            limpiar(a.folioFiscalUuid || ''),
+                            limpiar(a.fechaFactura || ''),
+                            sub.toFixed(2),
+                            iva.toFixed(2),
+                            total.toFixed(2),
+                            depPct.toFixed(2),
+                            valorLibros.toFixed(2),
+                            limpiar(a.centroTrabajo || a.areaUbicacion || 'CENTRAL'),
+                            limpiar(ctInfo.nombreCT || ''),
+                            limpiar(ctInfo.municipio || 'CENTRO'),
+                            limpiar(ctInfo.localidad || 'VILLAHERMOSA'),
+                            limpiar(ctInfo.zonaEscolar || ''),
+                            limpiar(ctInfo.sector || '')
+                        ]);
+                    });
+                    const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + filas.map(e => e.join(",")).join("\n");
+                    const encodedUri = encodeURI(csvContent);
+                    const link = document.createElement("a");
+                    link.setAttribute("href", encodedUri);
+                    link.setAttribute("download", `EXPORTAFIN_Contable_Geografico_SETAB_${this.filtroSemestreReporte}.csv`);
+                    document.body.appendChild(link);
+                    link.click();
+                    link.remove();
+                    this.notificar("Exportación Financiera y Geográfica (EXPORTAFIN) descargada", "exito");
                 },
 
                 imprimirReporteSemestral() {
@@ -1138,7 +1537,7 @@
                         this.sidebarAbierto = false;
                     }
 
-                    if (nombreVista === 'catalogo') { this.cargarArticulos(50); this.cargarCatalogosAuxiliares(); }
+                    if (nombreVista === 'catalogo') { this.cargarArticulos(50); this.cargarCatalogosAuxiliares(); this.cargarCentrosTrabajo(); }
                     if (nombreVista === 'mi_escuela') this.cargarMisEquipos();
                     if (nombreVista === 'firmas') this.cargarPendientes();
                     if (nombreVista === 'usuarios') { this.cargarUsuarios(); this.cargarCentrosTrabajo(); }
@@ -1147,7 +1546,7 @@
                     if (nombreVista === 'centros_trabajo') this.cargarCentrosTrabajo();
                     if (nombreVista === 'catalogos_lista') this.cargarDatosCatalogoSelectivo();
                     if (nombreVista === 'qr') { this.cargarArticulos(1000); this.cambiarTabQR('generar'); }
-                    if (nombreVista === 'reportes') { this.cargarArticulos(1000); this.cargarSolicitudesBaja(); }
+                    if (nombreVista === 'reportes') { this.cargarArticulos(1000); this.cargarSolicitudesBaja(); this.cargarCentrosTrabajo(); }
                     if (nombreVista === 'historial') { this.busquedaFolioHistorial = ''; this.equipoAuditado = null; }
                 },
 
@@ -1369,6 +1768,8 @@
                     try {
                         let url = new URL(`${SETAB_CONFIG.backendUrl}/api/bienes`);
                         if (this.filtroBusqueda && this.filtroBusqueda.trim() !== '') url.searchParams.append('busqueda', this.filtroBusqueda.trim());
+                        if (this.indiceBusqueda && this.indiceBusqueda !== 'GENERAL') url.searchParams.append('indiceBusqueda', this.indiceBusqueda);
+                        if (this.filtroFondo && this.filtroFondo.trim() !== '') url.searchParams.append('fondo', this.filtroFondo.trim());
                         if (this.filtroCategoria) url.searchParams.append('categoria', this.filtroCategoria);
                         if (this.filtroArea) url.searchParams.append('area', this.filtroArea);
                         url.searchParams.append('page', this.paginaActual);
@@ -1416,15 +1817,20 @@
                     const numeroConsecutivo = String(this.totalRegistros + 1).padStart(5, '0');
                     const folioAutogenerado = `SE-AG-${anio}-${numeroConsecutivo}`;
 
+                    this.tabModalAlta = 'identificacion';
                     this.nuevoArticulo = {
-                        numeroInventario: folioAutogenerado,
-                        tipoMaterial: '', subClave: '', categoria: '', areaUbicacion: '', descripcion: '',
+                        numeroInventario: folioAutogenerado, numeroInventarioAnterior: '', fondoOrigen: 'OFICIAL',
+                        tipoMaterial: '', subClave: '', categoria: '', areaUbicacion: '', descripcion: '', descripcionSecundaria: '',
                         marca: '', modelo: '', serie: '', numeroSerie: '', color: '', estadoFisico: 'NUEVO', estado: 'Activo',
-                        proveedor: '', factura: '', fechaFactura: null,
+                        proveedor: '', factura: '', folioFiscalUuid: '', fechaFactura: null,
                         precioSinIva: null, precio: null, valorInicial: null,
-                        pedido: '', requisicion: '', naturalezaGasto: '', partida: '',
-                        motor: '', placa: '', poliza: '', vigenciaPoliza: null,
-                        centroTrabajo: '', responsable: '', boletaSalida: '', cantidadStock: 1
+                        pedido: '', requisicion: '', naturalezaGasto: '', partida: '', cuentaContable: '',
+                        motor: '', placa: '', poliza: '', vigenciaDesde: null, vigenciaPoliza: null,
+                        unidadResponsable: '', subdireccion: '', departamento: '', centroTrabajo: '',
+                        responsable: '', resguardanteActual: '', resguardanteHistorico: '',
+                        folioResguardo: '', tipoFolioResguardo: 'OFICIAL', documentoResguardo: '', fechaResguardo: null,
+                        boletaSalida: '', tipoBaja: '', carpetaInvestigacion: '', oficioBaja: '', fechaBaja: null,
+                        numeroActa: '', fechaActa: null, cantidadStock: 1
                     };
                     this.nuevoUsuario = {
                         nombre: '', apellidos: '', email: '', username: '', password: '',
@@ -1448,15 +1854,24 @@
                             this.nuevoArticulo.precio = null;
                             this.nuevoArticulo.valorInicial = null;
                         }
-                        this.nuevoArticulo.numeroSerie = this.nuevoArticulo.serie ? String(this.nuevoArticulo.serie).trim().toUpperCase() : '';
+                        this.nuevoArticulo.numeroSerie = this.nuevoArticulo.serie ? String(this.nuevoArticulo.serie).trim().toUpperCase() : (this.nuevoArticulo.numeroSerie ? String(this.nuevoArticulo.numeroSerie).trim().toUpperCase() : '');
                         this.nuevoArticulo.cantidadStock = parseFloat(this.nuevoArticulo.cantidadStock) || 1;
-                        this.nuevoArticulo.estado = 'Activo';
+                        this.nuevoArticulo.estado = this.nuevoArticulo.estado || 'Activo';
+                        if (this.nuevoArticulo.resguardanteActual && !this.nuevoArticulo.responsable) {
+                            this.nuevoArticulo.responsable = this.nuevoArticulo.resguardanteActual;
+                        } else if (this.nuevoArticulo.responsable && !this.nuevoArticulo.resguardanteActual) {
+                            this.nuevoArticulo.resguardanteActual = this.nuevoArticulo.responsable;
+                        }
 
                         const payload = { ...this.nuevoArticulo };
                         delete payload.id;
                         if (!payload.fechaFactura || String(payload.fechaFactura).trim() === '') payload.fechaFactura = null;
+                        if (!payload.vigenciaDesde || String(payload.vigenciaDesde).trim() === '') payload.vigenciaDesde = null;
                         if (!payload.vigenciaPoliza || String(payload.vigenciaPoliza).trim() === '') payload.vigenciaPoliza = null;
                         if (!payload.fechaAdquisicion || String(payload.fechaAdquisicion).trim() === '') payload.fechaAdquisicion = null;
+                        if (!payload.fechaResguardo || String(payload.fechaResguardo).trim() === '') payload.fechaResguardo = null;
+                        if (!payload.fechaBaja || String(payload.fechaBaja).trim() === '') payload.fechaBaja = null;
+                        if (!payload.fechaActa || String(payload.fechaActa).trim() === '') payload.fechaActa = null;
 
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
                         if (respuesta.ok) {
@@ -1470,7 +1885,14 @@
                     } catch (error) { this.notificar("Error de conexión", "error"); } finally { this.guardando = false; }
                 },
 
-                abrirModal(articulo) { this.articuloSeleccionado = JSON.parse(JSON.stringify(articulo)); this.modalAbierto = true; },
+                abrirModal(articulo) {
+                    this.tabModalEdicion = 'identificacion';
+                    const copia = JSON.parse(JSON.stringify(articulo));
+                    if (!copia.fondoOrigen) copia.fondoOrigen = 'OFICIAL';
+                    if (!copia.resguardanteActual && copia.responsable) copia.resguardanteActual = copia.responsable;
+                    this.articuloSeleccionado = copia;
+                    this.modalAbierto = true;
+                },
                 cerrarModal() { this.modalAbierto = false; this.articuloSeleccionado = {}; },
 
                 async guardarCambios() {
@@ -1480,10 +1902,24 @@
                         if (this.articuloSeleccionado.serie && !this.articuloSeleccionado.numeroSerie) {
                             this.articuloSeleccionado.numeroSerie = this.articuloSeleccionado.serie;
                         }
+                        if (this.articuloSeleccionado.resguardanteActual && !this.articuloSeleccionado.responsable) {
+                            this.articuloSeleccionado.responsable = this.articuloSeleccionado.resguardanteActual;
+                        }
+                        if (this.articuloSeleccionado.precioSinIva !== null && this.articuloSeleccionado.precioSinIva !== '' && !isNaN(parseFloat(this.articuloSeleccionado.precioSinIva))) {
+                            const base = parseFloat(this.articuloSeleccionado.precioSinIva);
+                            const totalNeto = parseFloat((base * 1.16).toFixed(2));
+                            this.articuloSeleccionado.precioSinIva = base;
+                            this.articuloSeleccionado.precio = totalNeto;
+                            this.articuloSeleccionado.valorInicial = totalNeto;
+                        }
                         const payload = { ...this.articuloSeleccionado };
                         if (!payload.fechaFactura || String(payload.fechaFactura).trim() === '') payload.fechaFactura = null;
+                        if (!payload.vigenciaDesde || String(payload.vigenciaDesde).trim() === '') payload.vigenciaDesde = null;
                         if (!payload.vigenciaPoliza || String(payload.vigenciaPoliza).trim() === '') payload.vigenciaPoliza = null;
                         if (!payload.fechaAdquisicion || String(payload.fechaAdquisicion).trim() === '') payload.fechaAdquisicion = null;
+                        if (!payload.fechaResguardo || String(payload.fechaResguardo).trim() === '') payload.fechaResguardo = null;
+                        if (!payload.fechaBaja || String(payload.fechaBaja).trim() === '') payload.fechaBaja = null;
+                        if (!payload.fechaActa || String(payload.fechaActa).trim() === '') payload.fechaActa = null;
                         if (payload.precioSinIva === '' || isNaN(parseFloat(payload.precioSinIva))) payload.precioSinIva = null;
                         if (payload.valorInicial === '' || isNaN(parseFloat(payload.valorInicial))) payload.valorInicial = null;
                         if (payload.precio === '' || isNaN(parseFloat(payload.precio))) payload.precio = null;

@@ -18,10 +18,14 @@ import jakarta.persistence.Table;
 @Entity
 @Table(indexes = {
     @Index(name = "idx_articulo_num_inventario", columnList = "numeroInventario"),
+    @Index(name = "idx_articulo_num_inv_ant", columnList = "numeroInventarioAnterior"),
+    @Index(name = "idx_articulo_fondo_origen", columnList = "fondoOrigen"),
     @Index(name = "idx_articulo_num_serie", columnList = "numeroSerie"),
     @Index(name = "idx_articulo_token_qr", columnList = "tokenQR"),
     @Index(name = "idx_articulo_categoria", columnList = "categoria"),
-    @Index(name = "idx_articulo_area_ubicacion", columnList = "areaUbicacion")
+    @Index(name = "idx_articulo_area_ubicacion", columnList = "areaUbicacion"),
+    @Index(name = "idx_articulo_cct", columnList = "centroTrabajo"),
+    @Index(name = "idx_articulo_partida", columnList = "partida")
 })
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class Articulo extends PanacheEntity {
@@ -61,12 +65,18 @@ public class Articulo extends PanacheEntity {
     }
 
     public String numeroInventario;
+    public String numeroInventarioAnterior;
+    public String fondoOrigen = "OFICIAL";
     public String tokenQR;
     public String tipoMaterial;
     public String subClave;
+    public String cuentaContable;
 
     @Column(length = 500)
     public String descripcion;
+
+    @Column(length = 500)
+    public String descripcionSecundaria;
 
     public String marca;
     public String modelo;
@@ -74,6 +84,19 @@ public class Articulo extends PanacheEntity {
     public String color;
     public String categoria;
     public String areaUbicacion;
+
+    public String unidadResponsable;
+    public String subdireccion;
+    public String departamento;
+    public String centroTrabajo;
+    public String resguardanteActual;
+    public String resguardanteHistorico;
+    public String folioResguardo;
+    public String tipoFolioResguardo;
+    public String documentoResguardo;
+
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
+    public LocalDate fechaResguardo;
 
     @JsonDeserialize(using = DoubleFlexibleDeserializer.class)
     public Double cantidadStock = 1.0;
@@ -83,6 +106,8 @@ public class Articulo extends PanacheEntity {
 
     public String proveedor;
     public String factura;
+    public String folioFiscalUuid;
+    public String boletaSalida;
 
     @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
     public LocalDate fechaFactura;
@@ -112,12 +137,33 @@ public class Articulo extends PanacheEntity {
     public String poliza;
 
     @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
+    public LocalDate vigenciaDesde;
+
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
     public LocalDate vigenciaPoliza;
+
+    public String tipoBaja;
+    public String carpetaInvestigacion;
+    public String oficioBaja;
+
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
+    public LocalDate fechaBaja;
+
+    public String numeroActa;
+
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
+    public LocalDate fechaActa;
 
     @JsonSetter("fechaFactura")
     @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
     public void setFechaFactura(LocalDate valor) {
         this.fechaFactura = valor;
+    }
+
+    @JsonSetter("vigenciaDesde")
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
+    public void setVigenciaDesde(LocalDate valor) {
+        this.vigenciaDesde = valor;
     }
 
     @JsonSetter("vigenciaPoliza")
@@ -130,6 +176,24 @@ public class Articulo extends PanacheEntity {
     @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
     public void setFechaAdquisicion(LocalDate valor) {
         this.fechaAdquisicion = valor;
+    }
+
+    @JsonSetter("fechaResguardo")
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
+    public void setFechaResguardo(LocalDate valor) {
+        this.fechaResguardo = valor;
+    }
+
+    @JsonSetter("fechaBaja")
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
+    public void setFechaBaja(LocalDate valor) {
+        this.fechaBaja = valor;
+    }
+
+    @JsonSetter("fechaActa")
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
+    public void setFechaActa(LocalDate valor) {
+        this.fechaActa = valor;
     }
 
     public void setFechaFacturaSegura(String valor) {

@@ -54,6 +54,8 @@ public class ArticuloResource {
     @GET
     public Response listar(
         @QueryParam("busqueda") String busqueda,
+        @QueryParam("indiceBusqueda") String indiceBusqueda,
+        @QueryParam("fondo") String fondo,
         @QueryParam("categoria") String categoria,
         @QueryParam("area") String area,
         @QueryParam("page") Integer page,
@@ -63,8 +65,24 @@ public class ArticuloResource {
         Map<String, Object> params = new HashMap<>();
 
         if (busqueda != null && !busqueda.trim().isEmpty()) {
-            query.append(" and (lower(marca) like :busqueda or lower(modelo) like :busqueda or lower(descripcion) like :busqueda or lower(numeroInventario) like :busqueda or lower(numeroSerie) like :busqueda)");
+            String ind = indiceBusqueda != null ? indiceBusqueda.trim().toUpperCase() : "TODOS";
+            if ("INVENTARIO".equals(ind)) {
+                query.append(" and (lower(numeroInventario) like :busqueda or lower(numeroInventarioAnterior) like :busqueda)");
+            } else if ("SERIE".equals(ind)) {
+                query.append(" and lower(numeroSerie) like :busqueda");
+            } else if ("CCT_RESGUARDANTE".equals(ind) || "RESGUARDANTE_CCT".equals(ind)) {
+                query.append(" and (lower(centroTrabajo) like :busqueda or lower(resguardanteActual) like :busqueda or lower(resguardanteHistorico) like :busqueda or lower(areaUbicacion) like :busqueda)");
+            } else if ("TIPO_PARTIDA".equals(ind)) {
+                query.append(" and (lower(tipoMaterial) like :busqueda or lower(subClave) like :busqueda or lower(partida) like :busqueda or lower(cuentaContable) like :busqueda)");
+            } else {
+                query.append(" and (lower(marca) like :busqueda or lower(modelo) like :busqueda or lower(descripcion) like :busqueda or lower(descripcionSecundaria) like :busqueda or lower(numeroInventario) like :busqueda or lower(numeroInventarioAnterior) like :busqueda or lower(numeroSerie) like :busqueda or lower(centroTrabajo) like :busqueda or lower(resguardanteActual) like :busqueda or lower(tipoMaterial) like :busqueda or lower(partida) like :busqueda or lower(factura) like :busqueda or lower(proveedor) like :busqueda)");
+            }
             params.put("busqueda", "%" + busqueda.trim().toLowerCase() + "%");
+        }
+
+        if (fondo != null && !fondo.trim().isEmpty()) {
+            query.append(" and upper(fondoOrigen) = :fondo");
+            params.put("fondo", fondo.trim().toUpperCase());
         }
 
         if (categoria != null && !categoria.trim().isEmpty()) {
@@ -95,7 +113,7 @@ public class ArticuloResource {
     @Path("/folio/{folio}")
     public Response buscarPorFolio(@PathParam("folio") String folio) {
         String f = folio.trim().toUpperCase();
-        Articulo articulo = Articulo.find("upper(numeroInventario) = ?1 or upper(numeroSerie) = ?1 or tokenQR = ?2", f, folio.trim()).firstResult();
+        Articulo articulo = Articulo.find("upper(numeroInventario) = ?1 or upper(numeroInventarioAnterior) = ?1 or upper(numeroSerie) = ?1 or tokenQR = ?2", f, folio.trim()).firstResult();
         if (articulo == null) {
             return Response.status(Response.Status.NOT_FOUND).entity("{\"error\": \"Equipo no encontrado\"}").build();
         }
@@ -113,6 +131,9 @@ public class ArticuloResource {
         articulo.id = null;
         articulo.numeroInventario = null;
 
+        if (articulo.fondoOrigen == null || articulo.fondoOrigen.trim().isEmpty()) {
+            articulo.fondoOrigen = "OFICIAL";
+        }
         if (articulo.cantidadStock == null || articulo.cantidadStock <= 0) {
             articulo.cantidadStock = 1.0;
         }
@@ -159,7 +180,7 @@ public class ArticuloResource {
         HistorialTrazabilidad historial = new HistorialTrazabilidad();
         historial.articulo = articulo;
         historial.tipoMovimiento = "ALTA";
-        historial.detallesModificacion = "Alta en sistema. Folio Asignado: " + articulo.numeroInventario;
+        historial.detallesModificacion = "Alta en sistema (" + articulo.fondoOrigen + "). Folio Asignado: " + articulo.numeroInventario;
         historial.fechaMovimiento = java.time.LocalDateTime.now();
         historial.username = obtenerNombreAdmin(); 
         historial.persist();
@@ -179,12 +200,28 @@ public class ArticuloResource {
                            .build();
         }
         
+        articuloExistente.numeroInventarioAnterior = articuloActualizado.numeroInventarioAnterior;
+        articuloExistente.fondoOrigen = (articuloActualizado.fondoOrigen != null && !articuloActualizado.fondoOrigen.trim().isEmpty())
+                ? articuloActualizado.fondoOrigen.trim().toUpperCase()
+                : (articuloExistente.fondoOrigen != null ? articuloExistente.fondoOrigen : "OFICIAL");
+        articuloExistente.cuentaContable = articuloActualizado.cuentaContable;
         articuloExistente.numeroSerie = articuloActualizado.numeroSerie;
         articuloExistente.descripcion = articuloActualizado.descripcion;
+        articuloExistente.descripcionSecundaria = articuloActualizado.descripcionSecundaria;
         articuloExistente.marca = articuloActualizado.marca;
         articuloExistente.modelo = articuloActualizado.modelo;
         articuloExistente.categoria = articuloActualizado.categoria;
         articuloExistente.areaUbicacion = articuloActualizado.areaUbicacion;
+        articuloExistente.unidadResponsable = articuloActualizado.unidadResponsable;
+        articuloExistente.subdireccion = articuloActualizado.subdireccion;
+        articuloExistente.departamento = articuloActualizado.departamento;
+        articuloExistente.centroTrabajo = articuloActualizado.centroTrabajo;
+        articuloExistente.resguardanteActual = articuloActualizado.resguardanteActual;
+        articuloExistente.resguardanteHistorico = articuloActualizado.resguardanteHistorico;
+        articuloExistente.folioResguardo = articuloActualizado.folioResguardo;
+        articuloExistente.tipoFolioResguardo = articuloActualizado.tipoFolioResguardo;
+        articuloExistente.documentoResguardo = articuloActualizado.documentoResguardo;
+        articuloExistente.fechaResguardo = articuloActualizado.fechaResguardo;
         articuloExistente.cantidadStock = articuloActualizado.cantidadStock;
         articuloExistente.estadoFisico = articuloActualizado.estadoFisico;
         articuloExistente.estado = articuloActualizado.estado;
@@ -196,6 +233,8 @@ public class ArticuloResource {
         articuloExistente.color = articuloActualizado.color;
         articuloExistente.proveedor = articuloActualizado.proveedor;
         articuloExistente.factura = articuloActualizado.factura;
+        articuloExistente.folioFiscalUuid = articuloActualizado.folioFiscalUuid;
+        articuloExistente.boletaSalida = articuloActualizado.boletaSalida;
         articuloExistente.fechaFactura = articuloActualizado.fechaFactura;
         articuloExistente.precioSinIva = articuloActualizado.precioSinIva;
         articuloExistente.pedido = articuloActualizado.pedido;
@@ -205,7 +244,14 @@ public class ArticuloResource {
         articuloExistente.motor = articuloActualizado.motor;
         articuloExistente.placa = articuloActualizado.placa;
         articuloExistente.poliza = articuloActualizado.poliza;
+        articuloExistente.vigenciaDesde = articuloActualizado.vigenciaDesde;
         articuloExistente.vigenciaPoliza = articuloActualizado.vigenciaPoliza;
+        articuloExistente.tipoBaja = articuloActualizado.tipoBaja;
+        articuloExistente.carpetaInvestigacion = articuloActualizado.carpetaInvestigacion;
+        articuloExistente.oficioBaja = articuloActualizado.oficioBaja;
+        articuloExistente.fechaBaja = articuloActualizado.fechaBaja;
+        articuloExistente.numeroActa = articuloActualizado.numeroActa;
+        articuloExistente.fechaActa = articuloActualizado.fechaActa;
         if (articuloActualizado.fechaAdquisicion != null) {
             articuloExistente.fechaAdquisicion = articuloActualizado.fechaAdquisicion;
         }
