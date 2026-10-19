@@ -68,9 +68,16 @@
                 <select x-model="filtroFondoReporte"
                     class="w-full rounded-md border-gray-200 bg-white py-2 px-3 shadow-sm sm:text-xs font-semibold border focus:ring-guinda focus:border-guinda">
                     <option value="">Todos los Fondos</option>
-                    <template x-for="f in listaFondosOrigen" :key="f.clave">
-                        <option :value="f.clave" x-text="f.etiqueta"></option>
-                    </template>
+                    <optgroup label="Fuentes Operativas Activas">
+                        <template x-for="f in listaFondosOperativos" :key="f.clave">
+                            <option :value="f.clave" x-text="f.etiqueta || f.nombre"></option>
+                        </template>
+                    </optgroup>
+                    <optgroup label="Acervo Histórico (Solo Consulta / Migración)">
+                        <template x-for="f in listaFondosHistoricos" :key="f.clave">
+                            <option :value="f.clave" x-text="f.etiqueta || f.nombre"></option>
+                        </template>
+                    </optgroup>
                 </select>
             </div>
             <div>
@@ -205,22 +212,22 @@
                 <span class="text-xs font-bold text-gray-700 uppercase mr-2">Modalidad de Cuantificación:</span>
                 <button type="button" @click="tipoCuantificacion = 'PARTIDA'"
                     class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                    :class="tipoCuantificacion === 'PARTIDA' ? 'bg-guinda text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                    :class="tipoCuantificacion.toUpperCase() === 'PARTIDA' ? 'bg-guinda text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
                     1. Por Partida Presupuestal
                 </button>
                 <button type="button" @click="tipoCuantificacion = 'CCT_ARTICULO'"
                     class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                    :class="tipoCuantificacion === 'CCT_ARTICULO' ? 'bg-guinda text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                    :class="tipoCuantificacion.toUpperCase() === 'CCT_ARTICULO' ? 'bg-guinda text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
                     2. Por CCT y Artículo
                 </button>
                 <button type="button" @click="tipoCuantificacion = 'TIPO_ARTICULO'"
                     class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                    :class="tipoCuantificacion === 'TIPO_ARTICULO' ? 'bg-guinda text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                    :class="tipoCuantificacion.toUpperCase() === 'TIPO_ARTICULO' ? 'bg-guinda text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
                     3. Por Tipo de Artículo
                 </button>
                 <button type="button" @click="tipoCuantificacion = 'PROVEEDOR_FACTURA'"
                     class="px-3 py-1.5 rounded-lg text-xs font-bold transition-colors"
-                    :class="tipoCuantificacion === 'PROVEEDOR_FACTURA' ? 'bg-guinda text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                    :class="tipoCuantificacion.toUpperCase() === 'PROVEEDOR_FACTURA' || tipoCuantificacion.toUpperCase() === 'PROVEEDOR_PEDIDO' ? 'bg-guinda text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
                     4. Por Proveedor, Pedido y Factura
                 </button>
             </div>
@@ -243,7 +250,7 @@
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
-                    <template x-for="fila in filasCuantificacion" :key="fila.clave">
+                    <template x-for="fila in filasCuantificacion" :key="fila.clave + '|' + fila.descripcion">
                         <tr class="hover:bg-gray-50">
                             <td class="px-4 py-3 font-mono font-bold text-guinda text-xs" x-text="fila.grupo"></td>
                             <td class="px-4 py-3 text-xs text-gray-700 font-medium" x-text="fila.subgrupo"></td>
@@ -251,7 +258,7 @@
                             <td class="px-4 py-3 text-right font-mono font-bold text-gray-900"
                                 x-text="'$ ' + fila.importe.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></td>
                             <td class="px-4 py-3 text-right font-mono text-xs text-gray-600"
-                                x-text="(totalesCuantificacion.importe > 0 ? ((fila.importe / totalesCuantificacion.importe) * 100).toFixed(2) : '0.00') + ' %'"></td>
+                                x-text="fila.porcentaje + ' %'"></td>
                         </tr>
                     </template>
                     <tr x-show="filasCuantificacion.length > 0" class="bg-caqui font-extrabold border-t-2 border-dorado">
@@ -268,8 +275,14 @@
 
     <div x-show="tabReporteActivo === 'resguardos_lote'" x-cloak class="space-y-4">
         <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm border-t-4 border-t-guinda">
-            <h3 class="text-base font-bold text-gray-900 mb-1">Emisión Oficial de Resguardos de Activo Fijo (Individual o en Lote)</h3>
-            <p class="text-xs text-gray-500 mb-4">Filtra por Clave de Centro de Trabajo (CCT), Resguardante o Folio de Resguardo y configura los nombres de los titulares para las firmas oficiales (<code class="text-guinda font-bold">JEFE_ALM</code> y <code class="text-guinda font-bold">JEFE_INV</code>).</p>
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-4">
+                <div>
+                    <h3 class="text-base font-bold text-gray-900">Emisión Oficial de Resguardos de Activo Fijo (Individual o en Lote)</h3>
+                    <p class="text-xs text-gray-500 mt-0.5">Filtra por Clave de Centro de Trabajo (CCT), Resguardante o Folio de Resguardo, selecciona los bienes en la tabla inferior y configura las firmas oficiales (<code class="text-guinda font-bold">JEFE_ALM</code> y <code class="text-guinda font-bold">JEFE_INV</code>).</p>
+                </div>
+                <span class="px-3 py-1 rounded-full bg-guinda/10 text-guinda text-xs font-bold shrink-0"
+                    x-text="itemsResguardoLote.length + ' seleccionados de ' + articulosResguardoLoteFiltrados.length"></span>
+            </div>
 
             <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
                 <div>
@@ -302,6 +315,63 @@
                     </button>
                 </div>
             </div>
+        </div>
+
+        <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white">
+            <table class="min-w-full divide-y-2 divide-gray-200 text-sm">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-center w-12">
+                            <input type="checkbox"
+                                :checked="articulosResguardoLoteFiltrados.length > 0 && itemsResguardoLote.length === articulosResguardoLoteFiltrados.length"
+                                @change="toggleSeleccionTodosResguardoLote($event)"
+                                class="h-4 w-4 rounded border-gray-300 text-guinda focus:ring-guinda cursor-pointer"
+                                title="Seleccionar / Deseleccionar todos">
+                        </th>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-900">Folio Oficial / Fondo</th>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-900">Descripción / Marca / Serie</th>
+                        <th class="px-4 py-3 text-left font-semibold text-gray-900">CCT / Resguardante</th>
+                        <th class="px-4 py-3 text-right font-semibold text-gray-900">Importe MXN</th>
+                        <th class="px-4 py-3 text-center font-semibold text-gray-900">Cédula Individual</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    <template x-for="item in articulosResguardoLoteFiltrados" :key="item.id">
+                        <tr class="hover:bg-gray-50 transition-colors" :class="itemsResguardoLote.includes(item.id) ? 'bg-guinda/5' : ''">
+                            <td class="px-4 py-3 text-center">
+                                <input type="checkbox" :value="item.id" x-model="itemsResguardoLote"
+                                    class="h-4 w-4 rounded border-gray-300 text-guinda focus:ring-guinda cursor-pointer">
+                            </td>
+                            <td class="px-4 py-3 font-mono text-xs">
+                                <div class="font-bold text-guinda" x-text="item.numeroInventario || 'S/N'"></div>
+                                <span class="text-[10px] font-bold text-gray-500 uppercase" x-text="item.fondoOrigen || 'OFICIAL'"></span>
+                            </td>
+                            <td class="px-4 py-3 text-xs">
+                                <div class="font-bold text-gray-900 uppercase" x-text="item.descripcion || item.marca || 'Sin descripción'"></div>
+                                <div class="text-gray-500 font-mono" x-text="(item.marca || 'S/M') + ' | Serie: ' + (item.numeroSerie || item.serie || 'S/N')"></div>
+                            </td>
+                            <td class="px-4 py-3 text-xs text-gray-700">
+                                <div class="font-semibold text-gray-900" x-text="item.centroTrabajo || item.areaUbicacion || 'Almacén Central'"></div>
+                                <div class="text-gray-500" x-text="item.resguardanteActual || item.responsable || 'Custodia Central'"></div>
+                            </td>
+                            <td class="px-4 py-3 text-right font-mono font-semibold text-gray-900"
+                                x-text="'$ ' + Number(item.valorInicial || item.precio || 0).toFixed(2)"></td>
+                            <td class="px-4 py-3 text-center">
+                                <button type="button" @click="imprimirResguardoLoteMNREPINV(item)"
+                                    class="inline-flex items-center gap-1.5 rounded-md bg-white border border-gray-300 px-2.5 py-1 text-xs font-bold text-guinda hover:bg-guinda hover:text-white transition shadow-sm">
+                                    <i class="fas fa-print"></i>
+                                    Imprimir
+                                </button>
+                            </td>
+                        </tr>
+                    </template>
+                    <tr x-show="articulosResguardoLoteFiltrados.length === 0">
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                            No hay bienes que coincidan con el filtro de CCT o Resguardante.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </div>
 

@@ -128,6 +128,7 @@ public class ArticuloResource {
                     .entity("{\"error\": \"Los datos del artículo son obligatorios.\"}")
                     .build();
         }
+        String folioSolicitado = (articulo.numeroInventario != null) ? articulo.numeroInventario.trim().toUpperCase() : "";
         articulo.id = null;
         articulo.numeroInventario = null;
 
@@ -146,29 +147,34 @@ public class ArticuloResource {
 
         articulo.persistAndFlush();
 
-        int anioCorto = LocalDate.now().getYear() % 100;
-        String prefijoFolio = "SE-AG-" + String.format("%02d", anioCorto) + "-";
-        long maxSufijo = 0L;
-        List<Articulo> existentesAnio = Articulo.find("upper(numeroInventario) like ?1", (prefijoFolio + "%").toUpperCase()).list();
-        for (Articulo art : existentesAnio) {
-            if (art != null && art.numeroInventario != null && art.numeroInventario.length() > prefijoFolio.length()) {
-                String sufijoStr = art.numeroInventario.substring(prefijoFolio.length()).trim();
-                try {
-                    long valor = Long.parseLong(sufijoStr);
-                    if (valor > maxSufijo) {
-                        maxSufijo = valor;
+        if (!folioSolicitado.isEmpty() && !folioSolicitado.equals("AUTOGENERADO")
+                && Articulo.count("upper(numeroInventario) = ?1", folioSolicitado) == 0) {
+            articulo.numeroInventario = folioSolicitado;
+        } else {
+            int anioCorto = LocalDate.now().getYear() % 100;
+            String prefijoFolio = "SE-AG-" + String.format("%02d", anioCorto) + "-";
+            long maxSufijo = 0L;
+            List<Articulo> existentesAnio = Articulo.find("upper(numeroInventario) like ?1", (prefijoFolio + "%").toUpperCase()).list();
+            for (Articulo art : existentesAnio) {
+                if (art != null && art.numeroInventario != null && art.numeroInventario.length() > prefijoFolio.length()) {
+                    String sufijoStr = art.numeroInventario.substring(prefijoFolio.length()).trim();
+                    try {
+                        long valor = Long.parseLong(sufijoStr);
+                        if (valor > maxSufijo) {
+                            maxSufijo = valor;
+                        }
+                    } catch (NumberFormatException ignored) {
                     }
-                } catch (NumberFormatException ignored) {
                 }
             }
+            long consecutivo = Math.max(Math.max(1L, Articulo.count()), maxSufijo + 1L);
+            String folioCandidato = prefijoFolio + String.format("%05d", consecutivo);
+            while (Articulo.count("upper(numeroInventario) = ?1", folioCandidato.toUpperCase()) > 0) {
+                consecutivo++;
+                folioCandidato = prefijoFolio + String.format("%05d", consecutivo);
+            }
+            articulo.numeroInventario = folioCandidato;
         }
-        long consecutivo = Math.max(Math.max(1L, Articulo.count()), maxSufijo + 1L);
-        String folioCandidato = prefijoFolio + String.format("%05d", consecutivo);
-        while (Articulo.count("upper(numeroInventario) = ?1", folioCandidato.toUpperCase()) > 0) {
-            consecutivo++;
-            folioCandidato = prefijoFolio + String.format("%05d", consecutivo);
-        }
-        articulo.numeroInventario = folioCandidato;
         articulo.tokenQR = UUID.randomUUID().toString();
         
         if (articulo.fechaAdquisicion == null) {

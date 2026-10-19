@@ -49,9 +49,16 @@
                 <select x-model="filtroFondo" @change="aplicarFiltros()"
                     class="w-full rounded-md border-gray-200 bg-white py-2 px-3 shadow-sm sm:text-xs font-semibold border focus:ring-guinda focus:border-guinda">
                     <option value="">Todos los Fondos</option>
-                    <template x-for="f in listaFondosOrigen" :key="f.clave">
-                        <option :value="f.clave" x-text="f.etiqueta"></option>
-                    </template>
+                    <optgroup label="Fuentes Operativas Activas">
+                        <template x-for="f in listaFondosOperativos" :key="f.clave">
+                            <option :value="f.clave" x-text="f.etiqueta || f.nombre"></option>
+                        </template>
+                    </optgroup>
+                    <optgroup label="Acervo Histórico (Solo Consulta / Migración)">
+                        <template x-for="f in listaFondosHistoricos" :key="f.clave">
+                            <option :value="f.clave" x-text="f.etiqueta || f.nombre"></option>
+                        </template>
+                    </optgroup>
                 </select>
             </div>
             <div class="lg:col-span-2">
@@ -489,8 +496,8 @@
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Fondo / Origen (ORIGEN) *</label>
                                             <select x-model="nuevoArticulo.fondoOrigen"
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm font-semibold focus:ring-guinda focus:border-guinda">
-                                                <template x-for="f in listaFondosOrigen" :key="f.clave">
-                                                    <option :value="f.clave" x-text="f.etiqueta"></option>
+                                                <template x-for="f in listaFondosOperativos" :key="f.clave">
+                                                    <option :value="f.clave" x-text="f.etiqueta || f.nombre"></option>
                                                 </template>
                                             </select>
                                         </div>
@@ -868,9 +875,16 @@
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Fondo / Origen (ORIGEN)</label>
                                 <select x-model="articuloSeleccionado.fondoOrigen"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 font-semibold focus:ring-guinda focus:border-guinda">
-                                    <template x-for="f in listaFondosOrigen" :key="f.clave">
-                                        <option :value="f.clave" x-text="f.etiqueta"></option>
-                                    </template>
+                                    <optgroup label="Fuentes Operativas Activas">
+                                        <template x-for="f in listaFondosOperativos" :key="f.clave">
+                                            <option :value="f.clave" x-text="f.etiqueta || f.nombre"></option>
+                                        </template>
+                                    </optgroup>
+                                    <optgroup label="Acervo Histórico (Solo Consulta / Migración)">
+                                        <template x-for="f in listaFondosHistoricos" :key="f.clave">
+                                            <option :value="f.clave" x-text="f.etiqueta || f.nombre"></option>
+                                        </template>
+                                    </optgroup>
                                 </select>
                             </div>
                             <div>

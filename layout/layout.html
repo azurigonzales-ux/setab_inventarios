@@ -359,17 +359,34 @@
                 errorMensaje: '',
 
                 articulos: [], totalRegistros: 0,
-                filtroBusqueda: '', indiceBusqueda: 'TODOS', filtroFondo: '', filtroCategoria: '', filtroArea: '', paginaActual: 0, totalPaginas: 1,
+                filtroBusqueda: '', indiceBusqueda: 'GENERAL', filtroFondo: '', filtroCategoria: '', filtroArea: '', paginaActual: 0, totalPaginas: 1,
                 tabModalAlta: 'identificacion',
                 tabModalEdicion: 'identificacion',
+                listaFondosOperativos: [
+                    { id: 'INTERNO', clave: 'INTERNO', nombre: 'INTERNO (Control Interno)', etiqueta: 'INTERNO (Control Interno)' },
+                    { id: 'OFICIAL', clave: 'OFICIAL', nombre: 'OFICIAL (Patrimonio Estatal)', etiqueta: 'OFICIAL (Patrimonio Estatal)' },
+                    { id: 'OFICIAL_DESEGREGADOS', clave: 'OFICIAL_DESEGREGADOS', nombre: 'OFICIAL DESAGREGADOS', etiqueta: 'OFICIAL DESAGREGADOS' }
+                ],
+                listaFondosHistoricos: [
+                    { id: 'VEHICULOS', clave: 'VEHICULOS', nombre: 'VEHÍCULOS (Parque Vehicular)', etiqueta: 'VEHÍCULOS (Parque Vehicular)' },
+                    { id: 'INV_CAPECE', clave: 'INV_CAPECE', nombre: 'INV_CAPECE (CAPECE)', etiqueta: 'INV_CAPECE (CAPECE)' },
+                    { id: 'INV_CONAFE', clave: 'INV_CONAFE', nombre: 'INV_CONAFE (CONAFE)', etiqueta: 'INV_CONAFE (CONAFE)' },
+                    { id: 'INV_DONACION', clave: 'INV_DONACION', nombre: 'INV_DONACION (Donaciones)', etiqueta: 'INV_DONACION (Donaciones)' },
+                    { id: 'ITIFE', clave: 'ITIFE', nombre: 'ITIFE (Infraestructura Educativa)', etiqueta: 'ITIFE (Infraestructura Educativa)' },
+                    { id: 'ITIFE_OFICIAL', clave: 'ITIFE_OFICIAL', nombre: 'ITIFE OFICIAL', etiqueta: 'ITIFE OFICIAL' },
+                    { id: 'INV_1995_2006', clave: 'INV_1995_2006', nombre: 'INV 1995-2006 (Acervo Histórico)', etiqueta: 'INV 1995-2006 (Acervo Histórico)' }
+                ],
                 listaFondosOrigen: [
-                    { id: 'OFICIAL', nombre: 'OFICIAL (Patrimonio Estatal)' },
-                    { id: 'INTERNO', nombre: 'INTERNO (Control Interno)' },
-                    { id: 'VEHICULOS', nombre: 'VEHÍCULOS (Parque Vehicular)' },
-                    { id: 'INV_DONACION', nombre: 'INV_DONACION (Donaciones)' },
-                    { id: 'INV_CONAFE', nombre: 'INV_CONAFE (CONAFE)' },
-                    { id: 'INV_CAPECE', nombre: 'INV_CAPECE (CAPECE)' },
-                    { id: 'ITIFE', nombre: 'ITIFE (Infraestructura Educativa)' }
+                    { id: 'INTERNO', clave: 'INTERNO', nombre: 'INTERNO (Control Interno)', etiqueta: 'INTERNO (Control Interno)' },
+                    { id: 'OFICIAL', clave: 'OFICIAL', nombre: 'OFICIAL (Patrimonio Estatal)', etiqueta: 'OFICIAL (Patrimonio Estatal)' },
+                    { id: 'OFICIAL_DESEGREGADOS', clave: 'OFICIAL_DESEGREGADOS', nombre: 'OFICIAL DESAGREGADOS', etiqueta: 'OFICIAL DESAGREGADOS' },
+                    { id: 'VEHICULOS', clave: 'VEHICULOS', nombre: 'VEHÍCULOS (Parque Vehicular)', etiqueta: 'VEHÍCULOS (Parque Vehicular)' },
+                    { id: 'INV_CAPECE', clave: 'INV_CAPECE', nombre: 'INV_CAPECE (CAPECE)', etiqueta: 'INV_CAPECE (CAPECE)' },
+                    { id: 'INV_CONAFE', clave: 'INV_CONAFE', nombre: 'INV_CONAFE (CONAFE)', etiqueta: 'INV_CONAFE (CONAFE)' },
+                    { id: 'INV_DONACION', clave: 'INV_DONACION', nombre: 'INV_DONACION (Donaciones)', etiqueta: 'INV_DONACION (Donaciones)' },
+                    { id: 'ITIFE', clave: 'ITIFE', nombre: 'ITIFE (Infraestructura Educativa)', etiqueta: 'ITIFE (Infraestructura Educativa)' },
+                    { id: 'ITIFE_OFICIAL', clave: 'ITIFE_OFICIAL', nombre: 'ITIFE OFICIAL', etiqueta: 'ITIFE OFICIAL' },
+                    { id: 'INV_1995_2006', clave: 'INV_1995_2006', nombre: 'INV 1995-2006 (Acervo Histórico)', etiqueta: 'INV 1995-2006 (Acervo Histórico)' }
                 ],
                 misEquipos: [], pendientes: [], pendienteSeleccionado: {},
 
@@ -379,7 +396,7 @@
 
                 articuloSeleccionado: {},
                 nuevoArticulo: {
-                    numeroInventario: '', numeroInventarioAnterior: '', fondoOrigen: 'OFICIAL',
+                    numeroInventario: '', numeroInventarioAnterior: '', fondoOrigen: 'INTERNO',
                     tipoMaterial: '', subClave: '', cuentaContable: '', categoria: '', areaUbicacion: '',
                     descripcion: '', descripcionSecundaria: '',
                     marca: '', modelo: '', serie: '', numeroSerie: '', color: '', estadoFisico: 'NUEVO', estado: 'Activo',
@@ -416,16 +433,27 @@
                 },
 
                 tabReporteActivo: 'padron',
-                tipoCuantificacion: 'partida',
+                tipoCuantificacion: 'PARTIDA',
                 filtroSemestreReporte: '2026-2',
                 filtroFondoReporte: '',
                 filtroCategoriaReporte: '',
                 filtroAreaReporte: '',
                 filtroEstadoReporte: '',
+                filtroResguardoLoteCCT: '',
+                filtroResguardoLoteResponsable: '',
                 itemsResguardoLote: [],
+                firmasOficiales: {
+                    jefeAlmacen: 'LIC. RESPONSABLE DE ALMACÉN CENTRAL',
+                    jefeInventario: 'ING. JEFE DE CONTROL PATRIMONIAL E INVENTARIOS',
+                    jefeInventarios: 'ING. JEFE DE CONTROL PATRIMONIAL E INVENTARIOS',
+                    cctDestino: '',
+                    resguardanteReceptor: '',
+                    cargoReceptor: 'DIRECTOR / RESPONSABLE DE CENTRO DE TRABAJO'
+                },
                 firmantesResguardo: {
                     jefeAlmacen: 'LIC. RESPONSABLE DE ALMACÉN CENTRAL',
                     jefeInventario: 'ING. JEFE DE CONTROL PATRIMONIAL E INVENTARIOS',
+                    jefeInventarios: 'ING. JEFE DE CONTROL PATRIMONIAL E INVENTARIOS',
                     cctDestino: '',
                     resguardanteReceptor: '',
                     cargoReceptor: 'DIRECTOR / RESPONSABLE DE CENTRO DE TRABAJO'
@@ -438,6 +466,18 @@
                         const matchArea = !this.filtroAreaReporte || a.areaUbicacion === this.filtroAreaReporte;
                         const matchEst = !this.filtroEstadoReporte || (a.estadoFisico || 'BUENO') === this.filtroEstadoReporte;
                         return matchFondo && matchCat && matchArea && matchEst;
+                    });
+                },
+
+                get articulosResguardoLoteFiltrados() {
+                    const cctTerm = (this.filtroResguardoLoteCCT || '').trim().toUpperCase();
+                    const respTerm = (this.filtroResguardoLoteResponsable || '').trim().toUpperCase();
+                    return this.articulosReporteFiltrados.filter(a => {
+                        const cctBien = (a.centroTrabajo || a.areaUbicacion || '').toUpperCase();
+                        const respBien = `${a.resguardanteActual || ''} ${a.responsable || ''} ${a.folioResguardo || ''}`.toUpperCase();
+                        const matchCCT = !cctTerm || cctBien.includes(cctTerm);
+                        const matchResp = !respTerm || respBien.includes(respTerm);
+                        return matchCCT && matchResp;
                     });
                 },
 
@@ -460,23 +500,24 @@
                     const lista = this.articulosReporteFiltrados;
                     const grupos = {};
                     let granTotal = 0;
+                    const modo = (this.tipoCuantificacion || 'PARTIDA').toLowerCase();
 
                     for (const a of lista) {
                         let clave = 'SIN CLASIFICAR';
                         let desc = 'Sin especificar';
 
-                        if (this.tipoCuantificacion === 'partida') {
+                        if (modo === 'partida') {
                             clave = (a.partida || 'SIN PARTIDA').trim().toUpperCase();
                             desc = a.cuentaContable ? `Cuenta Contable: ${a.cuentaContable} (${a.naturalezaGasto || 'Gasto General'})` : (a.naturalezaGasto || 'Partida Presupuestal SETAB');
-                        } else if (this.tipoCuantificacion === 'cct_articulo') {
+                        } else if (modo === 'cct_articulo') {
                             const cct = (a.centroTrabajo || a.areaUbicacion || 'ALMACÉN CENTRAL').trim().toUpperCase();
                             const tipo = (a.tipoMaterial || a.categoria || 'BIEN GENERAL').trim().toUpperCase();
                             clave = `${cct} — ${tipo}`;
-                            desc = `Resguardante: ${a.resguardanteActual || 'Custodia Central'} | Fondo: ${a.fondoOrigen || 'OFICIAL'}`;
-                        } else if (this.tipoCuantificacion === 'tipo_articulo') {
+                            desc = `Resguardante: ${a.resguardanteActual || a.responsable || 'Custodia Central'} | Fondo: ${a.fondoOrigen || 'OFICIAL'}`;
+                        } else if (modo === 'tipo_articulo') {
                             clave = (a.tipoMaterial || a.categoria || 'SIN TIPO').trim().toUpperCase();
                             desc = a.subClave ? `Subclave: ${a.subClave} | Categoría: ${a.categoria || 'General'}` : `Categoría: ${a.categoria || 'General'}`;
-                        } else if (this.tipoCuantificacion === 'proveedor_pedido') {
+                        } else if (modo === 'proveedor_pedido' || modo === 'proveedor_factura') {
                             const prov = (a.proveedor || 'SIN PROVEEDOR').trim().toUpperCase();
                             const ped = (a.pedido || 'S/PED').trim().toUpperCase();
                             const fac = (a.factura || 'S/FACT').trim().toUpperCase();
@@ -488,11 +529,15 @@
                         if (!grupos[groupKey]) {
                             grupos[groupKey] = {
                                 clave,
+                                grupo: clave,
                                 descripcion: desc,
+                                subgrupo: desc,
                                 cantidadRegistros: 0,
+                                cantidad: 0,
                                 stockTotal: 0,
                                 subtotal: 0,
-                                importeTotal: 0
+                                importeTotal: 0,
+                                importe: 0
                             };
                         }
 
@@ -502,9 +547,11 @@
                         const impFila = unitario * cant;
 
                         grupos[groupKey].cantidadRegistros += 1;
+                        grupos[groupKey].cantidad = grupos[groupKey].cantidadRegistros;
                         grupos[groupKey].stockTotal += (Number(a.cantidadStock) || 0);
                         grupos[groupKey].subtotal += (subUnitario * cant);
                         grupos[groupKey].importeTotal += impFila;
+                        grupos[groupKey].importe = grupos[groupKey].importeTotal;
                         granTotal += impFila;
                     }
 
@@ -512,7 +559,7 @@
                         .sort((x, y) => y.importeTotal - x.importeTotal)
                         .map(g => ({
                             ...g,
-                            porcentaje: granTotal > 0 ? ((g.importeTotal / granTotal) * 100).toFixed(1) : '0.0'
+                            porcentaje: granTotal > 0 ? ((g.importeTotal / granTotal) * 100).toFixed(2) : '0.00'
                         }));
                 },
 
@@ -524,7 +571,10 @@
                     const total = filas.reduce((acc, f) => acc + f.importeTotal, 0);
                     return {
                         registros,
+                        cantidad: registros,
                         stock,
+                        subtotal,
+                        importe: total,
                         subtotalFmt: subtotal.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
                         totalFmt: total.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
                     };
@@ -579,16 +629,21 @@
 
                 toggleSeleccionTodosResguardoLote(e) {
                     if (e.target.checked) {
-                        this.itemsResguardoLote = this.articulosReporteFiltrados.map(a => a.id);
+                        this.itemsResguardoLote = this.articulosResguardoLoteFiltrados.map(a => a.id);
                     } else {
                         this.itemsResguardoLote = [];
                     }
                 },
 
                 imprimirResguardoLoteMNREPINV(articuloUnico = null) {
-                    const seleccionados = articuloUnico
-                        ? [articuloUnico]
-                        : this.articulosReporteFiltrados.filter(a => this.itemsResguardoLote.includes(a.id));
+                    let seleccionados = [];
+                    if (articuloUnico) {
+                        seleccionados = [articuloUnico];
+                    } else if (this.itemsResguardoLote.length > 0) {
+                        seleccionados = this.articulosResguardoLoteFiltrados.filter(a => this.itemsResguardoLote.includes(a.id));
+                    } else {
+                        seleccionados = this.articulosResguardoLoteFiltrados;
+                    }
 
                     if (seleccionados.length === 0) {
                         this.notificar("Selecciona al menos un bien para emitir el resguardo oficial.", "error");
@@ -596,11 +651,11 @@
                     }
 
                     const primero = seleccionados[0] || {};
-                    const cct = this.firmantesResguardo.cctDestino || primero.centroTrabajo || primero.areaUbicacion || 'ALMACÉN CENTRAL SETAB';
-                    const receptor = this.firmantesResguardo.resguardanteReceptor || primero.resguardanteActual || 'RESPONSABLE PATRIMONIAL DEL CCT';
+                    const cct = this.filtroResguardoLoteCCT || this.firmantesResguardo.cctDestino || primero.centroTrabajo || primero.areaUbicacion || 'ALMACÉN CENTRAL SETAB';
+                    const receptor = this.filtroResguardoLoteResponsable || this.firmantesResguardo.resguardanteReceptor || primero.resguardanteActual || primero.responsable || 'RESPONSABLE PATRIMONIAL DEL CCT';
                     const cargo = this.firmantesResguardo.cargoReceptor || 'DIRECTOR / RESPONSABLE DE CENTRO DE TRABAJO';
-                    const jefeAlm = this.firmantesResguardo.jefeAlmacen || 'JEFE DE ALMACÉN CENTRAL';
-                    const jefeInv = this.firmantesResguardo.jefeInventario || 'JEFE DE INVENTARIOS Y ACTIVO FIJO';
+                    const jefeAlm = this.firmasOficiales.jefeAlmacen || this.firmantesResguardo.jefeAlmacen || 'JEFE DE ALMACÉN CENTRAL';
+                    const jefeInv = this.firmasOficiales.jefeInventarios || this.firmasOficiales.jefeInventario || this.firmantesResguardo.jefeInventario || 'JEFE DE INVENTARIOS Y ACTIVO FIJO';
 
                     let importeTotalLote = 0;
                     const filasHtml = seleccionados.map((a, idx) => {
@@ -686,9 +741,13 @@
                         partida: 'CUANTIFICACIÓN PATRIMONIAL POR PARTIDA PRESUPUESTAL',
                         cct_articulo: 'CUANTIFICACIÓN PATRIMONIAL POR CENTRO DE TRABAJO (CCT) Y TIPO DE ARTÍCULO',
                         tipo_articulo: 'CUANTIFICACIÓN PATRIMONIAL POR TIPO DE ARTÍCULO Y SUBCLAVE',
-                        proveedor_pedido: 'CUANTIFICACIÓN PATRIMONIAL POR PROVEEDOR, PEDIDO Y FACTURA'
+                        proveedor_pedido: 'CUANTIFICACIÓN PATRIMONIAL POR PROVEEDOR, PEDIDO Y FACTURA',
+                        proveedor_factura: 'CUANTIFICACIÓN PATRIMONIAL POR PROVEEDOR, PEDIDO Y FACTURA'
                     };
-                    const titulo = titulos[this.tipoCuantificacion] || 'CUANTIFICACIÓN PATRIMONIAL SETAB';
+                    const modo = (this.tipoCuantificacion || 'PARTIDA').toLowerCase();
+                    const titulo = titulos[modo] || 'CUANTIFICACIÓN PATRIMONIAL SETAB';
+                    const jefeAlm = this.firmasOficiales.jefeAlmacen || this.firmantesResguardo.jefeAlmacen || 'JEFE DE ALMACÉN CENTRAL';
+                    const jefeInv = this.firmasOficiales.jefeInventarios || this.firmasOficiales.jefeInventario || this.firmantesResguardo.jefeInventario || 'JEFE DE INVENTARIOS Y ACTIVO FIJO';
                     const filasHtml = this.filasCuantificacion.map((f, idx) => `
                         <tr>
                             <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;">${idx + 1}</td>
@@ -744,8 +803,8 @@
                                 <tbody>${filasHtml}</tbody>
                             </table>
                             <div class="firmas">
-                                <div class="linea">JEFE DE ALMACÉN CENTRAL<br><span style="font-weight:normal;">${this.firmantesResguardo.jefeAlmacen}</span></div>
-                                <div class="linea">JEFE DE INVENTARIOS Y ACTIVO FIJO<br><span style="font-weight:normal;">${this.firmantesResguardo.jefeInventario}</span></div>
+                                <div class="linea">JEFE DE ALMACÉN CENTRAL<br><span style="font-weight:normal;">${jefeAlm}</span></div>
+                                <div class="linea">JEFE DE INVENTARIOS Y ACTIVO FIJO<br><span style="font-weight:normal;">${jefeInv}</span></div>
                             </div>
                         </body>
                         </html>
@@ -1819,7 +1878,7 @@
 
                     this.tabModalAlta = 'identificacion';
                     this.nuevoArticulo = {
-                        numeroInventario: folioAutogenerado, numeroInventarioAnterior: '', fondoOrigen: 'OFICIAL',
+                        numeroInventario: folioAutogenerado, numeroInventarioAnterior: '', fondoOrigen: 'INTERNO',
                         tipoMaterial: '', subClave: '', categoria: '', areaUbicacion: '', descripcion: '', descripcionSecundaria: '',
                         marca: '', modelo: '', serie: '', numeroSerie: '', color: '', estadoFisico: 'NUEVO', estado: 'Activo',
                         proveedor: '', factura: '', folioFiscalUuid: '', fechaFactura: null,
