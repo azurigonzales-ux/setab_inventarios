@@ -337,9 +337,9 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     <template x-for="item in articulosResguardoLoteFiltrados" :key="item.id">
-                        <tr class="hover:bg-gray-50 transition-colors" :class="itemsResguardoLote.includes(item.id) ? 'bg-guinda/5' : ''">
+                        <tr class="hover:bg-gray-50 transition-colors" :class="itemsResguardoLote.some(idSel => String(idSel) === String(item.id)) ? 'bg-guinda/5' : ''">
                             <td class="px-4 py-3 text-center">
-                                <input type="checkbox" :value="item.id" x-model="itemsResguardoLote"
+                                <input type="checkbox" :value="String(item.id)" x-model="itemsResguardoLote"
                                     class="h-4 w-4 rounded border-gray-300 text-guinda focus:ring-guinda cursor-pointer">
                             </td>
                             <td class="px-4 py-3 font-mono text-xs">

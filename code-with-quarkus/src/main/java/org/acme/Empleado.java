@@ -41,4 +41,14 @@ public class Empleado extends PanacheEntityBase {
     public String cargo;
     
     public String area;
+
+    public String curp;
+
+    public String claveResponsable;
+
+    public String apellidoPaterno;
+
+    public String apellidoMaterno;
+
+    public Integer activo = 1;
 }

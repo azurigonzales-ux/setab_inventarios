@@ -126,6 +126,14 @@ public class TraspasoResource {
                 rAntiguo.firmaDirectorBajaBase64 = request.firmaSalienteBase64;
                 rAntiguo.persist();
 
+                if (rAntiguo.articulo != null) {
+                    rAntiguo.articulo.resguardanteHistorico = directorSalienteNombre;
+                    rAntiguo.articulo.resguardanteActual = directorEntrante.nombre;
+                    rAntiguo.articulo.centroTrabajo = cctLimpia;
+                    rAntiguo.articulo.fechaResguardo = LocalDate.now();
+                    rAntiguo.articulo.persist();
+                }
+
                 Resguardo rNuevo = new Resguardo();
                 rNuevo.articulo = rAntiguo.articulo;
                 rNuevo.empleado = directorEntrante;

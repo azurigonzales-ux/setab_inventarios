@@ -35,12 +35,52 @@ public class MultiDataSourceConfig {
 
     public enum OrigenDatos {
         INVENTARIOS,
+        INVENTARIO_INTERNO,
+        INVENTARIO_OFICIAL,
+        INVENTARIO_OFICIAL_DESAGREGADOS,
+        ACERVO_HISTORICO,
         CENTROS_TRABAJO_CCT,
         PERSONAL_RH
     }
 
     @Inject
     DataSource defaultDataSource;
+
+    @ConfigProperty(name = "setab.datasource.interno.enabled", defaultValue = "false")
+    boolean internoExternalEnabled;
+
+    @ConfigProperty(name = "setab.datasource.interno.jdbc-url")
+    Optional<String> internoJdbcUrl;
+
+    @ConfigProperty(name = "setab.datasource.interno.username")
+    Optional<String> internoUsername;
+
+    @ConfigProperty(name = "setab.datasource.interno.password")
+    Optional<String> internoPassword;
+
+    @ConfigProperty(name = "setab.datasource.oficial.enabled", defaultValue = "false")
+    boolean oficialExternalEnabled;
+
+    @ConfigProperty(name = "setab.datasource.oficial.jdbc-url")
+    Optional<String> oficialJdbcUrl;
+
+    @ConfigProperty(name = "setab.datasource.oficial.username")
+    Optional<String> oficialUsername;
+
+    @ConfigProperty(name = "setab.datasource.oficial.password")
+    Optional<String> oficialPassword;
+
+    @ConfigProperty(name = "setab.datasource.desagregados.enabled", defaultValue = "false")
+    boolean desagregadosExternalEnabled;
+
+    @ConfigProperty(name = "setab.datasource.desagregados.jdbc-url")
+    Optional<String> desagregadosJdbcUrl;
+
+    @ConfigProperty(name = "setab.datasource.desagregados.username")
+    Optional<String> desagregadosUsername;
+
+    @ConfigProperty(name = "setab.datasource.desagregados.password")
+    Optional<String> desagregadosPassword;
 
     @ConfigProperty(name = "setab.datasource.cct.enabled", defaultValue = "false")
     boolean cctExternalEnabled;
@@ -75,6 +115,23 @@ public class MultiDataSourceConfig {
         public String detalle;
     }
 
+    public OrigenDatos resolverOrigenPorFondo(String fondoOrigen) {
+        if (fondoOrigen == null || fondoOrigen.isBlank()) {
+            return OrigenDatos.ACERVO_HISTORICO;
+        }
+        String normalizado = fondoOrigen.trim().toUpperCase();
+        if ("INTERNO".equals(normalizado)) {
+            return OrigenDatos.INVENTARIO_INTERNO;
+        }
+        if ("OFICIAL".equals(normalizado)) {
+            return OrigenDatos.INVENTARIO_OFICIAL;
+        }
+        if ("OFICIAL_DESEGREGADOS".equals(normalizado) || "OFICIAL_DESAGREGADOS".equals(normalizado)) {
+            return OrigenDatos.INVENTARIO_OFICIAL_DESAGREGADOS;
+        }
+        return OrigenDatos.ACERVO_HISTORICO;
+    }
+
     /**
      * Obtiene una conexión SQL para el dominio solicitado.
      * Si el origen externo está habilitado y cuenta con credenciales configuradas,
@@ -82,6 +139,27 @@ public class MultiDataSourceConfig {
      */
     public Connection obtenerConexion(OrigenDatos origen) throws SQLException {
         DriverManager.setLoginTimeout(5);
+        if (origen == OrigenDatos.INVENTARIO_INTERNO && internoExternalEnabled && internoJdbcUrl.isPresent() && !internoJdbcUrl.get().isBlank()) {
+            return DriverManager.getConnection(
+                    internoJdbcUrl.get().trim(),
+                    internoUsername.orElse(""),
+                    internoPassword.orElse("")
+            );
+        }
+        if (origen == OrigenDatos.INVENTARIO_OFICIAL && oficialExternalEnabled && oficialJdbcUrl.isPresent() && !oficialJdbcUrl.get().isBlank()) {
+            return DriverManager.getConnection(
+                    oficialJdbcUrl.get().trim(),
+                    oficialUsername.orElse(""),
+                    oficialPassword.orElse("")
+            );
+        }
+        if (origen == OrigenDatos.INVENTARIO_OFICIAL_DESAGREGADOS && desagregadosExternalEnabled && desagregadosJdbcUrl.isPresent() && !desagregadosJdbcUrl.get().isBlank()) {
+            return DriverManager.getConnection(
+                    desagregadosJdbcUrl.get().trim(),
+                    desagregadosUsername.orElse(""),
+                    desagregadosPassword.orElse("")
+            );
+        }
         if (origen == OrigenDatos.CENTROS_TRABAJO_CCT && cctExternalEnabled && cctJdbcUrl.isPresent() && !cctJdbcUrl.get().isBlank()) {
             return DriverManager.getConnection(
                     cctJdbcUrl.get().trim(),
@@ -104,6 +182,10 @@ public class MultiDataSourceConfig {
     public Response verificarEstadoOrigenes() {
         Map<String, EstadoOrigenDTO> estado = new LinkedHashMap<>();
         estado.put("inventarios", evaluarOrigen(OrigenDatos.INVENTARIOS, false));
+        estado.put("inventarioInterno", evaluarOrigen(OrigenDatos.INVENTARIO_INTERNO, internoExternalEnabled));
+        estado.put("inventarioOficial", evaluarOrigen(OrigenDatos.INVENTARIO_OFICIAL, oficialExternalEnabled));
+        estado.put("inventarioOficialDesagregados", evaluarOrigen(OrigenDatos.INVENTARIO_OFICIAL_DESAGREGADOS, desagregadosExternalEnabled));
+        estado.put("acervoHistorico", evaluarOrigen(OrigenDatos.ACERVO_HISTORICO, false));
         estado.put("centrosTrabajoCCT", evaluarOrigen(OrigenDatos.CENTROS_TRABAJO_CCT, cctExternalEnabled));
         estado.put("personalRH", evaluarOrigen(OrigenDatos.PERSONAL_RH, rhExternalEnabled));
         return Response.ok(estado).build();

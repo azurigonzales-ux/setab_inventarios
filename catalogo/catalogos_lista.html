@@ -53,12 +53,13 @@
                         <tr>
                             <th class="px-4 py-3 text-left font-semibold text-gray-900 w-24">Clave / ID</th>
                             <th class="px-4 py-3 text-left font-semibold text-gray-900">Descripción / Nombre</th>
+                            <th class="px-4 py-3 text-left font-semibold text-gray-900">Detalle / Vinculación</th>
                             <th class="px-4 py-3 text-center font-semibold text-gray-900 w-32">Acciones</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-gray-100">
                         <tr x-show="cargandoAuxiliar" x-cloak>
-                            <td colspan="3" class="px-4 py-12 text-center text-gray-500">
+                            <td colspan="4" class="px-4 py-12 text-center text-gray-500">
                                 <i class="fas fa-circle-notch fa-spin text-2xl text-guinda mb-2"></i>
                                 <p>Cargando datos del catálogo...</p>
                             </td>
@@ -69,6 +70,32 @@
                                     x-text="item.clave || item.id"></td>
                                 <td class="px-4 py-3 font-semibold text-gray-700 uppercase"
                                     x-text="item.descripcion || item.nombre"></td>
+                                <td class="px-4 py-3 text-xs text-gray-600">
+                                    <template x-if="tabCatalogoActivo === 'proveedores'">
+                                        <div class="space-y-0.5">
+                                            <div x-show="item.rfc"><span class="font-bold text-gray-700">RFC:</span> <span class="font-mono" x-text="item.rfc"></span></div>
+                                            <div x-show="item.telefono"><span class="font-bold text-gray-700">Tel:</span> <span class="font-mono" x-text="item.telefono"></span></div>
+                                            <div x-show="item.giro"><span class="font-bold text-gray-700">Giro:</span> <span x-text="item.giro"></span></div>
+                                            <span x-show="!item.rfc && !item.telefono && !item.giro" class="text-gray-400">-</span>
+                                        </div>
+                                    </template>
+                                    <template x-if="tabCatalogoActivo === 'partidas'">
+                                        <div>
+                                            <span x-show="item.cuentaContable" class="font-mono font-semibold text-guinda bg-guinda/10 px-2 py-0.5 rounded" x-text="'Cta: ' + item.cuentaContable"></span>
+                                            <span x-show="!item.cuentaContable" class="text-gray-400">-</span>
+                                        </div>
+                                    </template>
+                                    <template x-if="tabCatalogoActivo === 'tipos_articulos'">
+                                        <div class="flex flex-wrap gap-1.5">
+                                            <span x-show="item.partidaAsociada" class="font-mono font-semibold text-gray-700 bg-gray-100 px-2 py-0.5 rounded" x-text="'Partida: ' + item.partidaAsociada"></span>
+                                            <span x-show="item.subclave" class="font-mono font-semibold text-dorado bg-dorado/10 px-2 py-0.5 rounded" x-text="'Subclave: ' + item.subclave"></span>
+                                            <span x-show="!item.partidaAsociada && !item.subclave" class="text-gray-400">-</span>
+                                        </div>
+                                    </template>
+                                    <template x-if="tabCatalogoActivo !== 'proveedores' && tabCatalogoActivo !== 'partidas' && tabCatalogoActivo !== 'tipos_articulos'">
+                                        <span class="text-gray-400">-</span>
+                                    </template>
+                                </td>
                                 <td class="px-4 py-3 text-center">
                                     <button @click="abrirModalCatalogo(item)"
                                         class="p-2 text-gray-400 hover:text-dorado hover:bg-dorado/10 rounded-lg transition-colors"
@@ -79,7 +106,7 @@
                             </tr>
                         </template>
                         <tr x-show="!cargandoAuxiliar && datosCatalogoFiltrados.length === 0" x-cloak>
-                            <td colspan="3" class="px-4 py-8 text-center text-gray-500">No hay registros en este
+                            <td colspan="4" class="px-4 py-8 text-center text-gray-500">No hay registros en este
                                 catálogo.</td>
                         </tr>
                     </tbody>
@@ -120,6 +147,57 @@
                                     placeholder="Escriba aquí..."
                                     class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm uppercase border focus:ring-guinda focus:border-guinda"
                                     autocomplete="off">
+                            </div>
+
+                            <div x-show="tabCatalogoActivo === 'proveedores'" x-cloak class="space-y-3 pt-2 border-t border-dorado/30">
+                                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-700 mb-1">RFC del Proveedor</label>
+                                        <input type="text" x-model="itemCatalogo.rfc" placeholder="Ej. XAXX010101000"
+                                            class="w-full bg-white rounded-md border-gray-300 py-2 px-3 shadow-sm text-sm font-mono uppercase border focus:ring-guinda focus:border-guinda"
+                                            autocomplete="off">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs font-bold text-gray-700 mb-1">Teléfono</label>
+                                        <input type="text" x-model="itemCatalogo.telefono" placeholder="Ej. 9933000000"
+                                            class="w-full bg-white rounded-md border-gray-300 py-2 px-3 shadow-sm text-sm font-mono border focus:ring-guinda focus:border-guinda"
+                                            autocomplete="off">
+                                    </div>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">Dirección Fiscal</label>
+                                    <input type="text" x-model="itemCatalogo.direccion" placeholder="Calle, número, colonia y ciudad..."
+                                        class="w-full bg-white rounded-md border-gray-300 py-2 px-3 shadow-sm text-sm uppercase border focus:ring-guinda focus:border-guinda"
+                                        autocomplete="off">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">Giro Comercial</label>
+                                    <input type="text" x-model="itemCatalogo.giro" placeholder="Ej. EQUIPO DE CÓMPUTO / MOBILIARIO"
+                                        class="w-full bg-white rounded-md border-gray-300 py-2 px-3 shadow-sm text-sm uppercase border focus:ring-guinda focus:border-guinda"
+                                        autocomplete="off">
+                                </div>
+                            </div>
+
+                            <div x-show="tabCatalogoActivo === 'partidas'" x-cloak class="pt-2 border-t border-dorado/30">
+                                <label class="block text-xs font-bold text-gray-700 mb-1">Cuenta Contable Asociada</label>
+                                <input type="text" x-model="itemCatalogo.cuentaContable" placeholder="Ej. 1241-3-51501"
+                                    class="w-full bg-white rounded-md border-gray-300 py-2 px-3 shadow-sm text-sm font-mono uppercase border focus:ring-guinda focus:border-guinda"
+                                    autocomplete="off">
+                            </div>
+
+                            <div x-show="tabCatalogoActivo === 'tipos_articulos'" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-dorado/30">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">Partida Asociada</label>
+                                    <input type="text" x-model="itemCatalogo.partidaAsociada" placeholder="Ej. 51501"
+                                        class="w-full bg-white rounded-md border-gray-300 py-2 px-3 shadow-sm text-sm font-mono uppercase border focus:ring-guinda focus:border-guinda"
+                                        autocomplete="off">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-700 mb-1">Subclave (CATTIP)</label>
+                                    <input type="text" x-model="itemCatalogo.subclave" placeholder="Ej. 01"
+                                        class="w-full bg-white rounded-md border-gray-300 py-2 px-3 shadow-sm text-sm font-mono uppercase border focus:ring-guinda focus:border-guinda"
+                                        autocomplete="off">
+                                </div>
                             </div>
                         </div>
                     </div>

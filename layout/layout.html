@@ -420,7 +420,7 @@
 
                 usuarios: [], busquedaUsuario: '', filtroNivelUsuario: '', filtroRol: '', modalResetAbierto: false,
                 usuarioSeleccionado: {}, nuevaPassword: '',
-                nuevoUsuario: { nombre: '', apellidos: '', email: '', username: '', password: '', cct: '', nivelEducativo: 'Primaria', nombreEscuela: '', rol: 'Admin' },
+                nuevoUsuario: { nombre: '', apellidos: '', email: '', username: '', password: '', cct: '', nivelEducativo: 'Primaria', nombreEscuela: '', rol: 'Admin', curp: '', claveResponsable: '' },
                 centrosTrabajo: [],
                 busquedaCT: '',
                 modalCTAbierto: false,
@@ -429,7 +429,8 @@
                     id: null, claveCT: '', unidadResp: '', subDireccion: '', departamento: '', nombreCT: '',
                     tipoVial: '', nombreVial: '', numExt: '', numInt: '', tipoAsent: '', nomAsent: '',
                     codPostal: '', municipio: '', localidad: '', vialidIzq: '', vialidDer: '',
-                    vialidPost: '', refVialid: '', zonaEscolar: '', sector: '', director: ''
+                    vialidPost: '', refVialid: '', zonaEscolar: '', sector: '', director: '',
+                    turno: '', telefono: '', estatus: 'A'
                 },
 
                 tabReporteActivo: 'padron',
@@ -629,7 +630,7 @@
 
                 toggleSeleccionTodosResguardoLote(e) {
                     if (e.target.checked) {
-                        this.itemsResguardoLote = this.articulosResguardoLoteFiltrados.map(a => a.id);
+                        this.itemsResguardoLote = this.articulosResguardoLoteFiltrados.map(a => String(a.id));
                     } else {
                         this.itemsResguardoLote = [];
                     }
@@ -640,7 +641,7 @@
                     if (articuloUnico) {
                         seleccionados = [articuloUnico];
                     } else if (this.itemsResguardoLote.length > 0) {
-                        seleccionados = this.articulosResguardoLoteFiltrados.filter(a => this.itemsResguardoLote.includes(a.id));
+                        seleccionados = this.articulosResguardoLoteFiltrados.filter(a => this.itemsResguardoLote.some(idSel => String(idSel) === String(a.id)));
                     } else {
                         seleccionados = this.articulosResguardoLoteFiltrados;
                     }
@@ -999,9 +1000,10 @@
 
                 abrirModalCT(ct = null) {
                     if (ct) {
-                        this.nuevoCT = JSON.parse(JSON.stringify(ct));
+                        this.nuevoCT = { turno: '', telefono: '', estatus: 'A', ...JSON.parse(JSON.stringify(ct)) };
+                        if (!this.nuevoCT.estatus) this.nuevoCT.estatus = 'A';
                     } else {
-                        this.nuevoCT = { id: null, claveCT: '', unidadResp: '', subDireccion: '', departamento: '', nombreCT: '', tipoVial: '', nombreVial: '', numExt: '', numInt: '', tipoAsent: '', nomAsent: '', codPostal: '', municipio: '', localidad: '', vialidIzq: '', vialidDer: '', vialidPost: '', refVialid: '', zonaEscolar: '', sector: '', director: '' };
+                        this.nuevoCT = { id: null, claveCT: '', unidadResp: '', subDireccion: '', departamento: '', nombreCT: '', tipoVial: '', nombreVial: '', numExt: '', numInt: '', tipoAsent: '', nomAsent: '', codPostal: '', municipio: '', localidad: '', vialidIzq: '', vialidDer: '', vialidPost: '', refVialid: '', zonaEscolar: '', sector: '', director: '', turno: '', telefono: '', estatus: 'A' };
                     }
                     this.modalCTAbierto = true;
                 },
@@ -1034,6 +1036,11 @@
                     { id: 'partidas', nombre: 'Partidas Presupuestales', icono: 'fas fa-file-invoice-dollar' },
                     { id: 'naturaleza_gasto', nombre: 'Naturaleza del Gasto', icono: 'fas fa-coins' },
                     { id: 'departamentos', nombre: 'Departamentos', icono: 'fas fa-building' },
+                    { id: 'unidades', nombre: 'Unidades Responsables', icono: 'fas fa-sitemap' },
+                    { id: 'subdirecciones', nombre: 'Subdirecciones', icono: 'fas fa-project-diagram' },
+                    { id: 'giros', nombre: 'Giros de Proveedor', icono: 'fas fa-tags' },
+                    { id: 'municipios', nombre: 'Municipios', icono: 'fas fa-map' },
+                    { id: 'localidades', nombre: 'Localidades', icono: 'fas fa-location-arrow' },
                     { id: 'vialidades', nombre: 'Tipos de Vialidades', icono: 'fas fa-road' },
                     { id: 'asentamientos', nombre: 'Tipos de Asentamientos', icono: 'fas fa-map-marker-alt' }
                 ],
@@ -1042,7 +1049,7 @@
                 catalogosMapa: {},
                 busquedaCatalogo: '',
                 modalCatalogoAbierto: false,
-                itemCatalogo: { id: null, clave: '', descripcion: '' },
+                itemCatalogo: { id: null, clave: '', descripcion: '', rfc: '', direccion: '', telefono: '', giro: '', partidaAsociada: '', subclave: '', cuentaContable: '' },
 
                 catalogoPorTipo(tipo) {
                     const t = (tipo || '').toLowerCase();
@@ -1121,9 +1128,20 @@
 
                 abrirModalCatalogo(item = null) {
                     if (item) {
-                        this.itemCatalogo = { id: item.id, clave: item.clave || '', descripcion: item.descripcion || item.nombre || '' };
+                        this.itemCatalogo = {
+                            id: item.id,
+                            clave: item.clave || '',
+                            descripcion: item.descripcion || item.nombre || '',
+                            rfc: item.rfc || '',
+                            direccion: item.direccion || '',
+                            telefono: item.telefono || '',
+                            giro: item.giro || '',
+                            partidaAsociada: item.partidaAsociada || '',
+                            subclave: item.subclave || '',
+                            cuentaContable: item.cuentaContable || ''
+                        };
                     } else {
-                        this.itemCatalogo = { id: null, clave: '', descripcion: '' };
+                        this.itemCatalogo = { id: null, clave: '', descripcion: '', rfc: '', direccion: '', telefono: '', giro: '', partidaAsociada: '', subclave: '', cuentaContable: '' };
                     }
                     this.modalCatalogoAbierto = true;
                 },
@@ -1141,7 +1159,18 @@
                             : `${SETAB_CONFIG.backendUrl}/api/catalogos/${this.tabCatalogoActivo}`;
                         const metodo = esEdicion ? 'PUT' : 'POST';
 
-                        const payload = { clave: this.itemCatalogo.clave, descripcion: this.itemCatalogo.descripcion, nombre: this.itemCatalogo.descripcion };
+                        const payload = {
+                            clave: this.itemCatalogo.clave,
+                            descripcion: this.itemCatalogo.descripcion,
+                            nombre: this.itemCatalogo.descripcion,
+                            rfc: this.itemCatalogo.rfc || null,
+                            direccion: this.itemCatalogo.direccion || null,
+                            telefono: this.itemCatalogo.telefono || null,
+                            giro: this.itemCatalogo.giro || null,
+                            partidaAsociada: this.itemCatalogo.partidaAsociada || null,
+                            subclave: this.itemCatalogo.subclave || null,
+                            cuentaContable: this.itemCatalogo.cuentaContable || null
+                        };
 
                         const respuesta = await fetch(url, {
                             method: metodo, mode: 'cors',
@@ -1192,7 +1221,7 @@
 
                 toggleSeleccionTodosQR(e) {
                     if (e.target.checked) {
-                        this.itemsSeleccionadosQR = this.articulosQRFiltrados.map(a => a.id);
+                        this.itemsSeleccionadosQR = this.articulosQRFiltrados.map(a => String(a.id));
                     } else {
                         this.itemsSeleccionadosQR = [];
                     }
@@ -1205,7 +1234,7 @@
 
                 imprimirEtiquetasSeleccionadas() {
                     if (this.itemsSeleccionadosQR.length === 0) return;
-                    const seleccionados = this.articulos.filter(a => this.itemsSeleccionadosQR.includes(a.id));
+                    const seleccionados = this.articulos.filter(a => this.itemsSeleccionadosQR.some(idSel => String(idSel) === String(a.id)));
                     const ventana = window.open('', '_blank', 'width=900,height=700');
 
                     const tarjetasHtml = seleccionados.map((art, idx) => `
@@ -1625,7 +1654,9 @@
                             const nombre = u.nombreCompleto ? u.nombreCompleto.toLowerCase() : '';
                             const usuario = u.username ? u.username.toLowerCase() : '';
                             const cct = u.cct ? u.cct.toLowerCase() : '';
-                            return nombre.includes(term) || usuario.includes(term) || cct.includes(term);
+                            const curp = u.curp ? u.curp.toLowerCase() : '';
+                            const claveResp = u.claveResponsable ? u.claveResponsable.toLowerCase() : '';
+                            return nombre.includes(term) || usuario.includes(term) || cct.includes(term) || curp.includes(term) || claveResp.includes(term);
                         });
                     }
                     return filtrados;
@@ -1893,7 +1924,8 @@
                     };
                     this.nuevoUsuario = {
                         nombre: '', apellidos: '', email: '', username: '', password: '',
-                        cct: '', nivelEducativo: 'Primaria', nombreEscuela: '', rol: 'Admin'
+                        cct: '', nivelEducativo: 'Primaria', nombreEscuela: '', rol: 'Admin',
+                        curp: '', claveResponsable: ''
                     };
                     this.modalRegistroAbierto = true;
                 },

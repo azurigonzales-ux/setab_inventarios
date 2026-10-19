@@ -38,3 +38,7 @@ Thumbs.db
 # Entorno local y certificados
 .env
 .certs/
+
+# Archivos temporales de auditoría
+auditoria_*.txt
+cambios_argon.txt

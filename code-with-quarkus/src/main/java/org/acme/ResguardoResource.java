@@ -154,6 +154,15 @@ public class ResguardoResource {
             articulo.cantidadStock = 0.0;
             articulo.estado = "Agotado";
         }
+        if (articulo.resguardanteActual != null && !articulo.resguardanteActual.isBlank()
+                && (articulo.resguardanteHistorico == null || articulo.resguardanteHistorico.isBlank())) {
+            articulo.resguardanteHistorico = articulo.resguardanteActual;
+        }
+        articulo.resguardanteActual = empleado.nombre;
+        if (empleado.cct != null && !empleado.cct.isBlank()) {
+            articulo.centroTrabajo = empleado.cct.trim().toUpperCase();
+        }
+        articulo.fechaResguardo = LocalDate.now();
         articulo.persist();
 
         Resguardo resguardo = new Resguardo();

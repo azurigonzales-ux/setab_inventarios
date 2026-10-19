@@ -43,6 +43,7 @@ public class CentroTrabajoResource {
 
         ct.id = null;
         ct.claveCT = claveLimpia;
+        ct.estatus = (ct.estatus != null && !ct.estatus.isBlank()) ? ct.estatus.trim().toUpperCase() : "A";
         ct.persist();
         sincronizarConEmpleado(ct);
         return Response.status(Response.Status.CREATED).entity(ct).build();
@@ -78,6 +79,9 @@ public class CentroTrabajoResource {
         existente.refVialid = datos.refVialid;
         existente.zonaEscolar = datos.zonaEscolar;
         existente.sector = datos.sector;
+        existente.turno = datos.turno;
+        existente.telefono = datos.telefono;
+        existente.estatus = (datos.estatus != null && !datos.estatus.isBlank()) ? datos.estatus.trim().toUpperCase() : "A";
         existente.persist();
 
         sincronizarConEmpleado(existente);

@@ -86,6 +86,8 @@ public class UsuarioResource {
         public String nivelEducativo;
         public String nombreEscuela;
         public String rol;
+        public String curp;
+        public String claveResponsable;
         public String keycloakUrl;
         public String realm;
     }
@@ -250,6 +252,12 @@ public class UsuarioResource {
         emp.nombreEscuela = dto.nombreEscuela != null && !dto.nombreEscuela.trim().isEmpty() ? dto.nombreEscuela.trim().toUpperCase() : "ALMACÉN CENTRAL";
         emp.area = dto.nivelEducativo != null && !dto.nivelEducativo.trim().isEmpty() ? dto.nivelEducativo.trim() : "Primaria";
         emp.cargo = rolNormalizado.equals("SUPERADMIN") ? "Administrador de Almacén" : "Director de Escuela";
+        if (dto.curp != null && !dto.curp.trim().isEmpty()) {
+            emp.curp = dto.curp.trim().toUpperCase();
+        }
+        if (dto.claveResponsable != null && !dto.claveResponsable.trim().isEmpty()) {
+            emp.claveResponsable = dto.claveResponsable.trim().toUpperCase();
+        }
         emp.persist();
 
         Usuario usuario = Usuario.find("upper(username) = ?1", rawUsername.toUpperCase()).firstResult();

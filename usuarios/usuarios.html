@@ -165,6 +165,22 @@
                                     class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda"
                                     autocomplete="off">
                             </div>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1">CURP (Opcional)</label>
+                                    <input type="text" x-model="nuevoUsuario.curp" maxlength="18"
+                                        placeholder="18 caracteres"
+                                        class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border font-mono uppercase focus:ring-guinda focus:border-guinda"
+                                        autocomplete="off">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-semibold text-gray-700 mb-1">Clave de Resguardante (CVERSP)</label>
+                                    <input type="text" x-model="nuevoUsuario.claveResponsable"
+                                        placeholder="Ej: RSP-00142"
+                                        class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border font-mono uppercase focus:ring-guinda focus:border-guinda"
+                                        autocomplete="off">
+                                </div>
+                            </div>
                             <div class="grid grid-cols-2 gap-4 border-t border-dorado/30 pt-4 mt-2">
                                 <div>
                                     <label class="block text-sm font-semibold text-gray-700 mb-1">CCT *</label>

@@ -51,12 +51,19 @@
         <div x-show="equipoAuditado" x-cloak
             class="mb-6 pb-6 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start gap-4">
             <div>
-                <span class="bg-dorado/20 text-dorado text-xs font-bold px-2 py-1 rounded uppercase tracking-widest"><i
-                        class="fas fa-check-circle"></i> Equipo Localizado</span>
+                <div class="flex flex-wrap items-center gap-2">
+                    <span class="bg-dorado/20 text-dorado text-xs font-bold px-2 py-1 rounded uppercase tracking-widest"><i
+                            class="fas fa-check-circle"></i> Equipo Localizado</span>
+                    <span class="bg-guinda/10 text-guinda text-xs font-bold px-2 py-1 rounded uppercase tracking-wider"
+                        x-text="'Fondo: ' + (equipoAuditado?.fondoOrigen || 'OFICIAL')"></span>
+                </div>
                 <h2 class="text-xl font-bold text-gray-900 mt-2 uppercase" x-text="equipoAuditado?.descripcion"></h2>
                 <p class="text-sm text-gray-600 font-mono mt-1"
-                    x-text="'Folio: ' + (equipoAuditado?.numeroInventario || 'S/N') + ' | Serie: ' + (equipoAuditado?.serie || 'S/N')">
+                    x-text="'Folio: ' + (equipoAuditado?.numeroInventario || 'S/N') + ' | Serie: ' + (equipoAuditado?.numeroSerie || equipoAuditado?.serie || 'S/N')">
                 </p>
+                <p x-show="equipoAuditado?.numeroInventarioAnterior" x-cloak
+                    class="text-xs text-gray-500 font-mono mt-0.5"
+                    x-text="'Inv. Anterior: ' + equipoAuditado?.numeroInventarioAnterior"></p>
             </div>
             <div class="sm:text-right bg-gray-50 p-3 rounded-lg border border-gray-100 w-full sm:w-auto">
                 <p class="text-[10px] text-gray-500 font-bold uppercase mb-1">Estatus Actual</p>

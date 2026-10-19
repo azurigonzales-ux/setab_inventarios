@@ -41,4 +41,8 @@ public class CentroTrabajo extends PanacheEntity {
 
     public String zonaEscolar;
     public String sector;
+
+    public String turno;
+    public String telefono;
+    public String estatus = "A";
 }

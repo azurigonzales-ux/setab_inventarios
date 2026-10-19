@@ -48,7 +48,9 @@
                 <thead class="bg-gray-50 sticky top-0 shadow-sm z-10">
                     <tr>
                         <th class="px-4 py-3 text-center w-12">
-                            <input type="checkbox" @click="toggleSeleccionTodosQR($event)"
+                            <input type="checkbox"
+                                :checked="articulosQRFiltrados.length > 0 && itemsSeleccionadosQR.length === articulosQRFiltrados.length"
+                                @click="toggleSeleccionTodosQR($event)"
                                 class="rounded border-gray-300 text-guinda focus:ring-guinda w-4 h-4">
                         </th>
                         <th class="whitespace-nowrap px-4 py-4 text-left font-semibold text-gray-900">Folio Inventario
@@ -67,9 +69,9 @@
                     </tr>
                     <template x-for="articulo in articulosQRFiltrados" :key="articulo.id">
                         <tr class="hover:bg-gray-50 transition-colors"
-                            :class="itemsSeleccionadosQR.includes(articulo.id) ? 'bg-guinda/5' : ''">
+                            :class="itemsSeleccionadosQR.some(idSel => String(idSel) === String(articulo.id)) ? 'bg-guinda/5' : ''">
                             <td class="px-4 py-3 text-center">
-                                <input type="checkbox" :value="articulo.id" x-model="itemsSeleccionadosQR"
+                                <input type="checkbox" :value="String(articulo.id)" x-model="itemsSeleccionadosQR"
                                     class="rounded border-gray-300 text-guinda focus:ring-guinda w-4 h-4">
                             </td>
                             <td class="whitespace-nowrap px-4 py-3 font-mono font-bold text-guinda text-xs"
