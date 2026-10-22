@@ -46,7 +46,12 @@
             </div>
             <div class="lg:col-span-2">
                 <label class="block text-[10px] font-bold text-guinda uppercase tracking-wider mb-1">Fondo / Origen</label>
-                <select x-model="filtroFondo" @change="aplicarFiltros()"
+                <div x-show="baseOperativaActiva !== 'TODOS'"
+                    class="w-full rounded-md border border-dorado/50 bg-caqui/60 py-2 px-3 shadow-sm sm:text-xs font-extrabold text-guinda flex items-center justify-between">
+                    <span x-text="baseOperativaActiva"></span>
+                    <span class="text-[9px] bg-guinda text-white px-1.5 py-0.5 rounded uppercase">Base Activa</span>
+                </div>
+                <select x-show="baseOperativaActiva === 'TODOS'" x-model="filtroFondo" @change="aplicarFiltros()"
                     class="w-full rounded-md border-gray-200 bg-white py-2 px-3 shadow-sm sm:text-xs font-semibold border focus:ring-guinda focus:border-guinda">
                     <option value="">Todos los Fondos</option>
                     <optgroup label="Fuentes Operativas Activas">
@@ -261,6 +266,22 @@
             <p class="font-bold text-guinda uppercase tracking-wide">AVISO NORMATIVO ANUAL:</p>
             <p class="mt-0.5">Todo bien bajo resguardo debe actualizarse al menos una vez al año. Verifique que todos sus bienes cuenten con fotografía reciente y acuda o coordine con el Departamento de Inventarios la actualización anual de sus datos, centro de trabajo y estado físico de sus bienes.</p>
         </div>
+    </div>
+
+    <div x-show="pendientes.length > 0" x-cloak
+        class="mt-4 rounded-xl bg-guinda/10 border-2 border-guinda p-4 shadow-sm flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div class="flex items-center gap-3">
+            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-guinda text-white font-extrabold text-sm"
+                x-text="pendientes.length"></span>
+            <p class="text-xs sm:text-sm font-bold text-guinda">
+                Tienes <span x-text="pendientes.length"></span> equipo(s) nuevo(s) asignados pendientes de tu firma de recepción y aceptación
+            </p>
+        </div>
+        <button type="button" @click="cambiarVista('firmas', '../catalogo/catalogo.html')"
+            class="inline-flex items-center justify-center gap-2 rounded-lg bg-guinda px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-guinda-dark transition shrink-0">
+            <i class="fas fa-file-signature"></i>
+            Ir a Bandeja de Firmas para Aceptar
+        </button>
     </div>
 
     <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white mt-6 border-t-4 border-t-dorado">
@@ -542,7 +563,12 @@
                                     <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-2">
                                         <div>
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Fondo / Origen (ORIGEN) *</label>
-                                            <select x-model="nuevoArticulo.fondoOrigen"
+                                            <div x-show="baseOperativaActiva !== 'TODOS'"
+                                                class="w-full bg-caqui/60 rounded border border-dorado/60 py-2 px-3 text-sm font-extrabold text-guinda flex items-center justify-between">
+                                                <span x-text="nuevoArticulo.fondoOrigen || baseOperativaActiva"></span>
+                                                <span class="text-[10px] bg-guinda text-white px-1.5 py-0.5 rounded uppercase">Confirmado</span>
+                                            </div>
+                                            <select x-show="baseOperativaActiva === 'TODOS'" x-model="nuevoArticulo.fondoOrigen"
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm font-semibold focus:ring-guinda focus:border-guinda">
                                                 <template x-for="f in listaFondosOperativos" :key="f.clave">
                                                     <option :value="f.clave" x-text="f.etiqueta || f.nombre"></option>

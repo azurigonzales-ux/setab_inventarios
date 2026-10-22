@@ -124,19 +124,232 @@ public class ResguardoResource {
         return "Administrador del Sistema";
     }
 
-    private Empleado obtenerEmpleadoAutenticado() {
-        if (jwt == null || jwt.getName() == null || jwt.getName().trim().isEmpty()) {
-            return null;
+    private List<Empleado> obtenerEmpleadosVinculadosAlDirector() {
+        List<Empleado> resultado = new ArrayList<>();
+        if (jwt == null) {
+            return resultado;
         }
-        String uname = jwt.getName().trim().toUpperCase();
-        Empleado empleado = Empleado.find("upper(usuario) = ?1 or upper(rfc) = ?1", uname).firstResult();
-        if (empleado == null) {
-            Usuario u = Usuario.find("upper(username) = ?1", uname).firstResult();
-            if (u != null && u.idEmpleado != null) {
-                empleado = Empleado.findById(u.idEmpleado);
+
+        java.util.Set<Long> idsAgregados = new java.util.LinkedHashSet<>();
+        java.util.Set<String> clavesUsuario = new java.util.LinkedHashSet<>();
+        java.util.Set<String> nombresBuscados = new java.util.LinkedHashSet<>();
+        java.util.Set<String> cctsBuscados = new java.util.LinkedHashSet<>();
+
+        if (jwt.getName() != null && !jwt.getName().trim().isEmpty()) {
+            clavesUsuario.add(jwt.getName().trim().toUpperCase());
+        }
+        String prefUser = jwt.getClaim("preferred_username");
+        if (prefUser != null && !prefUser.trim().isEmpty()) {
+            clavesUsuario.add(prefUser.trim().toUpperCase());
+        }
+        String emailClaim = jwt.getClaim("email");
+        if (emailClaim != null && !emailClaim.trim().isEmpty()) {
+            clavesUsuario.add(emailClaim.trim().toUpperCase());
+        }
+        String nameClaim = jwt.getClaim("name");
+        if (nameClaim != null && !nameClaim.trim().isEmpty()) {
+            nombresBuscados.add(nameClaim.trim().toUpperCase());
+        }
+
+        for (String clave : new ArrayList<>(clavesUsuario)) {
+            Usuario u = Usuario.find("upper(username) = ?1 or upper(email) = ?1", clave).firstResult();
+            if (u != null) {
+                if (u.idEmpleado != null) {
+                    Empleado empDirecto = Empleado.findById(u.idEmpleado);
+                    if (empDirecto != null && idsAgregados.add(empDirecto.idEmpleado)) {
+                        resultado.add(empDirecto);
+                    }
+                }
+                if (u.username != null && !u.username.isBlank()) {
+                    clavesUsuario.add(u.username.trim().toUpperCase());
+                }
+                if (u.nombreCompleto != null && !u.nombreCompleto.isBlank()) {
+                    nombresBuscados.add(u.nombreCompleto.trim().toUpperCase());
+                }
+                if (u.cct != null && !u.cct.isBlank()) {
+                    String cctLimpio = u.cct.trim().toUpperCase();
+                    if (!"CENTRAL".equals(cctLimpio) && !"SIN-CCT".equals(cctLimpio)) {
+                        cctsBuscados.add(cctLimpio);
+                    }
+                }
             }
         }
-        return empleado;
+
+        for (String nombre : new ArrayList<>(nombresBuscados)) {
+            Usuario uNom = Usuario.find("upper(nombreCompleto) = ?1", nombre).firstResult();
+            if (uNom != null) {
+                if (uNom.idEmpleado != null) {
+                    Empleado empDirecto = Empleado.findById(uNom.idEmpleado);
+                    if (empDirecto != null && idsAgregados.add(empDirecto.idEmpleado)) {
+                        resultado.add(empDirecto);
+                    }
+                }
+                if (uNom.cct != null && !uNom.cct.isBlank()) {
+                    String cctLimpio = uNom.cct.trim().toUpperCase();
+                    if (!"CENTRAL".equals(cctLimpio) && !"SIN-CCT".equals(cctLimpio)) {
+                        cctsBuscados.add(cctLimpio);
+                    }
+                }
+            }
+        }
+
+        for (String clave : clavesUsuario) {
+            List<Empleado> porClave = Empleado.find(
+                    "upper(usuario) = ?1 or upper(rfc) = ?1 or upper(claveResponsable) = ?1",
+                    clave
+            ).list();
+            for (Empleado e : porClave) {
+                if (e != null && idsAgregados.add(e.idEmpleado)) {
+                    resultado.add(e);
+                }
+                if (e != null && e.cct != null && !e.cct.isBlank()) {
+                    String cctLimpio = e.cct.trim().toUpperCase();
+                    if (!"CENTRAL".equals(cctLimpio) && !"SIN-CCT".equals(cctLimpio)) {
+                        cctsBuscados.add(cctLimpio);
+                    }
+                }
+            }
+        }
+
+        for (String nombre : nombresBuscados) {
+            List<Empleado> porNombre = Empleado.find("upper(nombre) = ?1", nombre).list();
+            for (Empleado e : porNombre) {
+                if (e != null && idsAgregados.add(e.idEmpleado)) {
+                    resultado.add(e);
+                }
+                if (e != null && e.cct != null && !e.cct.isBlank()) {
+                    String cctLimpio = e.cct.trim().toUpperCase();
+                    if (!"CENTRAL".equals(cctLimpio) && !"SIN-CCT".equals(cctLimpio)) {
+                        cctsBuscados.add(cctLimpio);
+                    }
+                }
+            }
+        }
+
+        for (Empleado e : new ArrayList<>(resultado)) {
+            if (e.cct != null && !e.cct.isBlank()) {
+                String cctLimpio = e.cct.trim().toUpperCase();
+                if (!"CENTRAL".equals(cctLimpio) && !"SIN-CCT".equals(cctLimpio)) {
+                    cctsBuscados.add(cctLimpio);
+                }
+            }
+        }
+
+        for (String cct : cctsBuscados) {
+            List<Empleado> porCct = Empleado.find("upper(cct) = ?1", cct).list();
+            for (Empleado e : porCct) {
+                if (e != null && idsAgregados.add(e.idEmpleado)) {
+                    resultado.add(e);
+                }
+            }
+        }
+
+        return resultado;
+    }
+
+    private Empleado obtenerEmpleadoAutenticado() {
+        List<Empleado> vinculados = obtenerEmpleadosVinculadosAlDirector();
+        return vinculados.isEmpty() ? null : vinculados.get(0);
+    }
+
+    @Transactional
+    protected void sincronizarResguardosHuerfanosParaDirector(List<Empleado> empleadosDirector) {
+        if (empleadosDirector == null || empleadosDirector.isEmpty()) {
+            return;
+        }
+        Empleado principal = empleadosDirector.get(0);
+        java.util.Set<String> ccts = new java.util.LinkedHashSet<>();
+        java.util.Set<String> identificadores = new java.util.LinkedHashSet<>();
+
+        for (Empleado e : empleadosDirector) {
+            if (e == null) continue;
+            if (e.cct != null && !e.cct.isBlank()) {
+                String c = e.cct.trim().toUpperCase();
+                if (!"CENTRAL".equals(c) && !"SIN-CCT".equals(c) && !"ALMACÉN CENTRAL".equals(c) && !"ALMACEN CENTRAL".equals(c)) {
+                    ccts.add(c);
+                }
+            }
+            if (e.nombre != null && !e.nombre.isBlank()) {
+                identificadores.add(e.nombre.trim().toUpperCase());
+            }
+            if (e.rfc != null && !e.rfc.isBlank()) {
+                identificadores.add(e.rfc.trim().toUpperCase());
+            }
+            if (e.claveResponsable != null && !e.claveResponsable.isBlank()) {
+                identificadores.add(e.claveResponsable.trim().toUpperCase());
+            }
+            if (e.usuario != null && !e.usuario.isBlank()) {
+                identificadores.add(e.usuario.trim().toUpperCase());
+            }
+        }
+
+        java.util.Map<Long, Articulo> candidatos = new java.util.LinkedHashMap<>();
+        for (String cct : ccts) {
+            List<Articulo> porCct = Articulo.find("upper(centroTrabajo) = ?1", cct).list();
+            for (Articulo a : porCct) {
+                if (a != null && a.id != null) {
+                    candidatos.put(a.id, a);
+                }
+            }
+        }
+        for (String ident : identificadores) {
+            List<Articulo> porResp = Articulo.find("upper(resguardanteActual) = ?1", ident).list();
+            for (Articulo a : porResp) {
+                if (a != null && a.id != null) {
+                    candidatos.put(a.id, a);
+                }
+            }
+        }
+
+        for (Articulo art : candidatos.values()) {
+            if (art == null || "Baja".equalsIgnoreCase(art.estado)) {
+                continue;
+            }
+            long existentesActivos = Resguardo.count(
+                    "articulo.id = ?1 and (estadoResguardo is null or estadoResguardo = 'PENDIENTE_FIRMA' or estadoResguardo = 'ACTIVO' or estadoResguardo = 'SOLICITUD_BAJA' or estadoResguardo = 'BAJA_EN_PROCESO')",
+                    art.id
+            );
+            if (existentesActivos > 0) {
+                continue;
+            }
+
+            String fondo = (art.fondoOrigen != null && !art.fondoOrigen.isBlank())
+                    ? art.fondoOrigen.trim().toUpperCase()
+                    : "INTERNO";
+            String folioOficialNvo;
+            if (art.folioResguardo != null && !art.folioResguardo.isBlank()) {
+                folioOficialNvo = art.folioResguardo.trim();
+            } else {
+                long consecutivoFondo = Resguardo.count("upper(fondoOrigen) = ?1", fondo) + 1;
+                String anioCorto = String.valueOf(LocalDate.now().getYear()).substring(2);
+                folioOficialNvo = String.format("%07d %s-NVO", consecutivoFondo, anioCorto);
+                art.folioResguardo = folioOficialNvo;
+            }
+
+            if (art.resguardanteActual == null || art.resguardanteActual.isBlank()) {
+                art.resguardanteActual = principal.nombre;
+            }
+            if ((art.centroTrabajo == null || art.centroTrabajo.isBlank()) && principal.cct != null && !principal.cct.isBlank()) {
+                art.centroTrabajo = principal.cct.trim().toUpperCase();
+            }
+            if (art.fechaResguardo == null) {
+                art.fechaResguardo = LocalDate.now();
+            }
+            art.cantidadStock = 0.0;
+            art.estado = "Agotado";
+            art.persist();
+
+            Resguardo nuevo = new Resguardo();
+            nuevo.articulo = art;
+            nuevo.empleado = principal;
+            nuevo.fechaAsignacion = art.fechaResguardo != null ? art.fechaResguardo : LocalDate.now();
+            nuevo.cantidadAsignada = 1.0;
+            nuevo.nombreAdminAsignador = "Almacén Central";
+            nuevo.estadoResguardo = "PENDIENTE_FIRMA";
+            nuevo.fondoOrigen = fondo;
+            nuevo.folioResguardoOficial = folioOficialNvo;
+            nuevo.persist();
+        }
     }
 
     private void poblarDatosArticuloDTO(ResguardoExtendidoDTO dto, Resguardo r) {
@@ -406,18 +619,31 @@ public class ResguardoResource {
 
     @GET
     @Path("/mis-equipos")
+    @Transactional
     @RolesAllowed({"admin", "Admin", "SUPERADMIN"})
     public Response misEquipos() {
         if (jwt == null || jwt.getName() == null) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        Empleado empleado = obtenerEmpleadoAutenticado();
-        if (empleado == null) {
+        List<Empleado> empleados = obtenerEmpleadosVinculadosAlDirector();
+        if (empleados.isEmpty()) {
             return Response.ok(new ArrayList<>()).build();
         }
 
-        List<Resguardo> resguardos = Resguardo.find("empleado.idEmpleado = ?1 and firmaEmpleadoBase64 is not null", empleado.idEmpleado).list();
+        sincronizarResguardosHuerfanosParaDirector(empleados);
+
+        List<Long> idsEmpleados = new ArrayList<>();
+        for (Empleado e : empleados) {
+            if (e != null && e.idEmpleado != null) {
+                idsEmpleados.add(e.idEmpleado);
+            }
+        }
+
+        List<Resguardo> resguardos = Resguardo.find(
+                "empleado.idEmpleado in ?1 and firmaEmpleadoBase64 is not null and firmaEmpleadoBase64 <> ''",
+                idsEmpleados
+        ).list();
         List<ResguardoExtendidoDTO> lista = new ArrayList<>();
 
         for (Resguardo r : resguardos) {
@@ -435,20 +661,30 @@ public class ResguardoResource {
 
     @GET
     @Path("/pendientes-firma")
+    @Transactional
     @RolesAllowed({"admin", "Admin", "SUPERADMIN"})
     public Response pendientesFirma() {
         if (jwt == null || jwt.getName() == null) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        Empleado empleado = obtenerEmpleadoAutenticado();
-        if (empleado == null) {
+        List<Empleado> empleados = obtenerEmpleadosVinculadosAlDirector();
+        if (empleados.isEmpty()) {
             return Response.ok(new ArrayList<>()).build();
         }
 
+        sincronizarResguardosHuerfanosParaDirector(empleados);
+
+        List<Long> idsEmpleados = new ArrayList<>();
+        for (Empleado e : empleados) {
+            if (e != null && e.idEmpleado != null) {
+                idsEmpleados.add(e.idEmpleado);
+            }
+        }
+
         List<Resguardo> pendientes = Resguardo.find(
-                "empleado.idEmpleado = ?1 and (( (firmaEmpleadoBase64 is null or firmaEmpleadoBase64 = '') and (estadoResguardo is null or estadoResguardo = 'ACTIVO' or estadoResguardo = 'PENDIENTE_FIRMA') ) or estadoResguardo = 'BAJA_EN_PROCESO')",
-                empleado.idEmpleado
+                "empleado.idEmpleado in ?1 and (( (firmaEmpleadoBase64 is null or firmaEmpleadoBase64 = '') and (estadoResguardo is null or estadoResguardo = 'ACTIVO' or estadoResguardo = 'PENDIENTE_FIRMA') ) or estadoResguardo = 'BAJA_EN_PROCESO')",
+                idsEmpleados
         ).list();
         List<PendienteDTO> lista = new ArrayList<>();
         
@@ -510,13 +746,37 @@ public class ResguardoResource {
     public Response firmarResguardo(@PathParam("idResguardo") Long idResguardo, FirmarRequest request) {
         if (jwt == null || jwt.getName() == null) return Response.status(Response.Status.UNAUTHORIZED).build();
 
-        Empleado empleado = obtenerEmpleadoAutenticado();
-        if (empleado == null) return Response.status(Response.Status.NOT_FOUND).build();
+        List<Empleado> empleadosVinculados = obtenerEmpleadosVinculadosAlDirector();
+        if (empleadosVinculados.isEmpty()) return Response.status(Response.Status.NOT_FOUND).build();
+        Empleado empleado = empleadosVinculados.get(0);
 
         Resguardo resguardo = Resguardo.findById(idResguardo);
         if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).entity("{\"error\": \"Resguardo no encontrado\"}").build();
 
-        if (resguardo.empleado == null || !resguardo.empleado.idEmpleado.equals(empleado.idEmpleado)) {
+        boolean autorizado = false;
+        if (resguardo.empleado != null) {
+            for (Empleado e : empleadosVinculados) {
+                if (e.idEmpleado != null && e.idEmpleado.equals(resguardo.empleado.idEmpleado)) {
+                    autorizado = true;
+                    break;
+                }
+                if (e.cct != null && !e.cct.isBlank() && resguardo.empleado.cct != null
+                        && e.cct.trim().equalsIgnoreCase(resguardo.empleado.cct.trim())) {
+                    autorizado = true;
+                    break;
+                }
+            }
+        }
+        if (!autorizado && resguardo.articulo != null && resguardo.articulo.centroTrabajo != null) {
+            for (Empleado e : empleadosVinculados) {
+                if (e.cct != null && e.cct.trim().equalsIgnoreCase(resguardo.articulo.centroTrabajo.trim())) {
+                    autorizado = true;
+                    break;
+                }
+            }
+        }
+
+        if (!autorizado) {
             return Response.status(Response.Status.FORBIDDEN).entity("{\"error\": \"No tienes permiso para firmar este resguardo\"}").build();
         }
 
@@ -530,6 +790,7 @@ public class ResguardoResource {
                     .entity("{\"error\": \"La ubicación GPS es obligatoria por normatividad de auditoría.\"}").build();
         }
 
+        resguardo.empleado = empleado;
         resguardo.firmaEmpleadoBase64 = request.firmaBase64;
         resguardo.latitudGPS = request.latitudGPS.trim();
         resguardo.longitudGPS = request.longitudGPS.trim();
@@ -542,7 +803,7 @@ public class ResguardoResource {
         historial.detallesModificacion = "El Director " + empleado.nombre + " firmó de conformidad la recepción institucional del equipo (Folio Resguardo: "
                 + (resguardo.folioResguardoOficial != null ? resguardo.folioResguardoOficial : "S/F") + ").";
         historial.fechaMovimiento = java.time.LocalDateTime.now();
-        historial.username = empleado.usuario; 
+        historial.username = empleado.usuario != null ? empleado.usuario : jwt.getName(); 
         historial.persist();
 
         return Response.ok("{\"mensaje\": \"Firma registrada correctamente\"}").build();
@@ -556,6 +817,19 @@ public class ResguardoResource {
         Resguardo resguardo = Resguardo.findById(idResguardo);
         if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
 
+        List<Empleado> empleadosVinculados = obtenerEmpleadosVinculadosAlDirector();
+        if (!empleadosVinculados.isEmpty()) {
+            Empleado principal = empleadosVinculados.get(0);
+            boolean pertenece = empleadosVinculados.stream().anyMatch(e ->
+                    (resguardo.empleado != null && e.idEmpleado != null && e.idEmpleado.equals(resguardo.empleado.idEmpleado)) ||
+                    (resguardo.empleado != null && e.cct != null && resguardo.empleado.cct != null && e.cct.trim().equalsIgnoreCase(resguardo.empleado.cct.trim())) ||
+                    (resguardo.articulo != null && e.cct != null && resguardo.articulo.centroTrabajo != null && e.cct.trim().equalsIgnoreCase(resguardo.articulo.centroTrabajo.trim()))
+            );
+            if (pertenece) {
+                resguardo.empleado = principal;
+            }
+        }
+
         resguardo.estadoResguardo = "SOLICITUD_BAJA";
         resguardo.persist();
 
@@ -564,7 +838,7 @@ public class ResguardoResource {
         historial.tipoMovimiento = "SOLICITUD_BAJA";
         historial.detallesModificacion = "La escuela solicitó la baja/devolución del equipo.";
         historial.fechaMovimiento = java.time.LocalDateTime.now();
-        historial.username = jwt.getName(); 
+        historial.username = jwt != null ? jwt.getName() : "Director"; 
         historial.persist();
 
         return Response.ok("{\"mensaje\": \"Solicitud enviada a Almacén Central\"}").build();

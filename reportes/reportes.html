@@ -65,7 +65,12 @@
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-5">
             <div>
                 <label class="block text-xs font-bold text-guinda uppercase mb-1">Fondo / Origen</label>
-                <select x-model="filtroFondoReporte"
+                <div x-show="baseOperativaActiva !== 'TODOS'"
+                    class="w-full rounded-md border border-dorado/50 bg-caqui/60 py-2 px-3 shadow-sm sm:text-xs font-extrabold text-guinda flex items-center justify-between">
+                    <span x-text="baseOperativaActiva"></span>
+                    <span class="text-[9px] bg-guinda text-white px-1.5 py-0.5 rounded uppercase">Base Activa</span>
+                </div>
+                <select x-show="baseOperativaActiva === 'TODOS'" x-model="filtroFondoReporte"
                     class="w-full rounded-md border-gray-200 bg-white py-2 px-3 shadow-sm sm:text-xs font-semibold border focus:ring-guinda focus:border-guinda">
                     <option value="">Todos los Fondos</option>
                     <optgroup label="Fuentes Operativas Activas">

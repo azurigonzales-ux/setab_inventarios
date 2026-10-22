@@ -347,6 +347,8 @@ public class ArticuloResource {
             unidad.tokenQR = UUID.randomUUID().toString();
             unidad.persistAndFlush();
 
+            sincronizarResguardoInicialSiAplica(unidad, adminNombre);
+
             HistorialTrazabilidad historial = new HistorialTrazabilidad();
             historial.articulo = unidad;
             historial.tipoMovimiento = "ALTA_EN_BODEGA";
@@ -444,6 +446,9 @@ public class ArticuloResource {
         if (articuloActualizado.fechaAdquisicion != null) {
             articuloExistente.fechaAdquisicion = articuloActualizado.fechaAdquisicion;
         }
+        articuloExistente.persist();
+
+        sincronizarResguardoInicialSiAplica(articuloExistente, obtenerNombreAdmin());
         
         HistorialTrazabilidad historial = new HistorialTrazabilidad();
         historial.articulo = articuloExistente;
@@ -538,5 +543,75 @@ public class ArticuloResource {
         historial.persist();
 
         return Response.ok(articulo).build();
+    }
+
+    private void sincronizarResguardoInicialSiAplica(Articulo unidad, String adminNombre) {
+        if (unidad == null || unidad.id == null) {
+            return;
+        }
+        String resp = unidad.resguardanteActual != null ? unidad.resguardanteActual.trim().toUpperCase() : "";
+        String cct = unidad.centroTrabajo != null ? unidad.centroTrabajo.trim().toUpperCase() : "";
+        if (resp.isEmpty() && (cct.isEmpty() || "CENTRAL".equals(cct) || "ALMACÉN CENTRAL".equals(cct) || "ALMACEN CENTRAL".equals(cct))) {
+            return;
+        }
+
+        long resguardosActivos = Resguardo.count(
+                "articulo.id = ?1 and (estadoResguardo is null or estadoResguardo = 'PENDIENTE_FIRMA' or estadoResguardo = 'ACTIVO' or estadoResguardo = 'SOLICITUD_BAJA' or estadoResguardo = 'BAJA_EN_PROCESO')",
+                unidad.id
+        );
+        if (resguardosActivos > 0) {
+            return;
+        }
+
+        Empleado empleadoDestino = null;
+        if (!resp.isEmpty()) {
+            empleadoDestino = Empleado.find(
+                    "upper(nombre) = ?1 or upper(rfc) = ?1 or upper(usuario) = ?1 or upper(claveResponsable) = ?1",
+                    resp
+            ).firstResult();
+        }
+        if (empleadoDestino == null && !cct.isEmpty() && !"CENTRAL".equals(cct) && !"ALMACÉN CENTRAL".equals(cct) && !"ALMACEN CENTRAL".equals(cct)) {
+            empleadoDestino = Empleado.find("upper(cct) = ?1", cct).firstResult();
+        }
+        if (empleadoDestino == null) {
+            return;
+        }
+
+        String fondo = (unidad.fondoOrigen != null && !unidad.fondoOrigen.isBlank())
+                ? unidad.fondoOrigen.trim().toUpperCase()
+                : "INTERNO";
+        String folioOficialNvo;
+        if (unidad.folioResguardo != null && !unidad.folioResguardo.isBlank()) {
+            folioOficialNvo = unidad.folioResguardo.trim();
+        } else {
+            long consecutivoFondo = Resguardo.count("upper(fondoOrigen) = ?1", fondo) + 1;
+            String anioCorto = String.valueOf(LocalDate.now().getYear()).substring(2);
+            folioOficialNvo = String.format("%07d %s-NVO", consecutivoFondo, anioCorto);
+            unidad.folioResguardo = folioOficialNvo;
+        }
+
+        if (unidad.resguardanteActual == null || unidad.resguardanteActual.isBlank()) {
+            unidad.resguardanteActual = empleadoDestino.nombre;
+        }
+        if ((unidad.centroTrabajo == null || unidad.centroTrabajo.isBlank()) && empleadoDestino.cct != null && !empleadoDestino.cct.isBlank()) {
+            unidad.centroTrabajo = empleadoDestino.cct.trim().toUpperCase();
+        }
+        if (unidad.fechaResguardo == null) {
+            unidad.fechaResguardo = LocalDate.now();
+        }
+        unidad.cantidadStock = 0.0;
+        unidad.estado = "Agotado";
+        unidad.persist();
+
+        Resguardo resguardo = new Resguardo();
+        resguardo.articulo = unidad;
+        resguardo.empleado = empleadoDestino;
+        resguardo.fechaAsignacion = unidad.fechaResguardo != null ? unidad.fechaResguardo : LocalDate.now();
+        resguardo.cantidadAsignada = 1.0;
+        resguardo.nombreAdminAsignador = adminNombre != null ? adminNombre : "Almacén Central";
+        resguardo.estadoResguardo = "PENDIENTE_FIRMA";
+        resguardo.fondoOrigen = fondo;
+        resguardo.folioResguardoOficial = folioOficialNvo;
+        resguardo.persist();
     }
 }

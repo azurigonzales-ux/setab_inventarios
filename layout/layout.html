@@ -305,7 +305,7 @@
                         <button type="button" @click="seleccionarBaseOperativa('TODOS')"
                             class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all"
                             :class="baseOperativaActiva === 'TODOS' ? 'bg-dorado text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
-                            Ver Todas
+                            Ver Todas / Acervo Histórico
                         </button>
                     </div>
                 </div>
@@ -409,7 +409,7 @@
                 errorMensaje: '',
 
                 articulos: [], totalRegistros: 0,
-                baseOperativaActiva: 'TODOS',
+                baseOperativaActiva: 'INTERNO',
                 modalImagenAbierto: false, imagenAmpliadaUrl: '', imagenAmpliadaFolio: '',
                 tabActualizarActivo: 'verificacion_anual',
                 busquedaActualizacionAnual: '',
@@ -417,7 +417,7 @@
                 formDirectorAnual: { id_empleado: null, nombre: '', rfc: '', curp: '', correo: '', telefono: '', cct: '', nombreEscuela: '' },
                 formCTAnual: { id: null, claveCT: '', nombreCT: '', municipio: '', localidad: '', nombreVial: '', georeferencia: '17.989456, -92.947506' },
                 bienesActualizacionAnual: [],
-                filtroBusqueda: '', indiceBusqueda: 'GENERAL', filtroFondo: '', filtroCategoria: '', filtroArea: '', paginaActual: 0, totalPaginas: 1,
+                filtroBusqueda: '', indiceBusqueda: 'GENERAL', filtroFondo: 'INTERNO', filtroCategoria: '', filtroArea: '', paginaActual: 0, totalPaginas: 1,
                 tabModalAlta: 'identificacion',
                 tabModalEdicion: 'identificacion',
                 listaFondosOperativos: [
@@ -448,7 +448,7 @@
                 ],
                 misEquipos: [], pendientes: [], pendienteSeleccionado: {},
 
-                modalAbierto: false, modalRegistroAbierto: false, modalResguardoAbierto: false,
+                modalAbierto: false, modalRegistroAbierto: false, modalRegistroUsuarioAbierto: false, modalResguardoAbierto: false,
                 modalConfirmacionAbierto: false, modalHistorialAbierto: false, modalFirmaDirectorAbierto: false,
                 modalSeguridadAbierto: false, textoConfirmacion: '', idBajaPendiente: null, modalTraspasoAbierto: false, idDirectorEntrante: '', procesandoTraspaso: false, empleadosGeneral: [],
 
@@ -494,7 +494,7 @@
                 tabReporteActivo: 'padron',
                 tipoCuantificacion: 'PARTIDA',
                 filtroSemestreReporte: '2026-2',
-                filtroFondoReporte: '',
+                filtroFondoReporte: 'INTERNO',
                 filtroCategoriaReporte: '',
                 filtroAreaReporte: '',
                 filtroEstadoReporte: '',
@@ -502,17 +502,17 @@
                 filtroResguardoLoteResponsable: '',
                 itemsResguardoLote: [],
                 firmasOficiales: {
-                    jefeAlmacen: 'LIC. RESPONSABLE DE ALMACÉN CENTRAL',
-                    jefeInventario: 'ING. JEFE DE CONTROL PATRIMONIAL E INVENTARIOS',
-                    jefeInventarios: 'ING. JEFE DE CONTROL PATRIMONIAL E INVENTARIOS',
+                    jefeAlmacen: 'LIC. JORGE VALENCIA GARCIA',
+                    jefeInventario: 'BISMARCK CASTILLO ESPINOZA',
+                    jefeInventarios: 'BISMARCK CASTILLO ESPINOZA',
                     cctDestino: '',
                     resguardanteReceptor: '',
                     cargoReceptor: 'DIRECTOR / RESPONSABLE DE CENTRO DE TRABAJO'
                 },
                 firmantesResguardo: {
-                    jefeAlmacen: 'LIC. RESPONSABLE DE ALMACÉN CENTRAL',
-                    jefeInventario: 'ING. JEFE DE CONTROL PATRIMONIAL E INVENTARIOS',
-                    jefeInventarios: 'ING. JEFE DE CONTROL PATRIMONIAL E INVENTARIOS',
+                    jefeAlmacen: 'LIC. JORGE VALENCIA GARCIA',
+                    jefeInventario: 'BISMARCK CASTILLO ESPINOZA',
+                    jefeInventarios: 'BISMARCK CASTILLO ESPINOZA',
                     cctDestino: '',
                     resguardanteReceptor: '',
                     cargoReceptor: 'DIRECTOR / RESPONSABLE DE CENTRO DE TRABAJO'
@@ -1147,14 +1147,14 @@
                                 <div class="firma-box">
                                     <div><strong>Vo.Bo.</strong></div>
                                     <div class="linea-firma">
-                                        LIC. JORGE VALENCIA GARCIA<br>
+                                        ${(this.firmasOficiales?.jefeAlmacen || this.firmantesResguardo?.jefeAlmacen || 'LIC. JORGE VALENCIA GARCIA').toUpperCase()}<br>
                                         <span style="font-size:9.5px;font-weight:normal;">JEFE DEL DEPTO. DE ALMACEN GRAL. E INVENTARIOS DE BIENES MUEB.</span>
                                     </div>
                                 </div>
                                 <div class="firma-box">
                                     <div><strong>FORMULO</strong></div>
                                     <div class="linea-firma">
-                                        BISMARCK CASTILLO ESPINOZA<br>
+                                        ${(this.firmasOficiales?.jefeInventarios || this.firmasOficiales?.jefeInventario || this.firmantesResguardo?.jefeInventario || 'BISMARCK CASTILLO ESPINOZA').toUpperCase()}<br>
                                         <span style="font-size:9.5px;font-weight:normal;">JEFE DEL AREA DE INVENTARIOS</span>
                                     </div>
                                 </div>
@@ -1299,14 +1299,14 @@
                                 <div>
                                     <div><strong>POR LA SECRETARIA DE EDUCACION</strong></div>
                                     <div class="linea">
-                                        LIC. JORGE VALENCIA GARCIA<br>
+                                        ${(this.firmasOficiales?.jefeAlmacen || this.firmantesResguardo?.jefeAlmacen || 'LIC. JORGE VALENCIA GARCIA').toUpperCase()}<br>
                                         <span style="font-size:9.5px;font-weight:normal;">JEFE DEL DEPTO. DE ALMACEN GRAL. E INVENTARIOS DE BIENES MUEB.</span>
                                     </div>
                                 </div>
                                 <div>
                                     <div><strong>RESPONSABLE DE LA VERIFICACION</strong></div>
                                     <div class="linea">
-                                        BISMARCK CASTILLO ESPINOZA<br>
+                                        ${(this.firmasOficiales?.jefeInventarios || this.firmasOficiales?.jefeInventario || this.firmantesResguardo?.jefeInventario || 'BISMARCK CASTILLO ESPINOZA').toUpperCase()}<br>
                                         <span style="font-size:9.5px;font-weight:normal;">JEFE DEL AREA DE INVENTARIOS</span>
                                     </div>
                                 </div>
@@ -2232,7 +2232,7 @@
                     }
 
                     if (nombreVista === 'catalogo') { this.cargarArticulos(50); this.cargarCatalogosAuxiliares(); this.cargarCentrosTrabajo(); }
-                    if (nombreVista === 'mi_escuela') this.cargarMisEquipos();
+                    if (nombreVista === 'mi_escuela') { this.cargarMisEquipos(); this.cargarPendientes(); }
                     if (nombreVista === 'firmas') this.cargarPendientes();
                     if (nombreVista === 'usuarios') { this.cargarUsuarios(); this.cargarCentrosTrabajo(); }
                     if (nombreVista === 'resguardos') { this.filtrarLocal(); }
@@ -2287,7 +2287,7 @@
                         };
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/usuarios`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
                         if (respuesta.ok) {
-                            this.cerrarModalRegistro();
+                            this.cerrarModalRegistroUsuario();
                             this.cargarUsuarios();
                             this.cargarEmpleados();
                             this.cargarCentrosTrabajo(true);
@@ -2529,14 +2529,18 @@
                         boletaSalida: '', tipoBaja: '', carpetaInvestigacion: '', oficioBaja: '', fechaBaja: null,
                         numeroActa: '', fechaActa: null, cantidadStock: 1
                     };
+                    this.modalRegistroAbierto = true;
+                },
+                cerrarModalRegistro() { this.modalRegistroAbierto = false; },
+                abrirModalRegistroUsuario() {
                     this.nuevoUsuario = {
                         nombre: '', apellidos: '', email: '', username: '', password: '',
                         cct: '', nivelEducativo: 'Primaria', nombreEscuela: '', rol: 'Admin',
                         curp: '', claveResponsable: ''
                     };
-                    this.modalRegistroAbierto = true;
+                    this.modalRegistroUsuarioAbierto = true;
                 },
-                cerrarModalRegistro() { this.modalRegistroAbierto = false; },
+                cerrarModalRegistroUsuario() { this.modalRegistroUsuarioAbierto = false; },
 
                 async guardarNuevoArticulo() {
                     this.guardando = true;

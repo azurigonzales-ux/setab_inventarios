@@ -37,6 +37,7 @@ public class PostgresRelacionalCrudService {
     MultiDataSourceConfig multiDataSourceConfig;
 
     public static class TablaMeta {
+        public String schemaReal;
         public String nombreReal;
         public String pkColumna;
         public boolean pkAutoincremental;
@@ -52,6 +53,9 @@ public class PostgresRelacionalCrudService {
         if (fondo != null && !fondo.isBlank()) {
             MultiDataSourceConfig.OrigenDatos especifico = multiDataSourceConfig.resolverOrigenPorFondo(fondo);
             return multiDataSourceConfig.tieneConexionExternaActiva(especifico) ? especifico : null;
+        }
+        if (multiDataSourceConfig.tieneConexionExternaActiva(MultiDataSourceConfig.OrigenDatos.INVENTARIOS)) {
+            return MultiDataSourceConfig.OrigenDatos.INVENTARIOS;
         }
         if (multiDataSourceConfig.tieneConexionExternaActiva(MultiDataSourceConfig.OrigenDatos.INVENTARIO_INTERNO)) {
             return MultiDataSourceConfig.OrigenDatos.INVENTARIO_INTERNO;
@@ -147,6 +151,7 @@ public class PostgresRelacionalCrudService {
     }
 
     public TablaMeta inspeccionarTabla(Connection conn, MultiDataSourceConfig.OrigenDatos origen, String... posiblesNombres) throws SQLException {
+        String[] esquemasBusqueda = new String[]{"Inventario", "inventario", "public", null};
         for (String candidato : posiblesNombres) {
             String cacheKey = origen.name() + "::" + candidato.toLowerCase(Locale.ROOT);
             if (cacheMetadatos.containsKey(cacheKey)) {
@@ -154,26 +159,30 @@ public class PostgresRelacionalCrudService {
             }
             DatabaseMetaData md = conn.getMetaData();
             String nombreEncontrado = null;
-            try (ResultSet rsTablas = md.getTables(null, "public", candidato.toLowerCase(Locale.ROOT), new String[]{"TABLE", "VIEW"})) {
-                if (rsTablas.next()) {
-                    nombreEncontrado = rsTablas.getString("TABLE_NAME");
-                }
-            }
-            if (nombreEncontrado == null) {
-                try (ResultSet rsTablas = md.getTables(null, null, candidato.toLowerCase(Locale.ROOT), new String[]{"TABLE", "VIEW"})) {
+            String schemaEncontrado = null;
+
+            for (String esquema : esquemasBusqueda) {
+                try (ResultSet rsTablas = md.getTables(null, esquema, candidato.toLowerCase(Locale.ROOT), new String[]{"TABLE", "VIEW"})) {
                     if (rsTablas.next()) {
                         nombreEncontrado = rsTablas.getString("TABLE_NAME");
+                        schemaEncontrado = rsTablas.getString("TABLE_SCHEM");
+                        if (schemaEncontrado == null) {
+                            schemaEncontrado = esquema;
+                        }
+                        break;
                     }
                 }
             }
+
             if (nombreEncontrado == null) {
                 continue;
             }
 
             TablaMeta meta = new TablaMeta();
+            meta.schemaReal = schemaEncontrado;
             meta.nombreReal = nombreEncontrado;
 
-            try (ResultSet rsCols = md.getColumns(null, "public", nombreEncontrado, null)) {
+            try (ResultSet rsCols = md.getColumns(null, meta.schemaReal, nombreEncontrado, null)) {
                 while (rsCols.next()) {
                     String colName = rsCols.getString("COLUMN_NAME").toLowerCase(Locale.ROOT);
                     int colSize = rsCols.getInt("COLUMN_SIZE");
@@ -189,7 +198,7 @@ public class PostgresRelacionalCrudService {
                 }
             }
 
-            try (ResultSet rsPk = md.getPrimaryKeys(null, "public", nombreEncontrado)) {
+            try (ResultSet rsPk = md.getPrimaryKeys(null, meta.schemaReal, nombreEncontrado)) {
                 if (rsPk.next()) {
                     meta.pkColumna = rsPk.getString("COLUMN_NAME").toLowerCase(Locale.ROOT);
                 }
@@ -199,7 +208,7 @@ public class PostgresRelacionalCrudService {
                 meta.pkColumna = deducirPkPorConvencion(nombreEncontrado, meta.columnas);
             }
 
-            try (ResultSet rsFk = md.getImportedKeys(null, "public", nombreEncontrado)) {
+            try (ResultSet rsFk = md.getImportedKeys(null, meta.schemaReal, nombreEncontrado)) {
                 while (rsFk.next()) {
                     String pktable = rsFk.getString("PKTABLE_NAME");
                     String fkcol = rsFk.getString("FKCOLUMN_NAME");
