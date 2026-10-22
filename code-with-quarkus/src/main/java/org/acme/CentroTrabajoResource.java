@@ -2,6 +2,7 @@ package org.acme;
 
 import java.util.List;
 import jakarta.annotation.security.RolesAllowed;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -19,8 +20,20 @@ import jakarta.ws.rs.core.Response;
 @RolesAllowed("SUPERADMIN")
 public class CentroTrabajoResource {
 
+    @Inject
+    PostgresRelacionalCrudService relacionalService;
+
     @GET
     public Response listar() {
+        if (relacionalService != null && relacionalService.puedeOperarCCT()) {
+            try {
+                return Response.ok(relacionalService.listarCentrosTrabajo()).build();
+            } catch (Exception e) {
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity("{\"error\": \"Error al listar tabla cct: " + e.getMessage().replace("\"", "'") + "\"}")
+                        .build();
+            }
+        }
         List<CentroTrabajo> lista = CentroTrabajo.listAll();
         return Response.ok(lista).build();
     }
@@ -34,6 +47,19 @@ public class CentroTrabajoResource {
         }
 
         String claveLimpia = ct.claveCT.trim().toUpperCase();
+        ct.claveCT = claveLimpia;
+        ct.estatus = (ct.estatus != null && !ct.estatus.isBlank()) ? ct.estatus.trim().toUpperCase() : "A";
+
+        if (relacionalService != null && relacionalService.puedeOperarCCT()) {
+            try {
+                CentroTrabajo creado = relacionalService.crearCentroTrabajo(ct);
+                return Response.status(Response.Status.CREATED).entity(creado).build();
+            } catch (Exception e) {
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity("{\"error\": \"Error al registrar en tabla cct: " + e.getMessage().replace("\"", "'") + "\"}")
+                        .build();
+            }
+        }
 
         CentroTrabajo repetido = CentroTrabajo.find("upper(claveCT) = ?1", claveLimpia).firstResult();
         if (repetido != null) {
@@ -42,8 +68,6 @@ public class CentroTrabajoResource {
         }
 
         ct.id = null;
-        ct.claveCT = claveLimpia;
-        ct.estatus = (ct.estatus != null && !ct.estatus.isBlank()) ? ct.estatus.trim().toUpperCase() : "A";
         ct.persist();
         sincronizarConEmpleado(ct);
         return Response.status(Response.Status.CREATED).entity(ct).build();
@@ -53,6 +77,17 @@ public class CentroTrabajoResource {
     @Path("/{id}")
     @Transactional
     public Response actualizar(@PathParam("id") Long id, CentroTrabajo datos) {
+        if (relacionalService != null && relacionalService.puedeOperarCCT()) {
+            try {
+                CentroTrabajo actualizado = relacionalService.actualizarCentroTrabajo(id, datos);
+                return Response.ok(actualizado).build();
+            } catch (Exception e) {
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity("{\"error\": \"Error al actualizar en tabla cct: " + e.getMessage().replace("\"", "'") + "\"}")
+                        .build();
+            }
+        }
+
         CentroTrabajo existente = CentroTrabajo.findById(id);
         if (existente == null) {
             return Response.status(Response.Status.NOT_FOUND).build();

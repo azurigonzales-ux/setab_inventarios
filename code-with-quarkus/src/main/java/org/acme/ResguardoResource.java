@@ -5,8 +5,10 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -71,7 +73,9 @@ public class ResguardoResource {
         public double cantidadAsignada;
         public String nombreAdminAsignador;
         public String estadoResguardo; 
-        public String numeroInventario; 
+        public String numeroInventario;
+        public String folioResguardoOficial;
+        public String fondoOrigen;
     }
 
     @JsonIgnoreProperties(ignoreUnknown = true)
@@ -86,7 +90,21 @@ public class ResguardoResource {
         public LocalDate fechaAsignacion;
         public double cantidadAsignada;
         public String estadoResguardo; 
-        public String numeroInventario; 
+        public String numeroInventario;
+        public String folioResguardoOficial;
+        public String fondoOrigen;
+        public String imagenBienBase64;
+        public String descripcionBien;
+        public String partidaBien;
+        public Double valorBien;
+        public String estadoFisicoBien;
+        public String facturaBien;
+        public LocalDate fechaFacturaBien;
+        public String folioFiscalBien;
+        public String boletaSalidaBien;
+        public LocalDate fechaUltimaActualizacionAnual;
+        public String estadoVerificacionAnual;
+        public String cct;
     }
 
     private String obtenerNombreAdmin() {
@@ -121,6 +139,44 @@ public class ResguardoResource {
         return empleado;
     }
 
+    private void poblarDatosArticuloDTO(ResguardoExtendidoDTO dto, Resguardo r) {
+        dto.folioResguardoOficial = r.folioResguardoOficial;
+        dto.fondoOrigen = r.fondoOrigen;
+        if (r.articulo != null) {
+            dto.idArticulo = r.articulo.id;
+            dto.equipoSerie = r.articulo.numeroSerie;
+            dto.equipoMarca = r.articulo.marca;
+            dto.numeroInventario = r.articulo.numeroInventario;
+            if (dto.folioResguardoOficial == null || dto.folioResguardoOficial.isBlank()) {
+                dto.folioResguardoOficial = r.articulo.folioResguardo;
+            }
+            if (dto.fondoOrigen == null || dto.fondoOrigen.isBlank()) {
+                dto.fondoOrigen = r.articulo.fondoOrigen != null ? r.articulo.fondoOrigen : "INTERNO";
+            }
+            dto.imagenBienBase64 = r.articulo.imagenBienBase64;
+            dto.descripcionBien = r.articulo.descripcion != null && !r.articulo.descripcion.isBlank()
+                    ? r.articulo.descripcion : r.articulo.marca;
+            dto.partidaBien = r.articulo.partida;
+            dto.valorBien = r.articulo.valorInicial != null ? r.articulo.valorInicial : r.articulo.precioSinIva;
+            dto.estadoFisicoBien = r.articulo.estadoFisico != null ? r.articulo.estadoFisico : "BUENO";
+            dto.facturaBien = r.articulo.factura;
+            dto.fechaFacturaBien = r.articulo.fechaFactura;
+            dto.folioFiscalBien = r.articulo.folioFiscalUuid;
+            dto.boletaSalidaBien = r.articulo.boletaSalida;
+            dto.fechaUltimaActualizacionAnual = r.articulo.fechaUltimaActualizacionAnual;
+            dto.estadoVerificacionAnual = r.articulo.estadoVerificacionAnual != null ? r.articulo.estadoVerificacionAnual : "PENDIENTE";
+            dto.cct = r.articulo.centroTrabajo;
+        }
+        if (r.empleado != null) {
+            dto.idEmpleado = r.empleado.idEmpleado;
+            dto.nombreEmpleado = r.empleado.nombre;
+            dto.areaDestino = r.empleado.area;
+            if (dto.cct == null || dto.cct.isBlank()) {
+                dto.cct = r.empleado.cct;
+            }
+        }
+    }
+
     @POST
     @Path("/asignar/{idEquipo}")
     @Transactional
@@ -148,6 +204,13 @@ public class ResguardoResource {
                     .build();
         }
 
+        String fondo = (articulo.fondoOrigen != null && !articulo.fondoOrigen.isBlank())
+                ? articulo.fondoOrigen.trim().toUpperCase()
+                : "INTERNO";
+        long consecutivoFondo = Resguardo.count("upper(fondoOrigen) = ?1", fondo) + 1;
+        String anioCorto = String.valueOf(LocalDate.now().getYear()).substring(2);
+        String folioOficialNvo = String.format("%07d %s-NVO", consecutivoFondo, anioCorto);
+
         double nuevoStock = Math.max(0.0, stockActual - request.cantidad);
         articulo.cantidadStock = nuevoStock;
         if (articulo.cantidadStock <= 0) {
@@ -159,10 +222,12 @@ public class ResguardoResource {
             articulo.resguardanteHistorico = articulo.resguardanteActual;
         }
         articulo.resguardanteActual = empleado.nombre;
-        if (empleado.cct != null && !empleado.cct.isBlank()) {
-            articulo.centroTrabajo = empleado.cct.trim().toUpperCase();
-        }
+        String cctAsignada = (empleado.cct != null && !empleado.cct.isBlank())
+                ? empleado.cct.trim().toUpperCase()
+                : (articulo.centroTrabajo != null ? articulo.centroTrabajo.trim().toUpperCase() : "SIN-CCT");
+        articulo.centroTrabajo = cctAsignada;
         articulo.fechaResguardo = LocalDate.now();
+        articulo.folioResguardo = folioOficialNvo;
         articulo.persist();
 
         Resguardo resguardo = new Resguardo();
@@ -176,22 +241,112 @@ public class ResguardoResource {
         resguardo.longitudGPS = null; 
         resguardo.nombreAdminAsignador = obtenerNombreAdmin();
         resguardo.estadoResguardo = "PENDIENTE_FIRMA";
+        resguardo.fondoOrigen = fondo;
+        resguardo.folioResguardoOficial = folioOficialNvo;
         resguardo.persist();
 
         HistorialTrazabilidad historial = new HistorialTrazabilidad();
         historial.articulo = articulo;
-        historial.tipoMovimiento = "ASIGNACION";
+        historial.tipoMovimiento = "ASIGNACION_RESGUARDO";
 
-        String matricula = (empleado.numeroEmpleado != null && !empleado.numeroEmpleado.trim().isEmpty()) 
-                            ? empleado.numeroEmpleado 
-                            : "Sin matrícula";
+        String numInv = (articulo.numeroInventario != null && !articulo.numeroInventario.isBlank())
+                ? articulo.numeroInventario
+                : String.valueOf(articulo.id);
 
-        historial.detallesModificacion = "Se asignó la cantidad de " + request.cantidad + " al empleado: " + empleado.nombre + " (Matrícula: " + matricula + ")";
+        historial.detallesModificacion = "Asignación de Resguardo [" + fondo + "] | No. Inventario: " + numInv
+                + " | Folio Resguardo: " + folioOficialNvo
+                + " | CCT: " + cctAsignada
+                + " | Director: " + empleado.nombre
+                + " | Cantidad: " + request.cantidad;
         historial.fechaMovimiento = java.time.LocalDateTime.now();
         historial.username = obtenerNombreAdmin(); 
         historial.persist();
 
         return Response.status(Response.Status.CREATED).entity(resguardo).build();
+    }
+
+    @POST
+    @Path("/confirmar-actualizacion-anual/{idEmpleado}")
+    @Transactional
+    @RolesAllowed({"SUPERADMIN", "admin", "Admin"})
+    public Response confirmarActualizacionAnual(@PathParam("idEmpleado") Long idEmpleado) {
+        if (idEmpleado == null) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity("{\"error\": \"ID de director/resguardante requerido.\"}")
+                    .build();
+        }
+        Empleado empleado = Empleado.findById(idEmpleado);
+        if (empleado == null) {
+            return Response.status(Response.Status.NOT_FOUND)
+                    .entity("{\"error\": \"Director/resguardante no encontrado.\"}")
+                    .build();
+        }
+
+        List<Resguardo> resguardos = Resguardo.find(
+                "empleado.idEmpleado = ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo = 'PENDIENTE_FIRMA' or estadoResguardo is null)",
+                idEmpleado
+        ).list();
+
+        String anioActual = String.valueOf(LocalDate.now().getYear());
+        String cct = empleado.cct != null ? empleado.cct.trim().toUpperCase() : "SIN-CCT";
+        Map<String, String> foliosPorFondo = new HashMap<>();
+        int totalVerificados = 0;
+
+        for (Resguardo r : resguardos) {
+            if (r == null || r.articulo == null) continue;
+            Articulo a = r.articulo;
+            String fondo = (a.fondoOrigen != null && !a.fondoOrigen.isBlank())
+                    ? a.fondoOrigen.trim().toUpperCase()
+                    : (r.fondoOrigen != null && !r.fondoOrigen.isBlank() ? r.fondoOrigen.trim().toUpperCase() : "INTERNO");
+
+            String folioCre = foliosPorFondo.get(fondo);
+            if (folioCre == null) {
+                long consecutivo = Resguardo.count("upper(fondoOrigen) = ?1", fondo) + totalVerificados + 1;
+                folioCre = String.format("%s %05d-CRE", anioActual, consecutivo);
+                foliosPorFondo.put(fondo, folioCre);
+            }
+
+            String folioAnterior = (r.folioResguardoOficial != null && !r.folioResguardoOficial.isBlank())
+                    ? r.folioResguardoOficial
+                    : (a.folioResguardo != null ? a.folioResguardo : "S/F");
+
+            r.fondoOrigen = fondo;
+            r.folioResguardoOficial = folioCre;
+            r.persist();
+
+            a.folioResguardo = folioCre;
+            a.fechaUltimaActualizacionAnual = LocalDate.now();
+            a.estadoVerificacionAnual = "VERIFICADO";
+            a.fechaResguardo = LocalDate.now();
+            a.resguardanteActual = empleado.nombre;
+            if (cct != null && !cct.equals("SIN-CCT")) {
+                a.centroTrabajo = cct;
+            }
+            a.persist();
+
+            HistorialTrazabilidad h = new HistorialTrazabilidad();
+            h.articulo = a;
+            h.tipoMovimiento = "ACTUALIZACION_ANUAL_VERIFICADA";
+            h.detallesModificacion = "Verificación física anual concluida [" + fondo + "]. No. Inventario: "
+                    + (a.numeroInventario != null ? a.numeroInventario : a.id)
+                    + " | Folio Anterior: " + folioAnterior
+                    + " -> Nuevo Folio Resguardo: " + folioCre
+                    + " | CCT: " + cct
+                    + " | Resguardante: " + empleado.nombre;
+            h.fechaMovimiento = java.time.LocalDateTime.now();
+            h.username = obtenerNombreAdmin();
+            h.persist();
+
+            totalVerificados++;
+        }
+
+        String folioPrincipal = foliosPorFondo.values().stream().findFirst().orElse(anioActual + " 00001-CRE");
+        return Response.ok(Map.of(
+                "mensaje", "Actualización anual confirmada y verificada oficialmente.",
+                "totalVerificados", totalVerificados,
+                "folioGenerado", folioPrincipal,
+                "foliosPorFondo", foliosPorFondo
+        )).build();
     }
 
     private String sanitizarTextoPdf(String texto) {
@@ -234,17 +389,7 @@ public class ResguardoResource {
             if (r == null) continue;
             ResguardoExtendidoDTO dto = new ResguardoExtendidoDTO();
             dto.idResguardo = r.id;
-            if (r.articulo != null) {
-                dto.idArticulo = r.articulo.id;
-                dto.equipoSerie = r.articulo.numeroSerie;
-                dto.equipoMarca = r.articulo.marca;
-                dto.numeroInventario = r.articulo.numeroInventario;
-            }
-            if (r.empleado != null) {
-                dto.idEmpleado = r.empleado.idEmpleado;
-                dto.nombreEmpleado = r.empleado.nombre;
-                dto.areaDestino = r.empleado.area;
-            }
+            poblarDatosArticuloDTO(dto, r);
             dto.fechaAsignacion = r.fechaAsignacion;
             dto.cantidadAsignada = r.cantidadAsignada;
             if (r.estadoResguardo == null || r.estadoResguardo.trim().isEmpty()) {
@@ -279,12 +424,7 @@ public class ResguardoResource {
             if (r == null) continue;
             ResguardoExtendidoDTO dto = new ResguardoExtendidoDTO();
             dto.idResguardo = r.id;
-            if (r.articulo != null) {
-                dto.idArticulo = r.articulo.id;
-                dto.equipoSerie = r.articulo.numeroSerie;
-                dto.equipoMarca = r.articulo.marca;
-                dto.numeroInventario = r.articulo.numeroInventario;
-            }
+            poblarDatosArticuloDTO(dto, r);
             dto.fechaAsignacion = r.fechaAsignacion;
             dto.cantidadAsignada = r.cantidadAsignada;
             dto.estadoResguardo = r.estadoResguardo != null ? r.estadoResguardo : "ACTIVO";
@@ -316,10 +456,18 @@ public class ResguardoResource {
             if (r == null) continue;
             PendienteDTO dto = new PendienteDTO();
             dto.idResguardo = r.id;
+            dto.folioResguardoOficial = r.folioResguardoOficial;
+            dto.fondoOrigen = r.fondoOrigen;
             if (r.articulo != null) {
                 dto.equipoMarca = r.articulo.marca;
                 dto.equipoSerie = r.articulo.numeroSerie;
                 dto.numeroInventario = r.articulo.numeroInventario;
+                if (dto.folioResguardoOficial == null || dto.folioResguardoOficial.isBlank()) {
+                    dto.folioResguardoOficial = r.articulo.folioResguardo;
+                }
+                if (dto.fondoOrigen == null || dto.fondoOrigen.isBlank()) {
+                    dto.fondoOrigen = r.articulo.fondoOrigen;
+                }
             }
             dto.fechaAsignacion = r.fechaAsignacion;
             dto.cantidadAsignada = r.cantidadAsignada;
@@ -341,12 +489,7 @@ public class ResguardoResource {
             if (r == null) continue;
             ResguardoExtendidoDTO dto = new ResguardoExtendidoDTO();
             dto.idResguardo = r.id;
-            if (r.articulo != null) {
-                dto.idArticulo = r.articulo.id;
-                dto.equipoSerie = r.articulo.numeroSerie;
-                dto.equipoMarca = r.articulo.marca;
-                dto.numeroInventario = r.articulo.numeroInventario;
-            }
+            poblarDatosArticuloDTO(dto, r);
             if (r.empleado != null) {
                 dto.idEmpleado = r.empleado.idEmpleado;
                 dto.nombreEmpleado = r.empleado.nombre;
@@ -396,7 +539,8 @@ public class ResguardoResource {
         HistorialTrazabilidad historial = new HistorialTrazabilidad();
         historial.articulo = resguardo.articulo;
         historial.tipoMovimiento = "FIRMA_RECEPCION";
-        historial.detallesModificacion = "El Director " + empleado.nombre + " firmó de conformidad la recepción institucional del equipo.";
+        historial.detallesModificacion = "El Director " + empleado.nombre + " firmó de conformidad la recepción institucional del equipo (Folio Resguardo: "
+                + (resguardo.folioResguardoOficial != null ? resguardo.folioResguardoOficial : "S/F") + ").";
         historial.fechaMovimiento = java.time.LocalDateTime.now();
         historial.username = empleado.usuario; 
         historial.persist();
@@ -531,7 +675,9 @@ public class ResguardoResource {
                 ? resguardo.articulo.numeroSerie : "N/A";
 
         long consecutivoActa = Math.max(1L, Resguardo.count("id <= ?1", resguardo.id));
-        String folioActa = String.format("%05d", consecutivoActa);
+        String folioActa = (resguardo.folioResguardoOficial != null && !resguardo.folioResguardoOficial.isBlank())
+                ? resguardo.folioResguardoOficial
+                : String.format("%05d", consecutivoActa);
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", Locale.forLanguageTag("es-MX"));
         String fechaActa = (resguardo.fechaAsignacion != null) ? resguardo.fechaAsignacion.format(formatter) : LocalDate.now().format(formatter);
@@ -656,7 +802,7 @@ public class ResguardoResource {
             }
 
             document.save(baos);
-            return Response.ok(baos.toByteArray()).header("Content-Disposition", "attachment; filename=\"Acta_Asignacion_" + folioActa + ".pdf\"").build();
+            return Response.ok(baos.toByteArray()).header("Content-Disposition", "attachment; filename=\"Acta_Asignacion_" + folioActa.replace(" ", "_") + ".pdf\"").build();
 
         } catch (Exception e) {
             return Response.serverError().entity("Error al generar PDF: " + e.getMessage()).build();

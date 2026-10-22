@@ -154,6 +154,14 @@ public class Articulo extends PanacheEntity {
     @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
     public LocalDate fechaActa;
 
+    @Column(columnDefinition = "TEXT")
+    public String imagenBienBase64;
+
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
+    public LocalDate fechaUltimaActualizacionAnual;
+
+    public String estadoVerificacionAnual = "PENDIENTE";
+
     @JsonSetter("fechaFactura")
     @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
     public void setFechaFactura(LocalDate valor) {
@@ -194,6 +202,12 @@ public class Articulo extends PanacheEntity {
     @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
     public void setFechaActa(LocalDate valor) {
         this.fechaActa = valor;
+    }
+
+    @JsonSetter("fechaUltimaActualizacionAnual")
+    @JsonDeserialize(using = LocalDateFlexibleDeserializer.class)
+    public void setFechaUltimaActualizacionAnual(LocalDate valor) {
+        this.fechaUltimaActualizacionAnual = valor;
     }
 
     public void setFechaFacturaSegura(String valor) {

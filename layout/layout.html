@@ -168,10 +168,15 @@
                                         Sistema</a>
                                 </li>
                                 <li><a href="#"
-                                        @click.prevent="cambiarVista('centros_trabajo', '../actualizar/actualizar.html')"
+                                        @click.prevent="tabActualizarActivo = 'verificacion_anual'; cambiarVista('centros_trabajo', '../actualizar/actualizar.html')"
                                         class="block p-2 rounded transition-colors"
-                                        :class="vistaActiva === 'centros_trabajo' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Centros
-                                        de Trabajo</a></li>
+                                        :class="vistaActiva === 'centros_trabajo' && tabActualizarActivo === 'verificacion_anual' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Actualización
+                                        Anual</a></li>
+                                <li><a href="#"
+                                        @click.prevent="tabActualizarActivo = 'catalogo_cct'; cambiarVista('centros_trabajo', '../actualizar/actualizar.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'centros_trabajo' && tabActualizarActivo === 'catalogo_cct' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Centros
+                                        de Trabajo (CCT)</a></li>
                                 <li><a href="#" @click.prevent="cambiarVista('usuarios', '../usuarios/usuarios.html')"
                                         class="block p-2 rounded transition-colors"
                                         :class="vistaActiva === 'usuarios' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Responsables</a>
@@ -272,6 +277,38 @@
                     x-text="rolUsuario === 'SUPERADMIN' ? 'INVENTARIO CENTRAL' : 'SISTEMA DIRECTORES'"></span>
             </header>
             <main class="p-6 md:p-8 w-full h-full relative overflow-y-auto">
+                <div x-show="rolUsuario === 'SUPERADMIN'" x-cloak
+                    class="mb-6 bg-white rounded-xl border border-dorado/40 shadow-sm px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-guinda animate-pulse"></span>
+                        <div>
+                            <p class="text-[11px] font-bold text-guinda uppercase tracking-wider">Base Operativa de Trabajo Activa</p>
+                            <p class="text-xs text-gray-500">Aísla las consultas, reportes y altas diarias según el origen presupuestal activo.</p>
+                        </div>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-1.5">
+                        <button type="button" @click="seleccionarBaseOperativa('INTERNO')"
+                            class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all"
+                            :class="baseOperativaActiva === 'INTERNO' ? 'bg-guinda text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                            1. Base INTERNO (IVA Desglosado)
+                        </button>
+                        <button type="button" @click="seleccionarBaseOperativa('OFICIAL')"
+                            class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all"
+                            :class="baseOperativaActiva === 'OFICIAL' ? 'bg-guinda text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                            2. Base OFICIAL (IVA Incluido)
+                        </button>
+                        <button type="button" @click="seleccionarBaseOperativa('OFICIAL_DESEGREGADOS')"
+                            class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all"
+                            :class="baseOperativaActiva === 'OFICIAL_DESEGREGADOS' ? 'bg-guinda text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                            3. OFICIAL DESAGREGADOS
+                        </button>
+                        <button type="button" @click="seleccionarBaseOperativa('TODOS')"
+                            class="px-3 py-1.5 rounded-lg text-xs font-bold uppercase transition-all"
+                            :class="baseOperativaActiva === 'TODOS' ? 'bg-dorado text-white shadow-sm' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'">
+                            Ver Todas
+                        </button>
+                    </div>
+                </div>
                 <div x-show="cargandoVista" x-cloak
                     class="absolute inset-0 bg-gray-50 flex flex-col items-center justify-center z-10">
                     <svg class="animate-spin h-10 w-10 text-guinda mb-4" fill="none" viewBox="0 0 24 24">
@@ -285,6 +322,19 @@
                 </div>
                 <div x-html="contenidoVista"></div>
             </main>
+        </div>
+    </div>
+
+    <div x-show="modalImagenAbierto" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-black/80 p-4"
+        @click.self="modalImagenAbierto = false">
+        <div class="bg-white rounded-xl max-w-2xl w-full overflow-hidden shadow-2xl border-t-4 border-dorado">
+            <div class="px-5 py-3 bg-caqui flex items-center justify-between border-b border-dorado/30">
+                <h4 class="text-sm font-bold text-guinda uppercase" x-text="'Evidencia Fotográfica del Bien — ' + (imagenAmpliadaFolio || 'SETAB')"></h4>
+                <button type="button" @click="modalImagenAbierto = false" class="text-gray-600 hover:text-guinda font-bold text-lg">&times;</button>
+            </div>
+            <div class="p-4 flex justify-center bg-gray-900">
+                <img :src="imagenAmpliadaUrl" class="max-h-[70vh] w-auto object-contain rounded" alt="Evidencia Fotográfica">
+            </div>
         </div>
     </div>
 
@@ -359,6 +409,14 @@
                 errorMensaje: '',
 
                 articulos: [], totalRegistros: 0,
+                baseOperativaActiva: 'TODOS',
+                modalImagenAbierto: false, imagenAmpliadaUrl: '', imagenAmpliadaFolio: '',
+                tabActualizarActivo: 'verificacion_anual',
+                busquedaActualizacionAnual: '',
+                directorActualizacionSeleccionado: null,
+                formDirectorAnual: { id_empleado: null, nombre: '', rfc: '', curp: '', correo: '', telefono: '', cct: '', nombreEscuela: '' },
+                formCTAnual: { id: null, claveCT: '', nombreCT: '', municipio: '', localidad: '', nombreVial: '', georeferencia: '17.989456, -92.947506' },
+                bienesActualizacionAnual: [],
                 filtroBusqueda: '', indiceBusqueda: 'GENERAL', filtroFondo: '', filtroCategoria: '', filtroArea: '', paginaActual: 0, totalPaginas: 1,
                 tabModalAlta: 'identificacion',
                 tabModalEdicion: 'identificacion',
@@ -636,9 +694,316 @@
                     }
                 },
 
-                imprimirResguardoLoteMNREPINV(articuloUnico = null) {
+                seleccionarBaseOperativa(fondo) {
+                    this.baseOperativaActiva = fondo || 'TODOS';
+                    if (fondo === 'TODOS') {
+                        this.filtroFondo = '';
+                        this.filtroFondoReporte = '';
+                    } else {
+                        this.filtroFondo = fondo;
+                        this.filtroFondoReporte = fondo;
+                        if (this.nuevoArticulo) {
+                            this.nuevoArticulo.fondoOrigen = fondo;
+                        }
+                    }
+                    this.aplicarFiltros();
+                },
+
+                verImagenBienCompleta(base64Url, folio = '') {
+                    if (!base64Url) return;
+                    this.imagenAmpliadaUrl = base64Url;
+                    this.imagenAmpliadaFolio = folio || '';
+                    this.modalImagenAbierto = true;
+                },
+
+                async subirEvidenciaFotografica(idArticulo, event, itemRef = null) {
+                    const file = event && event.target && event.target.files ? event.target.files[0] : null;
+                    if (!file || !idArticulo) return;
+
+                    try {
+                        const base64Comprimida = await new Promise((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onload = (e) => {
+                                const img = new Image();
+                                img.onload = () => {
+                                    const maxDim = 800;
+                                    let w = img.width;
+                                    let h = img.height;
+                                    if (w > maxDim || h > maxDim) {
+                                        if (w > h) {
+                                            h = Math.round((h * maxDim) / w);
+                                            w = maxDim;
+                                        } else {
+                                            w = Math.round((w * maxDim) / h);
+                                            h = maxDim;
+                                        }
+                                    }
+                                    const canvas = document.createElement('canvas');
+                                    canvas.width = w;
+                                    canvas.height = h;
+                                    const ctx = canvas.getContext('2d');
+                                    ctx.drawImage(img, 0, 0, w, h);
+                                    resolve(canvas.toDataURL('image/jpeg', 0.78));
+                                };
+                                img.onerror = reject;
+                                img.src = e.target.result;
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(file);
+                        });
+
+                        const resp = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes/${idArticulo}/imagen`, {
+                            method: 'PUT',
+                            mode: 'cors',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${this.token}`
+                            },
+                            body: JSON.stringify({ imagenBienBase64: base64Comprimida })
+                        });
+
+                        if (resp.ok) {
+                            if (itemRef) itemRef.imagenBienBase64 = base64Comprimida;
+                            const artEnLista = this.articulos.find(a => String(a.id) === String(idArticulo));
+                            if (artEnLista) artEnLista.imagenBienBase64 = base64Comprimida;
+                            if (this.articuloSeleccionado && String(this.articuloSeleccionado.id) === String(idArticulo)) {
+                                this.articuloSeleccionado.imagenBienBase64 = base64Comprimida;
+                            }
+                            this.notificar("Evidencia fotográfica guardada y registrada en trazabilidad.", "exito");
+                        } else {
+                            this.notificar("No se pudo guardar la fotografía del bien.", "error");
+                        }
+                    } catch (err) {
+                        console.error(err);
+                        this.notificar("Error al procesar la imagen.", "error");
+                    } finally {
+                        if (event && event.target) event.target.value = '';
+                    }
+                },
+
+                async reclasificarFondoArticulo(articulo) {
+                    if (!articulo || !articulo.id) return;
+                    const fondoActual = (articulo.fondoOrigen || 'INTERNO').toUpperCase();
+                    const sugerido = fondoActual === 'INTERNO' ? 'OFICIAL' : 'INTERNO';
+                    const nuevoFondo = prompt(
+                        `Reclasificar Base de Datos del Bien (${articulo.numeroInventario || articulo.id}).\nFondo Actual: ${fondoActual}\n\nEscriba la nueva base destino (INTERNO, OFICIAL u OFICIAL_DESEGREGADOS):`,
+                        sugerido
+                    );
+                    if (!nuevoFondo) return;
+                    const destinoLimpio = nuevoFondo.trim().toUpperCase();
+                    if (!['INTERNO', 'OFICIAL', 'OFICIAL_DESEGREGADOS'].includes(destinoLimpio)) {
+                        this.notificar("Base destino inválida. Use INTERNO, OFICIAL u OFICIAL_DESEGREGADOS.", "error");
+                        return;
+                    }
+                    try {
+                        const resp = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes/${articulo.id}/reclasificar-fondo`, {
+                            method: 'PUT',
+                            mode: 'cors',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${this.token}`
+                            },
+                            body: JSON.stringify({ nuevoFondo: destinoLimpio })
+                        });
+                        if (resp.ok) {
+                            const actualizado = await resp.json();
+                            this.articuloSeleccionado.fondoOrigen = actualizado.fondoOrigen;
+                            this.articuloSeleccionado.numeroInventario = actualizado.numeroInventario;
+                            this.articuloSeleccionado.numeroInventarioAnterior = actualizado.numeroInventarioAnterior;
+                            this.cargarArticulos();
+                            this.notificar(`Bien reclasificado a ${actualizado.fondoOrigen} con folio ${actualizado.numeroInventario}`, "exito");
+                        } else {
+                            const err = await resp.json().catch(() => ({}));
+                            this.notificar(err.error || "Error al reclasificar el bien.", "error");
+                        }
+                    } catch (e) {
+                        this.notificar("Error de conexión al reclasificar.", "error");
+                    }
+                },
+
+                get directoresActualizacionFiltrados() {
+                    const lista = Array.isArray(this.empleados) && this.empleados.length > 0 ? this.empleados : this.empleadosGeneral;
+                    if (!this.busquedaActualizacionAnual || !this.busquedaActualizacionAnual.trim()) {
+                        return lista;
+                    }
+                    const term = this.busquedaActualizacionAnual.trim().toLowerCase();
+                    return lista.filter(e => {
+                        const matchEmp = (e.nombre && e.nombre.toLowerCase().includes(term)) ||
+                            (e.cct && e.cct.toLowerCase().includes(term)) ||
+                            (e.rfc && e.rfc.toLowerCase().includes(term)) ||
+                            (e.curp && e.curp.toLowerCase().includes(term)) ||
+                            (e.nombreEscuela && e.nombreEscuela.toLowerCase().includes(term));
+                        if (matchEmp) return true;
+                        return this.articulos.some(a =>
+                            (a.folioResguardo && a.folioResguardo.toLowerCase().includes(term)) &&
+                            ((a.centroTrabajo && e.cct && a.centroTrabajo.toUpperCase() === e.cct.toUpperCase()) ||
+                             (a.resguardanteActual && e.nombre && a.resguardanteActual.toUpperCase() === e.nombre.toUpperCase()))
+                        );
+                    });
+                },
+
+                async seleccionarDirectorActualizacion(emp) {
+                    if (!emp) return;
+                    this.directorActualizacionSeleccionado = emp;
+                    const usuarioMatch = (this.usuarios || []).find(u =>
+                        (u.idEmpleado && u.idEmpleado === emp.id_empleado) ||
+                        (u.username && emp.usuario && u.username.toUpperCase() === emp.usuario.toUpperCase())
+                    );
+                    this.formDirectorAnual = {
+                        id_empleado: emp.id_empleado,
+                        nombre: emp.nombre || '',
+                        rfc: emp.rfc || '',
+                        curp: emp.curp || (usuarioMatch ? usuarioMatch.curp : '') || '',
+                        correo: emp.correo || (usuarioMatch ? usuarioMatch.email : '') || '',
+                        telefono: emp.telefono || '',
+                        cct: emp.cct || '',
+                        nombreEscuela: emp.nombreEscuela || emp.area || ''
+                    };
+
+                    const cctBuscada = (emp.cct || '').trim().toUpperCase();
+                    const ctMatch = (this.centrosTrabajo || []).find(c => c.claveCT && c.claveCT.trim().toUpperCase() === cctBuscada);
+                    if (ctMatch) {
+                        this.formCTAnual = {
+                            id: ctMatch.id,
+                            claveCT: ctMatch.claveCT || cctBuscada,
+                            nombreCT: ctMatch.nombreCT || emp.nombreEscuela || '',
+                            municipio: ctMatch.municipio || 'CENTRO',
+                            localidad: ctMatch.localidad || 'VILLAHERMOSA',
+                            nombreVial: ctMatch.nombreVial || '',
+                            georeferencia: ctMatch.refVialid || '17.989456, -92.947506'
+                        };
+                    } else {
+                        this.formCTAnual = {
+                            id: null,
+                            claveCT: cctBuscada || '27DPR0001X',
+                            nombreCT: emp.nombreEscuela || emp.area || 'CENTRO EDUCATIVO SETAB',
+                            municipio: 'CENTRO',
+                            localidad: 'VILLAHERMOSA',
+                            nombreVial: 'DOMICILIO CONOCIDO S/N',
+                            georeferencia: '17.989456, -92.947506'
+                        };
+                    }
+
+                    try {
+                        const resp = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/empleado/${emp.id_empleado}`, {
+                            method: 'GET',
+                            mode: 'cors',
+                            headers: { 'Authorization': `Bearer ${this.token}` }
+                        });
+                        if (resp.ok) {
+                            const todos = await resp.json();
+                            this.bienesActualizacionAnual = (todos || []).filter(r => r.estadoResguardo !== 'DEVUELTO' && r.estadoResguardo !== 'TRASPASADO');
+                        }
+                    } catch (e) {
+                        console.error(e);
+                    }
+                },
+
+                enviarRecordatorioAnualDirectores() {
+                    const totalDirectores = (this.empleados || []).length;
+                    this.notificar(`Aviso Normativo Anual activado y enviado a los ${totalDirectores} Directores / Responsables en su panel 'Mi Escuela'.`, "exito");
+                },
+
+                async confirmarActualizacionAnualYGenerarActas() {
+                    if (!this.directorActualizacionSeleccionado || !this.formDirectorAnual.id_empleado) {
+                        this.notificar("Selecciona primero un Director / Centro de Trabajo.", "error");
+                        return;
+                    }
+                    this.guardando = true;
+                    try {
+                        await fetch(`${SETAB_CONFIG.backendUrl}/api/empleados/${this.formDirectorAnual.id_empleado}`, {
+                            method: 'PUT',
+                            mode: 'cors',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                            body: JSON.stringify({
+                                nombre: this.formDirectorAnual.nombre,
+                                rfc: this.formDirectorAnual.rfc,
+                                curp: this.formDirectorAnual.curp,
+                                correo: this.formDirectorAnual.correo,
+                                telefono: this.formDirectorAnual.telefono,
+                                cct: this.formCTAnual.claveCT,
+                                nombreEscuela: this.formCTAnual.nombreCT
+                            })
+                        });
+
+                        if (this.formCTAnual.id) {
+                            const ctOrig = (this.centrosTrabajo || []).find(c => c.id === this.formCTAnual.id) || {};
+                            await fetch(`${SETAB_CONFIG.backendUrl}/api/centros-trabajo/${this.formCTAnual.id}`, {
+                                method: 'PUT',
+                                mode: 'cors',
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                                body: JSON.stringify({
+                                    ...ctOrig,
+                                    claveCT: this.formCTAnual.claveCT,
+                                    nombreCT: this.formCTAnual.nombreCT,
+                                    municipio: this.formCTAnual.municipio,
+                                    localidad: this.formCTAnual.localidad,
+                                    nombreVial: this.formCTAnual.nombreVial,
+                                    refVialid: this.formCTAnual.georeferencia,
+                                    director: this.formDirectorAnual.nombre
+                                })
+                            });
+                        }
+
+                        const resp = await fetch(`${SETAB_CONFIG.backendUrl}/api/resguardos/confirmar-actualizacion-anual/${this.formDirectorAnual.id_empleado}`, {
+                            method: 'POST',
+                            mode: 'cors',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }
+                        });
+
+                        if (resp.ok) {
+                            const resultado = await resp.json();
+                            await this.seleccionarDirectorActualizacion(this.directorActualizacionSeleccionado);
+                            this.cargarArticulos();
+                            this.notificar(`Verificación anual confirmada. Nuevo folio: ${resultado.folioGenerado}`, "exito");
+                            this.imprimirResguardoAnualActual();
+                            setTimeout(() => {
+                                this.imprimirActaVerificacionFisica(this.formDirectorAnual, this.bienesActualizacionAnual, this.formCTAnual);
+                            }, 600);
+                        } else {
+                            this.notificar("Error al confirmar la actualización anual.", "error");
+                        }
+                    } catch (e) {
+                        console.error(e);
+                        this.notificar("Error de red al confirmar la actualización anual.", "error");
+                    } finally {
+                        this.guardando = false;
+                    }
+                },
+
+                imprimirResguardoAnualActual() {
+                    if (!this.bienesActualizacionAnual || this.bienesActualizacionAnual.length === 0) {
+                        this.notificar("El resguardante no tiene bienes en custodia para imprimir.", "error");
+                        return;
+                    }
+                    const adaptados = this.bienesActualizacionAnual.map(b => ({
+                        id: b.idArticulo,
+                        numeroInventario: b.numeroInventario,
+                        fechaResguardo: b.fechaAsignacion,
+                        factura: b.facturaBien || 'S/F',
+                        fechaFactura: b.fechaFacturaBien || '',
+                        folioFiscalUuid: b.folioFiscalBien || 'S/F',
+                        descripcion: b.descripcionBien || b.equipoMarca,
+                        numeroSerie: b.equipoSerie || 'S/N',
+                        marca: b.equipoMarca || 'S/M',
+                        valorInicial: b.valorBien || 0,
+                        fondoOrigen: b.fondoOrigen || 'INTERNO',
+                        folioResguardo: b.folioResguardoOficial || ('2026 00001-CRE'),
+                        boletaSalida: b.boletaSalidaBien || '',
+                        centroTrabajo: this.formCTAnual.claveCT,
+                        resguardanteActual: this.formDirectorAnual.nombre
+                    }));
+                    this.imprimirResguardoLoteMNREPINV(adaptados, {
+                        director: this.formDirectorAnual,
+                        ctInfo: this.formCTAnual
+                    });
+                },
+
+                imprimirResguardoLoteMNREPINV(articuloUnico = null, contextoExtra = null) {
                     let seleccionados = [];
-                    if (articuloUnico) {
+                    if (Array.isArray(articuloUnico)) {
+                        seleccionados = articuloUnico;
+                    } else if (articuloUnico) {
                         seleccionados = [articuloUnico];
                     } else if (this.itemsResguardoLote.length > 0) {
                         seleccionados = this.articulosResguardoLoteFiltrados.filter(a => this.itemsResguardoLote.some(idSel => String(idSel) === String(a.id)));
@@ -652,83 +1017,315 @@
                     }
 
                     const primero = seleccionados[0] || {};
-                    const cct = this.filtroResguardoLoteCCT || this.firmantesResguardo.cctDestino || primero.centroTrabajo || primero.areaUbicacion || 'ALMACÉN CENTRAL SETAB';
-                    const receptor = this.filtroResguardoLoteResponsable || this.firmantesResguardo.resguardanteReceptor || primero.resguardanteActual || primero.responsable || 'RESPONSABLE PATRIMONIAL DEL CCT';
-                    const cargo = this.firmantesResguardo.cargoReceptor || 'DIRECTOR / RESPONSABLE DE CENTRO DE TRABAJO';
-                    const jefeAlm = this.firmasOficiales.jefeAlmacen || this.firmantesResguardo.jefeAlmacen || 'JEFE DE ALMACÉN CENTRAL';
-                    const jefeInv = this.firmasOficiales.jefeInventarios || this.firmasOficiales.jefeInventario || this.firmantesResguardo.jefeInventario || 'JEFE DE INVENTARIOS Y ACTIVO FIJO';
+                    const fondo = (primero.fondoOrigen || this.filtroFondoReporte || 'INTERNO').toUpperCase();
+                    const cctClave = (contextoExtra && contextoExtra.ctInfo && contextoExtra.ctInfo.claveCT)
+                        || this.filtroResguardoLoteCCT || this.firmantesResguardo.cctDestino || primero.centroTrabajo || '27DPR0001X';
+                    const ctCatalogo = (this.centrosTrabajo || []).find(c => c.claveCT && c.claveCT.trim().toUpperCase() === cctClave.trim().toUpperCase()) || {};
+                    const nombreCT = (contextoExtra && contextoExtra.ctInfo && contextoExtra.ctInfo.nombreCT) || ctCatalogo.nombreCT || primero.areaUbicacion || 'DIRECCION DE ADMINISTRACION Y FINANZAS';
+                    const domicilioCT = (contextoExtra && contextoExtra.ctInfo && contextoExtra.ctInfo.nombreVial) || ctCatalogo.nombreVial || 'HEROES DEL 47 S/N';
+                    const localidadCT = (contextoExtra && contextoExtra.ctInfo && contextoExtra.ctInfo.localidad) || ctCatalogo.localidad || 'VILLAHERMOSA';
+                    const municipioCT = (contextoExtra && contextoExtra.ctInfo && contextoExtra.ctInfo.municipio) || ctCatalogo.municipio || 'CENTRO';
+                    const unidadResp = ctCatalogo.unidadResp || primero.unidadResponsable || 'SECRETARIA DE EDUCACION';
+                    const areaDir = ctCatalogo.subDireccion || primero.subdireccion || 'DIRECCION DE RECURSOS MATERIALES Y SERVICIOS';
+                    const depto = ctCatalogo.departamento || primero.departamento || 'DEPARTAMENTO DE INVENTARIOS';
+
+                    const receptorNombre = (contextoExtra && contextoExtra.director && contextoExtra.director.nombre)
+                        || this.filtroResguardoLoteResponsable || this.firmantesResguardo.resguardanteReceptor || primero.resguardanteActual || primero.responsable || 'RESGUARDANTE OFICIAL';
+                    const empObj = (this.empleados || []).find(e => e.nombre && e.nombre.toUpperCase() === receptorNombre.toUpperCase()) || {};
+                    const rfcReceptor = (contextoExtra && contextoExtra.director && contextoExtra.director.rfc) || empObj.rfc || 'S/RFC';
+                    const curpReceptor = (contextoExtra && contextoExtra.director && contextoExtra.director.curp) || empObj.curp || '';
+                    const folioResg = primero.folioResguardo || primero.folioResguardoOficial || '0000180 26-NVO';
+                    const boletaSalida = primero.boletaSalida || '0000000000';
+                    const mesesCortos = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+                    const hoyObj = new Date();
+                    const fechaImpresion = `${String(hoyObj.getDate()).padStart(2, '0')}/${mesesCortos[hoyObj.getMonth()]}/${hoyObj.getFullYear()}`;
 
                     let importeTotalLote = 0;
-                    const filasHtml = seleccionados.map((a, idx) => {
+                    const filasHtml = seleccionados.map((a) => {
                         const unitario = Number(a.valorInicial || a.precio || 0);
                         importeTotalLote += unitario;
+                        const fechaResg = a.fechaResguardo || a.fechaAsignacion || fechaImpresion;
+                        const factura = a.factura || a.numeroFactura || 'S/F';
+                        const fechaFact = a.fechaFactura || '';
+                        const uuid = a.folioFiscalUuid || a.uuidFactura || 'S/F';
+                        const desc = a.descripcion || a.descripcionDetallada || a.marca || 'BIEN MUEBLE';
+                        const serie = a.numeroSerie || a.serie || 'S/N';
+                        const marca = a.marca || 'S/M';
+                        const modelo = a.modelo || '';
                         return `
                             <tr>
-                                <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;">${idx + 1}</td>
-                                <td style="border:1px solid #cbd5e1;padding:6px;font-family:monospace;font-weight:bold;color:#981A35;">${a.numeroInventario || 'S/N'}<br><span style="font-size:9px;color:#64748b;">Ant: ${a.numeroInventarioAnterior || 'N/A'}</span></td>
-                                <td style="border:1px solid #cbd5e1;padding:6px;"><strong>${a.descripcion || a.tipoMaterial || 'BIEN MUEBLE'}</strong><br><span style="font-size:10px;color:#475569;">${a.descripcionSecundaria || ''} | Fondo: ${a.fondoOrigen || 'OFICIAL'}</span></td>
-                                <td style="border:1px solid #cbd5e1;padding:6px;">${a.marca || 'S/M'} / ${a.modelo || 'S/M'}</td>
-                                <td style="border:1px solid #cbd5e1;padding:6px;font-family:monospace;">${a.numeroSerie || a.serie || 'S/N'}</td>
-                                <td style="border:1px solid #cbd5e1;padding:6px;text-align:center;">${a.estadoFisico || 'BUENO'}</td>
-                                <td style="border:1px solid #cbd5e1;padding:6px;text-align:right;font-family:monospace;">$ ${unitario.toFixed(2)}</td>
+                                <td style="padding:5px 4px;vertical-align:top;font-family:monospace;font-weight:bold;">${a.numeroInventario || a.id}</td>
+                                <td style="padding:5px 4px;vertical-align:top;text-align:center;">${fechaResg}</td>
+                                <td style="padding:5px 4px;vertical-align:top;text-align:center;">${factura}</td>
+                                <td style="padding:5px 4px;vertical-align:top;text-align:center;">${fechaFact}</td>
+                                <td style="padding:5px 4px;vertical-align:top;font-family:monospace;font-size:9px;">${uuid}</td>
+                                <td style="padding:5px 4px;vertical-align:top;">
+                                    <strong>${desc}</strong> ${marca} ${modelo}<br>
+                                    <span style="font-size:9.5px;">SERIE: ${serie} &nbsp;&nbsp; MATER: ${a.tipoMaterial || a.categoria || 'BIEN MUEBLE'}</span>
+                                </td>
+                                <td style="padding:5px 4px;vertical-align:top;text-align:right;font-family:monospace;font-weight:bold;">${unitario.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
                             </tr>
                         `;
                     }).join('');
 
-                    const ventana = window.open('', '_blank', 'width=1050,height=820');
+                    const ventana = window.open('', '_blank', 'width=1080,height=850');
                     ventana.document.write(`
                         <html>
                         <head>
-                            <title>Cédula Oficial de Resguardo Patrimonial - SETAB</title>
+                            <title>RESGUARDO ACTIVO FIJO (${fondo}) - Folio ${folioResg}</title>
                             <style>
-                                body { font-family: Arial, sans-serif; padding: 24px; color: #1e293b; font-size: 11px; }
-                                .header { border-bottom: 4px solid #981A35; padding-bottom: 10px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: center; }
-                                h1 { color: #981A35; margin: 0; font-size: 18px; }
-                                .meta-box { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 6px; padding: 10px; margin-bottom: 14px; display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
-                                table { width: 100%; border-collapse: collapse; font-size: 10.5px; margin-top: 10px; }
-                                th { background: #981A35; color: white; padding: 7px; border: 1px solid #981A35; text-align: left; }
-                                .firmas { margin-top: 55px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; text-align: center; font-size: 11px; }
-                                .linea { border-top: 1px solid #1e293b; padding-top: 6px; font-weight: bold; }
+                                body { font-family: 'Courier New', Courier, monospace; padding: 22px 28px; color: #000; font-size: 11px; line-height: 1.35; }
+                                .top-bar { display: flex; justify-content: space-between; align-items: center; font-weight: bold; font-size: 11px; margin-bottom: 4px; }
+                                .encabezado { text-align: center; font-weight: bold; margin-bottom: 12px; }
+                                .encabezado div { margin: 1px 0; }
+                                .meta-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 11px; }
+                                .meta-table td { padding: 2px 4px; vertical-align: top; }
+                                .bienes-table { width: 100%; border-collapse: collapse; font-size: 10.5px; margin-top: 6px; border-top: 2px solid #000; border-bottom: 2px solid #000; }
+                                .bienes-table th { border-bottom: 1px solid #000; padding: 5px 4px; text-align: left; font-weight: bold; }
+                                .total-row td { border-top: 1px solid #000; padding: 6px 4px; font-weight: bold; font-size: 11.5px; }
+                                .leyenda { margin-top: 16px; text-align: justify; font-size: 10px; line-height: 1.45; font-weight: bold; }
+                                .firmas { margin-top: 65px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center; font-size: 10px; }
+                                .firma-box { padding-top: 6px; }
+                                .linea-firma { border-top: 1px solid #000; margin-top: 45px; padding-top: 4px; font-weight: bold; }
+                                .nota-pie { margin-top: 28px; font-size: 10px; font-weight: bold; text-align: left; }
                             </style>
                         </head>
                         <body>
-                            <div class="header">
-                                <div>
-                                    <h1>SECRETARÍA DE EDUCACIÓN DEL ESTADO DE TABASCO</h1>
-                                    <p style="margin:3px 0 0 0;font-size:11px;font-weight:bold;color:#BC955C;">DIRECCIÓN DE RECURSOS MATERIALES Y SERVICIOS — CÉDULA OFICIAL DE RESGUARDO DE ACTIVO FIJO</p>
+                            <div class="top-bar">
+                                <div>${fechaImpresion}</div>
+                                <div>HOJA No. 1</div>
+                            </div>
+
+                            <div class="encabezado">
+                                <div>GOBIERNO DEL ESTADO DE TABASCO</div>
+                                <div>SECRETARIA DE EDUCACION</div>
+                                <div>DIRECCION GENERAL DE ADMINISTRACION</div>
+                                <div>DIRECCION DE RECURSOS MATERIALES Y SERVICIOS</div>
+                                <div>DEPARTAMENTO DE ALMACEN GENERAL E INVENTARIO DE BIENES MUEBLES</div>
+                                <div>CONTROL DE INVENTARIO DE MOBILIARIO Y EQUIPO</div>
+                                <div style="font-size:13px;margin-top:4px;">RESGUARDO ACTIVO FIJO (${fondo})</div>
+                            </div>
+
+                            <table class="meta-table">
+                                <tr>
+                                    <td style="width:74%;"><strong>CENTRO DE TRABAJO:</strong> ${cctClave} &nbsp; ${nombreCT}</td>
+                                    <td style="width:26%;"><strong>FOLIO:</strong> <span style="font-size:12px;font-weight:bold;">${folioResg}</span></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>DOMICILIO........:</strong> ${domicilioCT} ${localidadCT} ${municipioCT}</td>
+                                    <td><strong>SALIDA:</strong> ${boletaSalida || '0000000000'}</td>
+                                </tr>
+                            </table>
+
+                            <table class="bienes-table">
+                                <thead>
+                                    <tr>
+                                        <th style="width:14%;">INVENTARIO</th>
+                                        <th style="width:10%;text-align:center;">FECHA_RESG</th>
+                                        <th style="width:9%;text-align:center;">FACTURA</th>
+                                        <th style="width:10%;text-align:center;">FECHA_FACT</th>
+                                        <th style="width:16%;">FOLIO-FISCAL</th>
+                                        <th style="width:29%;">DESCRIPCION</th>
+                                        <th style="width:12%;text-align:right;">VALOR</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${filasHtml}
+                                    <tr class="total-row">
+                                        <td colspan="5"></td>
+                                        <td style="text-align:right;">TOTAL ==============></td>
+                                        <td style="text-align:right;">$ ${importeTotalLote.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+
+                            <div class="leyenda">
+                                RECIBI DE LA SECRETARIA DE EDUCACION EL MOBILIARIO Y/O EQUIPO, QUE SE DESCRIBE EN EL PRESENTE RESGUARDO, QUEDANDO ESTOS BAJO MI ENTERA RESPONSABILIDAD Y POR LO CUAL ME COMPROMETO A CUIDARLOS, CONSERVARLOS Y A ESTAR PENDIENTE DE SU DEBIDO MANTENIMIENTO; ASI COMO TAMBIEN A UTILIZARLOS EXCLUSIVAMENTE TANTO EN EL AREA COMO EN LOS TRABAJOS ENCOMENDADOS Y PROPIOS DE ESTA SECRETARIA, INFORMAR AL DEPARTAMENTO DE ALMACEN GENERAL (AREA DE CONTROL DE INVENTARIOS) EL CAMBIO DE USUARIO Y LA UBICACION DEL MISMO SI LO HUBIERA. ASI MISMO PRESENTARLO(S) ANTE LA DIRECCION GENERAL DE ADMINISTRACION TODA VEZ QUE SE REQUIERA Y SEA NECESARIO; Y EN CASO DE ACCIDENTE O EXTRAVIO DAR AVISO INMEDIATO A LA UNIDAD DE APOYO JURIDICO DE LA COORDINACION GENERAL DE ASUNTOS JURIDICOS ADSCRITA A LA SETAB. CASO CONTRARIO QUEDARE SUJETO A LOS PRECEPTOS ESTABLECIDOS EN EL ARTICULO 45 FRACC. III DE LA LEY DE LOS TRABAJADORES AL SERVICIO DEL ESTADO DE TABASCO Y ARTICULO 7 FRACC.VI DE LA LEY GENERAL DE RESPONSABILIDADES ADMINISTRATIVAS (VIGENTE).
+                            </div>
+
+                            <div class="firmas">
+                                <div class="firma-box">
+                                    <div><strong>Vo.Bo.</strong></div>
+                                    <div class="linea-firma">
+                                        LIC. JORGE VALENCIA GARCIA<br>
+                                        <span style="font-size:9.5px;font-weight:normal;">JEFE DEL DEPTO. DE ALMACEN GRAL. E INVENTARIOS DE BIENES MUEB.</span>
+                                    </div>
                                 </div>
-                                <div style="text-align:right;">
-                                    <p style="margin:0;"><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-MX')}</p>
-                                    <p style="margin:3px 0 0 0;"><strong>Total Bienes:</strong> ${seleccionados.length} | <strong>Importe:</strong> $ ${importeTotalLote.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} MXN</p>
+                                <div class="firma-box">
+                                    <div><strong>FORMULO</strong></div>
+                                    <div class="linea-firma">
+                                        BISMARCK CASTILLO ESPINOZA<br>
+                                        <span style="font-size:9.5px;font-weight:normal;">JEFE DEL AREA DE INVENTARIOS</span>
+                                    </div>
+                                </div>
+                                <div class="firma-box">
+                                    <div><strong>RECIBI FIRMA Y SELLO</strong></div>
+                                    <div class="linea-firma">
+                                        ${receptorNombre}<br>
+                                        <span style="font-size:9.5px;font-weight:normal;">${rfcReceptor}</span><br>
+                                        <span style="font-size:9.5px;font-weight:normal;">${curpReceptor}</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="meta-box">
-                                <div><strong>CENTRO DE TRABAJO (CCT) / ADSCRIPCIÓN:</strong> ${cct}</div>
-                                <div><strong>RESGUARDANTE RESPONSABLE:</strong> ${receptor}</div>
-                                <div><strong>CARGO:</strong> ${cargo}</div>
-                                <div><strong>FONDO / ORIGEN:</strong> ${primero.fondoOrigen || 'OFICIAL'}</div>
+
+                            <div class="nota-pie">
+                                ESTE DOCUMENTO NO DEBE LLEVAR TACHADURAS O ENMENDADURAS
                             </div>
+                        </body>
+                        </html>
+                    `);
+                    ventana.document.close();
+                    setTimeout(() => { ventana.print(); }, 400);
+                },
+
+                imprimirActaVerificacionFisica(empleado, bienes = [], ctOverride = null) {
+                    const emp = empleado || this.empleadoSeleccionado || {};
+                    const cctClave = (ctOverride && ctOverride.claveCT) || emp.cct || '27DPR0001X';
+                    const ctCatalogo = (this.centrosTrabajo || []).find(c => c.claveCT && c.claveCT.trim().toUpperCase() === cctClave.trim().toUpperCase()) || {};
+                    const nombreCT = (ctOverride && ctOverride.nombreCT) || ctCatalogo.nombreCT || emp.nombreEscuela || emp.area || 'CENTRO EDUCATIVO OFICIAL';
+                    const municipio = (ctOverride && ctOverride.municipio) || ctCatalogo.municipio || 'CENTRO';
+                    const localidad = (ctOverride && ctOverride.localidad) || ctCatalogo.localidad || 'VILLAHERMOSA';
+                    const domicilio = (ctOverride && ctOverride.nombreVial) || ctCatalogo.nombreVial || 'DOMICILIO CONOCIDO S/N';
+                    const georef = (ctOverride && ctOverride.georeferencia) || ctCatalogo.refVialid || '17.989456,-92.947506';
+
+                    const ahora = new Date();
+                    const horaActual = ahora.toTimeString().split(' ')[0];
+                    const meses = ['ENERO', 'FEBRERO', 'MARZO', 'ABRIL', 'MAYO', 'JUNIO', 'JULIO', 'AGOSTO', 'SEPTIEMBRE', 'OCTUBRE', 'NOVIEMBRE', 'DICIEMBRE'];
+                    const dia = String(ahora.getDate()).padStart(2, '0');
+                    const mesNombre = meses[ahora.getMonth()];
+                    const anio = ahora.getFullYear();
+
+                    const listaBienes = Array.isArray(bienes) ? bienes : [];
+                    const agrupadoPartidas = {};
+                    let totalCantidad = 0;
+                    let totalImporte = 0;
+
+                    for (const b of listaBienes) {
+                        const part = (b.partidaBien || b.partida || b.partidaPresupuestal || '51101').trim();
+                        const cant = Number(b.cantidadAsignada || b.cantidadStock || 1);
+                        const val = Number(b.valorBien ?? b.valorInicial ?? b.precio ?? 0);
+                        const edo = (b.estadoFisicoBien || b.estadoFisico || 'BUENO').toUpperCase();
+
+                        if (!agrupadoPartidas[part]) {
+                            agrupadoPartidas[part] = { partida: part, cantidad: 0, importe: 0, estados: new Set() };
+                        }
+                        agrupadoPartidas[part].cantidad += cant;
+                        agrupadoPartidas[part].importe += val;
+                        agrupadoPartidas[part].estados.add(edo);
+                        totalCantidad += cant;
+                        totalImporte += val;
+                    }
+
+                    const filasPartidas = Object.values(agrupadoPartidas).map(g => `
+                        <tr>
+                            <td style="border:1px solid #000;padding:6px;text-align:center;font-family:monospace;font-weight:bold;">${g.partida}</td>
+                            <td style="border:1px solid #000;padding:6px;text-align:center;font-weight:bold;">${g.cantidad}</td>
+                            <td style="border:1px solid #000;padding:6px;text-align:right;font-family:monospace;">$ ${g.importe.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                            <td style="border:1px solid #000;padding:6px;text-align:center;">${Array.from(g.estados).join(' / ')}</td>
+                        </tr>
+                    `).join('') || `
+                        <tr>
+                            <td colspan="4" style="border:1px solid #000;padding:8px;text-align:center;">SIN BIENES REGISTRADOS</td>
+                        </tr>
+                    `;
+
+                    const nombreDirector = (emp.nombre || 'DIRECTOR DEL CENTRO DE TRABAJO').toUpperCase();
+                    const rfcDirector = (emp.rfc || 'S/RFC').toUpperCase();
+                    const curpDirector = (emp.curp || 'S/CURP').toUpperCase();
+
+                    const ventana = window.open('', '_blank', 'width=1020,height=860');
+                    ventana.document.write(`
+                        <html>
+                        <head>
+                            <title>Acta Administrativa de Verificación Física - ${cctClave}</title>
+                            <style>
+                                body { font-family: Arial, Helvetica, sans-serif; padding: 28px 36px; color: #000; font-size: 11.5px; line-height: 1.5; }
+                                .titulo-acta { text-align: center; font-weight: bold; font-size: 12.5px; margin: 10px 0 16px 0; }
+                                p { text-align: justify; margin: 10px 0; }
+                                table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 11px; }
+                                th { border: 1px solid #000; background: #f1f5f9; padding: 6px; text-align: center; font-weight: bold; }
+                                .firmas { margin-top: 55px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; text-align: center; font-size: 10.5px; }
+                                .linea { border-top: 1px solid #000; margin-top: 45px; padding-top: 5px; font-weight: bold; }
+                                .datos-box { border: 1.5px solid #000; padding: 10px 14px; font-size: 10.5px; }
+                                .nota { margin-top: 12px; font-size: 10px; font-weight: bold; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="titulo-acta">
+                                ACTA ADMINISTRATIVA DE CONCLUSION DE LA VERIFICACION<br>
+                                FISICA Y CONTEO DEL INVENTARIO DE BIENES MUEBLES E INTANGIBLES
+                            </div>
+
+                            <p>
+                                En el Municipio de ${municipio}; Siendo las ${horaActual} del Dia ${dia} del mes de ${mesNombre} de ${anio}, se reunieron en las oficinas del centro de trabajo ${cctClave} ${nombreCT}, con domicilio en ${domicilio} ${localidad} ${municipio}.
+                            </p>
+
+                            <p>
+                                Con fundamento en las disposiciones legales aplicables en el Capitulo III Administración y Control de Bienes Muebles e Inmuebles, fracción IV del Numeral 52 De los Inventarios, del Manual de Normas para el Ejercicio, Control, Seguimiento y Evaluación del Gasto Publico del Poder Ejecutivo del Estado de Tabasco y Capitulo II de la Afectación de los Bienes Articulo 15 de los Lineamientos Relativos al Registro, Afectación, disposición final, Enajenación y Baja de Bienes Muebles al Servicio de la Administración Publica del Estado de Tabasco, se procede a levantar el Acta:
+                            </p>
+
+                            <p>
+                                el C. ${nombreDirector} Titular de la Escuela ${nombreCT} el C. LIC. JORGE VALENCIA GARCIA JEFE DEL DEPTO. DE ALMACEN GRAL. E INVENTARIOS DE BIENES MUEB.; el C. BISMARCK CASTILLO ESPINOZA Enlace Administrativo Nombrado; y el personal responsable de efectuar la verificacion fisica y conteo de bienes muebles e intangibles, se verificaron los siguientes bienes:
+                            </p>
+
+                            <p style="text-align:center;font-weight:bold;margin:12px 0;">HECHOS:</p>
+
+                            <p>
+                                En cumplimiento al programa de trabajo para la verificacion fisica y conteo del inventario de bienes muebles e intangibles se verificaron:
+                            </p>
+
+                            <div style="font-weight:bold;margin-top:12px;margin-bottom:4px;">TOTAL DE BIENES POR OBJETO DEL GASTO:</div>
                             <table>
                                 <thead>
                                     <tr>
-                                        <th>#</th>
-                                        <th>No. Inventario</th>
-                                        <th>Descripción del Bien</th>
-                                        <th>Marca / Modelo</th>
-                                        <th>No. Serie</th>
-                                        <th>Estado</th>
-                                        <th>Importe MXN</th>
+                                        <th style="width:22%;">PARTIDA</th>
+                                        <th style="width:20%;">CANTIDAD</th>
+                                        <th style="width:28%;">IMPORTE</th>
+                                        <th style="width:30%;">OBSERVACIONES</th>
                                     </tr>
                                 </thead>
-                                <tbody>${filasHtml}</tbody>
+                                <tbody>
+                                    ${filasPartidas}
+                                    <tr style="font-weight:bold;background:#f8fafc;">
+                                        <td style="border:1px solid #000;padding:6px;text-align:center;">TOTALES</td>
+                                        <td style="border:1px solid #000;padding:6px;text-align:center;">${totalCantidad}</td>
+                                        <td style="border:1px solid #000;padding:6px;text-align:right;font-family:monospace;">$ ${totalImporte.toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                        <td style="border:1px solid #000;padding:6px;text-align:center;">VERIFICADO FÍSICAMENTE</td>
+                                    </tr>
+                                </tbody>
                             </table>
-                            <p style="margin-top:14px;font-size:10px;text-align:justify;color:#334155;">
-                                El servidor público resguardante recibe de conformidad los bienes muebles descritos, mismos que son propiedad institucional adscritos al Centro de Trabajo (CCT) señalado, comprometiéndose a su guarda, custodia y uso estrictamente oficial conforme a la normatividad patrimonial vigente de la SETAB.
-                            </p>
+
                             <div class="firmas">
-                                <div class="linea">AUTORIZÓ SALIDA (JEFE DE ALMACÉN)<br><span style="font-weight:normal;">${jefeAlm}</span></div>
-                                <div class="linea">VALIDÓ REGISTRO (JEFE DE INVENTARIOS)<br><span style="font-weight:normal;">${jefeInv}</span></div>
-                                <div class="linea">RECIBE DE CONFORMIDAD (RESGUARDANTE)<br><span style="font-weight:normal;">${receptor}</span></div>
+                                <div>
+                                    <div><strong>POR LA SECRETARIA DE EDUCACION</strong></div>
+                                    <div class="linea">
+                                        LIC. JORGE VALENCIA GARCIA<br>
+                                        <span style="font-size:9.5px;font-weight:normal;">JEFE DEL DEPTO. DE ALMACEN GRAL. E INVENTARIOS DE BIENES MUEB.</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div><strong>RESPONSABLE DE LA VERIFICACION</strong></div>
+                                    <div class="linea">
+                                        BISMARCK CASTILLO ESPINOZA<br>
+                                        <span style="font-size:9.5px;font-weight:normal;">JEFE DEL AREA DE INVENTARIOS</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <div><strong>RESPONSABLE DEL BIEN</strong></div>
+                                    <div class="linea">${nombreDirector}</div>
+                                </div>
+                            </div>
+
+                            <div style="font-weight:bold;margin-top:28px;margin-bottom:6px;">DATOS PERSONALES DEL RESGUARDANTE:</div>
+                            <div class="datos-box">
+                                <div><strong>NOMBRE:</strong> ${nombreDirector}</div>
+                                <div><strong>RFC:</strong> ${rfcDirector}</div>
+                                <div><strong>CURP:</strong> ${curpDirector}</div>
+                                <div><strong>GEOREFERENCIA:</strong> ${domicilio} ${localidad} ${municipio} (${georef})</div>
+                            </div>
+
+                            <div class="nota">
+                                NOTA: El cierre del acta saldra por default, el dia de la verificacion fisica
                             </div>
                         </body>
                         </html>
@@ -1035,6 +1632,8 @@
                     { id: 'tipos_articulos', nombre: 'Tipos de Artículos', icono: 'fas fa-boxes' },
                     { id: 'partidas', nombre: 'Partidas Presupuestales', icono: 'fas fa-file-invoice-dollar' },
                     { id: 'naturaleza_gasto', nombre: 'Naturaleza del Gasto', icono: 'fas fa-coins' },
+                    { id: 'marcas', nombre: 'Marcas (MARCAS)', icono: 'fas fa-copyright' },
+                    { id: 'tipos_folios', nombre: 'Tipos de Folios (TIPOFOL)', icono: 'fas fa-hashtag' },
                     { id: 'departamentos', nombre: 'Departamentos', icono: 'fas fa-building' },
                     { id: 'unidades', nombre: 'Unidades Responsables', icono: 'fas fa-sitemap' },
                     { id: 'subdirecciones', nombre: 'Subdirecciones', icono: 'fas fa-project-diagram' },
@@ -1229,7 +1828,7 @@
 
                 generarTextoQRArticulo(articulo) {
                     if (!articulo) return 'SETAB';
-                    return `SETAB\nFOLIO: ${articulo.numeroInventario || articulo.id}\nBIEN: ${(articulo.descripcion || 'S/N').substring(0, 32)}\nMARCA: ${articulo.marca || 'S/N'}\nSERIE: ${articulo.numeroSerie || articulo.serie || 'S/N'}\nAREA: ${articulo.areaUbicacion || 'ALMACEN'}`;
+                    return `SETAB|FOLIO:${articulo.numeroInventario || articulo.id}|TOKEN:${articulo.tokenQR || ''}`;
                 },
 
                 imprimirEtiquetasSeleccionadas() {
@@ -1333,13 +1932,19 @@
                 procesarLecturaQR(textoQR) {
                     this.reproducirBeep();
                     this.detenerEscaner();
-                    this.notificar("Código leído con éxito", "exito");
+                    this.notificar("Código leído con éxito. Consultando base de datos en tiempo real...", "exito");
                     const raw = String(textoQR || '').trim();
+                    const matchPipe = raw.match(/SETAB\|FOLIO:([^|]+)(?:\|TOKEN:(.*))?/i);
                     const matchFolioEtiqueta = raw.match(/FOLIO:\s*([A-Za-z0-9\-_]+)/i);
-                    const matchFolioSEP = raw.match(/(SE-AG-\d{2}-\d+)/i);
-                    const folioExtraido = matchFolioEtiqueta
-                        ? matchFolioEtiqueta[1].trim().toUpperCase()
-                        : (matchFolioSEP ? matchFolioSEP[1].trim().toUpperCase() : raw);
+                    const matchFolioSEP = raw.match(/(SE-(?:AG|OF)-\d{2}-\d+)/i);
+                    let folioExtraido = raw;
+                    if (matchPipe && matchPipe[1]) {
+                        folioExtraido = matchPipe[1].trim().toUpperCase();
+                    } else if (matchFolioEtiqueta) {
+                        folioExtraido = matchFolioEtiqueta[1].trim().toUpperCase();
+                    } else if (matchFolioSEP) {
+                        folioExtraido = matchFolioSEP[1].trim().toUpperCase();
+                    }
                     this.buscarItemPorFolio(folioExtraido);
                 },
 
@@ -1349,19 +1954,20 @@
                 },
 
                 async buscarItemPorFolio(folio) {
-                    let encontrado = this.articulos.find(a => a.numeroInventario === folio || String(a.id) === folio || a.tokenQR === folio);
+                    let encontrado = null;
+                    try {
+                        const resp = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes/folio/${encodeURIComponent(folio)}`, {
+                            method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` }
+                        });
+                        if (resp.ok) {
+                            encontrado = await resp.json();
+                        }
+                    } catch (e) {
+                        console.error("Error buscando folio en servidor:", e);
+                    }
 
                     if (!encontrado) {
-                        try {
-                            const resp = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes/folio/${encodeURIComponent(folio)}`, {
-                                method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` }
-                            });
-                            if (resp.ok) {
-                                encontrado = await resp.json();
-                            }
-                        } catch (e) {
-                            console.error("Error buscando folio en servidor:", e);
-                        }
+                        encontrado = this.articulos.find(a => a.numeroInventario === folio || String(a.id) === folio || a.tokenQR === folio);
                     }
 
                     if (encontrado) {
@@ -1631,7 +2237,7 @@
                     if (nombreVista === 'usuarios') { this.cargarUsuarios(); this.cargarCentrosTrabajo(); }
                     if (nombreVista === 'resguardos') { this.filtrarLocal(); }
                     if (nombreVista === 'solicitudes') { this.cargarSolicitudesBaja(); }
-                    if (nombreVista === 'centros_trabajo') this.cargarCentrosTrabajo();
+                    if (nombreVista === 'centros_trabajo') { this.cargarCentrosTrabajo(); this.cargarEmpleados(); this.cargarArticulos(500); }
                     if (nombreVista === 'catalogos_lista') this.cargarDatosCatalogoSelectivo();
                     if (nombreVista === 'qr') { this.cargarArticulos(1000); this.cambiarTabQR('generar'); }
                     if (nombreVista === 'reportes') { this.cargarArticulos(1000); this.cargarSolicitudesBaja(); this.cargarCentrosTrabajo(); }
@@ -1908,8 +2514,9 @@
                     const folioAutogenerado = `SE-AG-${anio}-${numeroConsecutivo}`;
 
                     this.tabModalAlta = 'identificacion';
+                    const fondoInicial = (this.baseOperativaActiva && this.baseOperativaActiva !== 'TODOS') ? this.baseOperativaActiva : 'INTERNO';
                     this.nuevoArticulo = {
-                        numeroInventario: folioAutogenerado, numeroInventarioAnterior: '', fondoOrigen: 'INTERNO',
+                        numeroInventario: folioAutogenerado, numeroInventarioAnterior: '', fondoOrigen: fondoInicial,
                         tipoMaterial: '', subClave: '', categoria: '', areaUbicacion: '', descripcion: '', descripcionSecundaria: '',
                         marca: '', modelo: '', serie: '', numeroSerie: '', color: '', estadoFisico: 'NUEVO', estado: 'Activo',
                         proveedor: '', factura: '', folioFiscalUuid: '', fechaFactura: null,
@@ -1934,7 +2541,14 @@
                 async guardarNuevoArticulo() {
                     this.guardando = true;
                     try {
-                        if (this.nuevoArticulo.precioSinIva !== null && this.nuevoArticulo.precioSinIva !== '' && !isNaN(parseFloat(this.nuevoArticulo.precioSinIva))) {
+                        const esOficialAlta = this.nuevoArticulo.fondoOrigen === 'OFICIAL' || this.nuevoArticulo.fondoOrigen === 'OFICIAL_DESEGREGADOS';
+                        if (esOficialAlta && this.nuevoArticulo.valorInicial !== null && this.nuevoArticulo.valorInicial !== '' && !isNaN(parseFloat(this.nuevoArticulo.valorInicial))) {
+                            const totalNeto = parseFloat(this.nuevoArticulo.valorInicial);
+                            const base = parseFloat((totalNeto / 1.16).toFixed(2));
+                            this.nuevoArticulo.valorInicial = totalNeto;
+                            this.nuevoArticulo.precio = totalNeto;
+                            this.nuevoArticulo.precioSinIva = base;
+                        } else if (this.nuevoArticulo.precioSinIva !== null && this.nuevoArticulo.precioSinIva !== '' && !isNaN(parseFloat(this.nuevoArticulo.precioSinIva))) {
                             const base = parseFloat(this.nuevoArticulo.precioSinIva);
                             const totalNeto = parseFloat((base * 1.16).toFixed(2));
                             this.nuevoArticulo.precioSinIva = base;
@@ -1966,9 +2580,14 @@
 
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes`, { method: 'POST', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
                         if (respuesta.ok) {
+                            const dataResp = await respuesta.json().catch(() => ({}));
                             this.cerrarModalRegistro();
                             this.cargarArticulos();
-                            this.notificar("Registro guardado con éxito", "exito");
+                            if (dataResp && dataResp.cantidadCreada && dataResp.cantidadCreada > 1) {
+                                this.notificar(`Lote creado: ${dataResp.cantidadCreada} bienes individuales (${dataResp.folioInicial} al ${dataResp.folioFinal})`, "exito");
+                            } else {
+                                this.notificar("Registro guardado con éxito", "exito");
+                            }
                         } else {
                             const err = await respuesta.json().catch(() => ({}));
                             this.notificar(err.error || "Error al guardar el artículo", "error");
@@ -1996,7 +2615,14 @@
                         if (this.articuloSeleccionado.resguardanteActual && !this.articuloSeleccionado.responsable) {
                             this.articuloSeleccionado.responsable = this.articuloSeleccionado.resguardanteActual;
                         }
-                        if (this.articuloSeleccionado.precioSinIva !== null && this.articuloSeleccionado.precioSinIva !== '' && !isNaN(parseFloat(this.articuloSeleccionado.precioSinIva))) {
+                        const esOficialEdicion = this.articuloSeleccionado.fondoOrigen === 'OFICIAL' || this.articuloSeleccionado.fondoOrigen === 'OFICIAL_DESEGREGADOS';
+                        if (esOficialEdicion && this.articuloSeleccionado.valorInicial !== null && this.articuloSeleccionado.valorInicial !== '' && !isNaN(parseFloat(this.articuloSeleccionado.valorInicial))) {
+                            const totalNeto = parseFloat(this.articuloSeleccionado.valorInicial);
+                            const base = parseFloat((totalNeto / 1.16).toFixed(2));
+                            this.articuloSeleccionado.valorInicial = totalNeto;
+                            this.articuloSeleccionado.precio = totalNeto;
+                            this.articuloSeleccionado.precioSinIva = base;
+                        } else if (this.articuloSeleccionado.precioSinIva !== null && this.articuloSeleccionado.precioSinIva !== '' && !isNaN(parseFloat(this.articuloSeleccionado.precioSinIva))) {
                             const base = parseFloat(this.articuloSeleccionado.precioSinIva);
                             const totalNeto = parseFloat((base * 1.16).toFixed(2));
                             this.articuloSeleccionado.precioSinIva = base;

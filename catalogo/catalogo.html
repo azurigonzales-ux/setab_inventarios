@@ -251,34 +251,72 @@
         </div>
     </div>
 
+    <div class="mt-4 rounded-xl bg-amber-50 border-l-4 border-dorado p-4 shadow-sm flex items-start gap-3">
+        <svg class="w-6 h-6 text-guinda shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z">
+            </path>
+        </svg>
+        <div class="text-xs sm:text-sm text-gray-800">
+            <p class="font-bold text-guinda uppercase tracking-wide">AVISO NORMATIVO ANUAL:</p>
+            <p class="mt-0.5">Todo bien bajo resguardo debe actualizarse al menos una vez al año. Verifique que todos sus bienes cuenten con fotografía reciente y acuda o coordine con el Departamento de Inventarios la actualización anual de sus datos, centro de trabajo y estado físico de sus bienes.</p>
+        </div>
+    </div>
+
     <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white mt-6 border-t-4 border-t-dorado">
         <table class="min-w-full divide-y-2 divide-gray-200 text-sm">
             <thead class="bg-gray-50">
                 <tr>
                     <th class="whitespace-nowrap px-4 py-4 text-left font-semibold text-gray-900">Folio Resguardo</th>
                     <th class="px-4 py-4 text-left font-semibold text-gray-900">Equipo / Marca</th>
-                    <th class="px-4 py-4 text-left font-semibold text-gray-900">No. Serie</th>
+                    <th class="px-4 py-4 text-left font-semibold text-gray-900">No. Inventario / Serie</th>
+                    <th class="px-4 py-4 text-center font-semibold text-gray-900">Evidencia Fotográfica</th>
                     <th class="px-4 py-4 text-center font-semibold text-gray-900">Acta / PDF</th>
                     <th class="px-4 py-4 text-center font-semibold text-gray-900">Estado / Acciones</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
                 <tr x-show="cargandoVista && rolUsuario === 'admin'" x-cloak>
-                    <td colspan="5" class="px-4 py-8 text-center text-gray-500">Conectando con el Almacén Central...
+                    <td colspan="6" class="px-4 py-8 text-center text-gray-500">Conectando con el Almacén Central...
                     </td>
                 </tr>
                 <tr x-show="errorMensaje && rolUsuario === 'admin'" x-cloak>
-                    <td colspan="5" class="px-4 py-8 text-center text-red-500 font-medium" x-text="errorMensaje"></td>
+                    <td colspan="6" class="px-4 py-8 text-center text-red-500 font-medium" x-text="errorMensaje"></td>
                 </tr>
 
                 <template x-for="equipo in misEquipos" :key="equipo.idResguardo">
                     <tr class="hover:bg-gray-50 transition-colors">
-                        <td class="whitespace-nowrap px-4 py-3 font-mono font-medium text-gray-900 text-xs"
-                            x-text="equipo.idResguardo"></td>
-                        <td class="px-4 py-3 text-gray-700 font-semibold" x-text="equipo.equipoMarca || 'Sin marca'">
+                        <td class="whitespace-nowrap px-4 py-3 font-mono font-medium text-gray-900 text-xs">
+                            <span class="font-bold text-guinda" x-text="equipo.folioResguardoOficial || equipo.idResguardo"></span>
+                            <div x-show="equipo.fondoOrigen" class="text-[10px] text-dorado font-bold uppercase" x-text="equipo.fondoOrigen"></div>
                         </td>
-                        <td class="px-4 py-3 text-gray-600 font-mono text-xs"
-                            x-text="equipo.numeroInventario || equipo.equipoSerie || 'S/N'"></td>
+                        <td class="px-4 py-3 text-gray-700">
+                            <div class="font-semibold text-gray-900" x-text="equipo.descripcionBien || equipo.equipoMarca || 'Sin marca'"></div>
+                            <div class="text-xs text-gray-500" x-text="equipo.equipoMarca || ''"></div>
+                        </td>
+                        <td class="px-4 py-3 text-gray-600 font-mono text-xs">
+                            <div class="font-bold text-gray-800" x-text="equipo.numeroInventario || 'S/I'"></div>
+                            <div class="text-[11px] text-gray-500" x-text="equipo.equipoSerie ? 'SN: ' + equipo.equipoSerie : ''"></div>
+                        </td>
+                        <td class="px-4 py-3 text-center">
+                            <div class="flex flex-col items-center justify-center gap-1.5">
+                                <template x-if="equipo.imagenBienBase64">
+                                    <img :src="equipo.imagenBienBase64"
+                                        @click="verImagenBienCompleta(equipo.imagenBienBase64, equipo.numeroInventario || equipo.equipoMarca)"
+                                        class="w-12 h-12 object-cover rounded-lg border-2 border-dorado shadow-sm cursor-pointer hover:scale-105 transition-transform"
+                                        title="Clic para ampliar fotografía">
+                                </template>
+                                <template x-if="!equipo.imagenBienBase64">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">Sin Foto</span>
+                                </template>
+                                <label class="cursor-pointer inline-flex items-center gap-1 px-2.5 py-1 rounded bg-guinda/10 hover:bg-guinda hover:text-white text-guinda text-[11px] font-bold transition-colors">
+                                    <i class="fas fa-camera text-[10px]"></i>
+                                    <span x-text="equipo.imagenBienBase64 ? 'Cambiar Foto' : 'Subir Foto'"></span>
+                                    <input type="file" accept="image/*" class="hidden"
+                                        @change="subirEvidenciaFotografica(equipo.idArticulo, $event, equipo)">
+                                </label>
+                            </div>
+                        </td>
                         <td class="whitespace-nowrap px-4 py-3 text-center">
                             <button x-show="!equipo.estadoResguardo || equipo.estadoResguardo === 'ACTIVO'"
                                 @click="descargarActa(equipo.idResguardo, 'asignacion')"
@@ -321,7 +359,7 @@
 
                 <tr x-show="!cargandoVista && misEquipos.length === 0 && !errorMensaje && rolUsuario === 'admin'"
                     x-cloak>
-                    <td colspan="5" class="px-4 py-10 text-center text-gray-500">
+                    <td colspan="6" class="px-4 py-10 text-center text-gray-500">
                         <svg class="w-10 h-10 mx-auto text-gray-300 mb-3" fill="none" stroke="currentColor"
                             viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5"
@@ -484,6 +522,16 @@
                                 <option :value="ct.claveCT" x-text="`${ct.nombreCT || ''} (${ct.municipio || ''})`"></option>
                             </template>
                         </datalist>
+                        <datalist id="dl-marcas">
+                            <template x-for="item in catalogoPorTipo('marcas')" :key="item.id">
+                                <option :value="item.descripcion || item.nombre || item.clave"></option>
+                            </template>
+                        </datalist>
+                        <datalist id="dl-tipos-folios">
+                            <template x-for="item in catalogoPorTipo('tipos_folios')" :key="item.id">
+                                <option :value="item.clave || item.descripcion || item.nombre"></option>
+                            </template>
+                        </datalist>
 
                         <div class="space-y-6 max-h-[58vh] overflow-y-auto custom-scrollbar pt-5 pl-1 pr-4 pb-4">
                             <div x-show="tabModalAlta === 'identificacion'" class="space-y-6">
@@ -569,7 +617,7 @@
                                         </div>
                                         <div>
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Marca *</label>
-                                            <input type="text" x-model="nuevoArticulo.marca" required
+                                            <input type="text" x-model="nuevoArticulo.marca" list="dl-marcas" required
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
                                         </div>
                                         <div>
@@ -589,8 +637,12 @@
                                         </div>
                                         <div>
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Cantidad a Ingresar *</label>
-                                            <input type="number" min="1" step="any" x-model="nuevoArticulo.cantidadStock" required
+                                            <input type="number" min="1" max="500" step="1" x-model="nuevoArticulo.cantidadStock" required
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda">
+                                            <p x-show="Number(nuevoArticulo.cantidadStock) > 1" x-cloak
+                                                class="mt-1.5 text-[11px] font-bold text-guinda bg-dorado/15 border border-dorado/40 rounded px-2 py-1">
+                                                Se generarán <span x-text="Math.floor(Number(nuevoArticulo.cantidadStock))"></span> registros individuales con folios de inventario consecutivos.
+                                            </p>
                                         </div>
                                         <div class="md:col-span-2">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Área / Almacén de Recepción *</label>
@@ -696,12 +748,19 @@
                                     </div>
 
                                     <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                                        <label class="block text-xs font-bold text-gray-700 mb-3">Desglose Financiero (PRECIO) *</label>
-                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <div class="flex items-center justify-between mb-3">
+                                            <label class="block text-xs font-bold text-gray-700">Desglose Financiero (PRECIO) *</label>
+                                            <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                                                :class="(nuevoArticulo.fondoOrigen === 'OFICIAL' || nuevoArticulo.fondoOrigen === 'OFICIAL_DESEGREGADOS') ? 'bg-guinda/10 text-guinda border border-guinda/20' : 'bg-dorado/15 text-guinda border border-dorado/30'"
+                                                x-text="(nuevoArticulo.fondoOrigen === 'OFICIAL' || nuevoArticulo.fondoOrigen === 'OFICIAL_DESEGREGADOS') ? 'Modalidad OFICIAL: Precio Neto con IVA Incluido' : 'Modalidad INTERNO: Desglose de Subtotal + IVA 16%'"></span>
+                                        </div>
+
+                                        <div x-show="!nuevoArticulo.fondoOrigen || nuevoArticulo.fondoOrigen === 'INTERNO'" class="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <div>
                                                 <span class="block text-[10px] font-bold text-gray-500 uppercase mb-1">Subtotal (Sin IVA) *</span>
                                                 <input type="number" step="0.01" x-model="nuevoArticulo.precioSinIva"
-                                                    required placeholder="0.00"
+                                                    @input="nuevoArticulo.valorInicial = nuevoArticulo.precioSinIva ? +(Number(nuevoArticulo.precioSinIva) * 1.16).toFixed(2) : ''"
+                                                    :required="!nuevoArticulo.fondoOrigen || nuevoArticulo.fondoOrigen === 'INTERNO'" placeholder="0.00"
                                                     class="w-full bg-white rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda font-mono">
                                             </div>
                                             <div>
@@ -714,6 +773,22 @@
                                                 <span class="block text-[10px] font-bold text-dorado uppercase mb-1">Total Neto (A Guardar)</span>
                                                 <div class="w-full bg-dorado/10 rounded border border-dorado/30 py-2 px-3 text-sm font-bold text-dorado font-mono shadow-inner"
                                                     x-text="nuevoArticulo.precioSinIva ? '$ ' + (nuevoArticulo.precioSinIva * 1.16).toFixed(2) : '$ 0.00'">
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div x-show="nuevoArticulo.fondoOrigen === 'OFICIAL' || nuevoArticulo.fondoOrigen === 'OFICIAL_DESEGREGADOS'" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                                            <div>
+                                                <span class="block text-[10px] font-bold text-guinda uppercase mb-1">Valor / Precio Total con IVA Incluido (MXN) *</span>
+                                                <input type="number" step="0.01" x-model="nuevoArticulo.valorInicial"
+                                                    @input="nuevoArticulo.precioSinIva = nuevoArticulo.valorInicial ? +(Number(nuevoArticulo.valorInicial) / 1.16).toFixed(2) : ''"
+                                                    :required="nuevoArticulo.fondoOrigen === 'OFICIAL' || nuevoArticulo.fondoOrigen === 'OFICIAL_DESEGREGADOS'" placeholder="0.00"
+                                                    class="w-full bg-white rounded border-guinda/40 py-2 px-3 text-sm font-bold text-guinda focus:ring-guinda focus:border-guinda font-mono">
+                                            </div>
+                                            <div class="text-xs text-gray-500 bg-white p-2.5 rounded border border-gray-200">
+                                                En la base <strong class="text-guinda" x-text="nuevoArticulo.fondoOrigen"></strong> el importe se captura directamente con IVA incluido.
+                                                <div class="mt-1 font-mono text-[11px] text-gray-600">
+                                                    Base gravable ref: <span class="font-bold" x-text="nuevoArticulo.valorInicial ? '$ ' + (Number(nuevoArticulo.valorInicial) / 1.16).toFixed(2) : '$ 0.00'"></span>
                                                 </div>
                                             </div>
                                         </div>
@@ -770,7 +845,7 @@
                                         </div>
                                         <div>
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Tipo de Folio (TIPOFOL)</label>
-                                            <input type="text" x-model="nuevoArticulo.tipoFolioResguardo"
+                                            <input type="text" x-model="nuevoArticulo.tipoFolioResguardo" list="dl-tipos-folios"
                                                 placeholder="OFICIAL / INTERNO"
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
                                         </div>
@@ -835,7 +910,13 @@
                             <h3 class="text-xl font-bold leading-6 text-gray-900">Ficha Técnica Patrimonial del Bien</h3>
                             <p class="text-xs text-gray-600 mt-0.5">Edición integral de registro e histórico institucional</p>
                         </div>
-                        <div class="flex items-center gap-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button type="button" @click="reclasificarFondoArticulo(articuloSeleccionado)"
+                                class="px-3 py-1.5 rounded-md bg-guinda/10 hover:bg-guinda hover:text-white text-guinda border border-guinda/30 text-xs font-bold transition-colors flex items-center gap-1.5"
+                                title="Mover registro entre Base INTERNO y Base OFICIAL conservando su historial">
+                                <i class="fas fa-exchange-alt"></i>
+                                <span>Mover de Base (Interno &harr; Oficial)</span>
+                            </button>
                             <span class="px-2.5 py-1 rounded bg-dorado/15 text-guinda border border-dorado/30 text-xs font-bold uppercase"
                                 x-text="articuloSeleccionado.fondoOrigen || 'OFICIAL'"></span>
                             <div class="bg-white px-3 py-1.5 rounded-md border border-gray-200 flex items-center gap-2">
@@ -939,7 +1020,7 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Marca</label>
-                                <input type="text" x-model="articuloSeleccionado.marca"
+                                <input type="text" x-model="articuloSeleccionado.marca" list="dl-marcas"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
                             </div>
                             <div>
@@ -981,6 +1062,39 @@
                                     <option value="AlmacenGeneral">Almacén General</option>
                                 </select>
                             </div>
+                        </div>
+
+                        <div class="bg-white p-4 rounded-lg border border-dorado/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                            <div class="flex items-center gap-4">
+                                <template x-if="articuloSeleccionado.imagenBienBase64">
+                                    <img :src="articuloSeleccionado.imagenBienBase64"
+                                        @click="verImagenBienCompleta(articuloSeleccionado.imagenBienBase64, articuloSeleccionado.numeroInventario)"
+                                        class="w-16 h-16 object-cover rounded-lg border-2 border-dorado shadow cursor-pointer hover:scale-105 transition-transform"
+                                        title="Clic para ampliar fotografía">
+                                </template>
+                                <template x-if="!articuloSeleccionado.imagenBienBase64">
+                                    <div class="w-16 h-16 rounded-lg bg-gray-100 border border-dashed border-gray-300 flex items-center justify-center text-gray-400 text-xs font-bold text-center px-1">
+                                        Sin Foto
+                                    </div>
+                                </template>
+                                <div>
+                                    <h4 class="text-xs font-bold text-guinda uppercase tracking-wide">Evidencia Fotográfica del Bien</h4>
+                                    <p class="text-xs text-gray-500 mt-0.5">Fotografía física capturada por el Director o el Almacén Central.</p>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase"
+                                            :class="articuloSeleccionado.estadoVerificacionAnual === 'VERIFICADO' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'"
+                                            x-text="'Verificación Anual: ' + (articuloSeleccionado.estadoVerificacionAnual || 'PENDIENTE')"></span>
+                                        <span x-show="articuloSeleccionado.fechaUltimaActualizacionAnual" class="text-[10px] text-gray-500 font-mono"
+                                            x-text="'Últ. Act: ' + articuloSeleccionado.fechaUltimaActualizacionAnual"></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <label class="cursor-pointer inline-flex items-center justify-center gap-2 px-3.5 py-2 rounded-lg bg-guinda text-white hover:bg-guinda-dark text-xs font-bold shadow-sm transition-colors">
+                                <i class="fas fa-camera"></i>
+                                <span x-text="articuloSeleccionado.imagenBienBase64 ? 'Actualizar Fotografía' : 'Subir Fotografía'"></span>
+                                <input type="file" accept="image/*" class="hidden"
+                                    @change="subirEvidenciaFotografica(articuloSeleccionado.id, $event, articuloSeleccionado)">
+                            </label>
                         </div>
 
                         <div x-show="articuloSeleccionado.categoria === 'Vehiculos' || articuloSeleccionado.fondoOrigen === 'VEHICULOS'" x-cloak
@@ -1050,15 +1164,37 @@
                                 <input type="text" x-model="articuloSeleccionado.boletaSalida"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 font-mono uppercase focus:ring-guinda focus:border-guinda">
                             </div>
-                            <div>
-                                <label class="block text-xs font-bold text-gray-700 mb-1">Subtotal sin IVA (MXN)</label>
-                                <input type="number" step="0.01" x-model="articuloSeleccionado.precioSinIva"
-                                    class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 font-mono focus:ring-guinda focus:border-guinda">
-                            </div>
-                            <div>
-                                <label class="block text-xs font-bold text-gray-700 mb-1">Costo Total c/IVA (PRECIO)</label>
-                                <input type="number" step="0.01" x-model="articuloSeleccionado.valorInicial"
-                                    class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 font-mono font-bold text-guinda focus:ring-guinda focus:border-guinda">
+
+                            <div class="md:col-span-3 bg-gray-50 border border-gray-200 rounded-lg p-3 mt-1">
+                                <div x-show="!articuloSeleccionado.fondoOrigen || articuloSeleccionado.fondoOrigen === 'INTERNO'" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-gray-600 uppercase mb-1">Subtotal sin IVA (MXN)</label>
+                                        <input type="number" step="0.01" x-model="articuloSeleccionado.precioSinIva"
+                                            @input="articuloSeleccionado.valorInicial = articuloSeleccionado.precioSinIva ? +(Number(articuloSeleccionado.precioSinIva) * 1.16).toFixed(2) : 0"
+                                            class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 font-mono focus:ring-guinda focus:border-guinda">
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-gray-600 uppercase mb-1">IVA (16%)</label>
+                                        <div class="w-full bg-gray-200/60 rounded-md border border-gray-200 py-2 px-3 text-sm font-mono text-gray-600"
+                                            x-text="articuloSeleccionado.precioSinIva ? '$ ' + (Number(articuloSeleccionado.precioSinIva) * 0.16).toFixed(2) : '$ 0.00'"></div>
+                                    </div>
+                                    <div>
+                                        <label class="block text-[10px] font-bold text-guinda uppercase mb-1">Total Neto c/IVA (PRECIO)</label>
+                                        <input type="number" step="0.01" x-model="articuloSeleccionado.valorInicial"
+                                            class="block w-full bg-dorado/10 rounded-md border-dorado/40 shadow-sm sm:text-sm border py-2 px-3 font-mono font-bold text-guinda focus:ring-guinda focus:border-guinda">
+                                    </div>
+                                </div>
+                                <div x-show="articuloSeleccionado.fondoOrigen === 'OFICIAL' || articuloSeleccionado.fondoOrigen === 'OFICIAL_DESEGREGADOS'" x-cloak class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                                    <div>
+                                        <label class="block text-xs font-bold text-guinda uppercase mb-1">Valor / Precio Total con IVA Incluido (MXN) *</label>
+                                        <input type="number" step="0.01" x-model="articuloSeleccionado.valorInicial"
+                                            @input="articuloSeleccionado.precioSinIva = articuloSeleccionado.valorInicial ? +(Number(articuloSeleccionado.valorInicial) / 1.16).toFixed(2) : 0"
+                                            class="block w-full bg-white rounded-md border-guinda/40 shadow-sm sm:text-sm border py-2 px-3 font-mono font-bold text-guinda focus:ring-guinda focus:border-guinda">
+                                    </div>
+                                    <div class="text-xs text-gray-500">
+                                        En la base <strong class="text-guinda" x-text="articuloSeleccionado.fondoOrigen"></strong> el precio registrado ya incluye IVA.
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1102,7 +1238,7 @@
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Tipo Folio (TIPOFOL)</label>
-                                <input type="text" x-model="articuloSeleccionado.tipoFolioResguardo"
+                                <input type="text" x-model="articuloSeleccionado.tipoFolioResguardo" list="dl-tipos-folios"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
                             </div>
                             <div>

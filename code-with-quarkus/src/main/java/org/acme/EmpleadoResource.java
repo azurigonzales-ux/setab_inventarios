@@ -1,8 +1,8 @@
 package org.acme;
 
 import java.util.List;
-
 import jakarta.annotation.security.RolesAllowed;
+import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
@@ -20,14 +20,33 @@ import jakarta.ws.rs.core.Response;
 @RolesAllowed({"SUPERADMIN"})
 public class EmpleadoResource {
 
+    @Inject
+    PostgresRelacionalCrudService relacionalService;
+
     @GET
     public List<Empleado> listarEmpleados() {
+        if (relacionalService != null && relacionalService.puedeOperarResponsables()) {
+            try {
+                return relacionalService.listarResponsables();
+            } catch (Exception ignored) {
+            }
+        }
         return Empleado.listAll();
     }
 
     @POST
     @Transactional
     public Response registrarEmpleado(Empleado empleado) {
+        if (relacionalService != null && relacionalService.puedeOperarResponsables()) {
+            try {
+                Empleado creado = relacionalService.crearResponsable(empleado);
+                return Response.status(Response.Status.CREATED).entity(creado).build();
+            } catch (Exception e) {
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity("{\"error\": \"Error al registrar en tabla responsables: " + e.getMessage().replace("\"", "'") + "\"}")
+                        .build();
+            }
+        }
         empleado.persist();
         return Response.status(Response.Status.CREATED).entity(empleado).build();
     }
@@ -36,6 +55,16 @@ public class EmpleadoResource {
     @Path("/{id}")
     @Transactional
     public Response actualizarEmpleado(@PathParam("id") Long id, Empleado datos) {
+        if (relacionalService != null && relacionalService.puedeOperarResponsables()) {
+            try {
+                Empleado actualizado = relacionalService.actualizarResponsable(id, datos);
+                return Response.ok(actualizado).build();
+            } catch (Exception e) {
+                return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                        .entity("{\"error\": \"Error al actualizar en tabla responsables: " + e.getMessage().replace("\"", "'") + "\"}")
+                        .build();
+            }
+        }
         Empleado existente = Empleado.findById(id);
         if (existente == null) {
             return Response.status(Response.Status.NOT_FOUND).build();

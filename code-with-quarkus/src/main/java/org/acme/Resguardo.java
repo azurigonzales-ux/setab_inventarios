@@ -29,9 +29,6 @@ public class Resguardo extends PanacheEntity {
     
     public double cantidadPendiente;
 
-    // ==========================================
-    // FIRMAS Y DATOS DE ASIGNACIÓN (ALTA)
-    // ==========================================
     @Column(columnDefinition = "TEXT")
     public String firmaEmpleadoBase64;
 
@@ -46,22 +43,19 @@ public class Resguardo extends PanacheEntity {
     
     public Boolean firmaVerificadaAdmin = false;
 
-    // ==========================================
-    // NUEVOS CAMPOS: FLUJO DE DEVOLUCIÓN Y BAJA
-    // ==========================================
-    
-    // Posibles estados: ACTIVO, SOLICITUD_BAJA, BAJA_EN_PROCESO, DEVUELTO
     @Column(length = 30)
     public String estadoResguardo = "ACTIVO"; 
 
-    // 1. Firma del Almacén Central autorizando la baja
     @Column(columnDefinition = "TEXT")
     public String firmaSuperAdminBajaBase64;
 
-    // 2. Firma del Director entregando físicamente el equipo de vuelta
     @Column(columnDefinition = "TEXT")
     public String firmaDirectorBajaBase64;
 
     @JsonDeserialize(using = Articulo.LocalDateFlexibleDeserializer.class)
     public LocalDate fechaBaja;
+
+    public String folioResguardoOficial;
+
+    public String fondoOrigen;
 }

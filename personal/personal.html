@@ -225,11 +225,16 @@
                                         <p class="text-sm font-medium text-gray-900 mt-1"
                                             x-text="empleadoSeleccionado.nombre"></p>
                                     </div>
-                                    <div class="pt-3 border-t border-gray-100">
+                                    <div class="pt-3 border-t border-gray-100 space-y-2">
+                                        <button type="button"
+                                            @click="imprimirActaVerificacionFisica(empleadoSeleccionado, equiposEmpleado)"
+                                            class="w-full bg-guinda text-white hover:bg-guinda-dark font-bold text-xs py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2 shadow-sm">
+                                            <i class="fas fa-file-signature"></i> Acta Verificación Física
+                                        </button>
                                         <button type="button"
                                             @click="imprimirActaTraspaso(empleadoSeleccionado.id_empleado)"
                                             class="w-full bg-dorado/10 text-dorado border border-dorado/30 hover:bg-dorado hover:text-white font-bold text-xs py-2 px-3 rounded-lg transition-colors flex items-center justify-center gap-2">
-                                            <i class="fas fa-print"></i> Imprimir Acta Actualización
+                                            <i class="fas fa-print"></i> Imprimir Acta Rotación
                                         </button>
                                     </div>
                                 </div>
@@ -248,24 +253,36 @@
                                     <table class="min-w-full divide-y-2 divide-gray-100 text-sm">
                                         <thead class="bg-gray-50 sticky top-0 z-10 shadow-sm">
                                             <tr>
-                                                <th class="px-4 py-3 text-left font-semibold text-gray-900">Núm. Serie /
-                                                    Folio</th>
-                                                <th class="px-4 py-3 text-left font-semibold text-gray-900">Descripción
-                                                </th>
+                                                <th class="px-4 py-3 text-center font-semibold text-gray-900">Foto</th>
+                                                <th class="px-4 py-3 text-left font-semibold text-gray-900">Folio Resg. / Inv.</th>
+                                                <th class="px-4 py-3 text-left font-semibold text-gray-900">Descripción / Serie</th>
                                                 <th class="px-4 py-3 text-center font-semibold text-gray-900">Cant.</th>
-                                                <th class="px-4 py-3 text-center font-semibold text-gray-900">Estatus
-                                                </th>
-                                                <th class="px-4 py-3 text-center font-semibold text-gray-900">Acción /
-                                                    Actas</th>
+                                                <th class="px-4 py-3 text-center font-semibold text-gray-900">Estatus</th>
+                                                <th class="px-4 py-3 text-center font-semibold text-gray-900">Acción / Actas</th>
                                             </tr>
                                         </thead>
                                         <tbody class="divide-y divide-gray-100">
                                             <template x-for="equipo in equiposEmpleado" :key="equipo.idResguardo">
                                                 <tr class="hover:bg-gray-50 transition-colors">
-                                                    <td class="whitespace-nowrap px-4 py-3 font-medium text-gray-900 font-mono text-xs"
-                                                        x-text="equipo.equipoSerie"></td>
-                                                    <td class="px-4 py-3 text-gray-700 min-w-[150px]"
-                                                        x-text="equipo.equipoMarca"></td>
+                                                    <td class="px-3 py-2 text-center">
+                                                        <template x-if="equipo.imagenBienBase64">
+                                                            <img :src="equipo.imagenBienBase64"
+                                                                @click="verImagenBienCompleta(equipo.imagenBienBase64, equipo.numeroInventario || equipo.equipoSerie)"
+                                                                class="w-10 h-10 object-cover rounded border border-dorado mx-auto cursor-pointer hover:scale-110 transition-transform"
+                                                                title="Clic para ampliar evidencia fotográfica">
+                                                        </template>
+                                                        <template x-if="!equipo.imagenBienBase64">
+                                                            <span class="text-[10px] font-bold text-gray-400">Sin Foto</span>
+                                                        </template>
+                                                    </td>
+                                                    <td class="whitespace-nowrap px-4 py-3 font-medium text-gray-900 font-mono text-xs">
+                                                        <div class="font-bold text-guinda" x-text="equipo.folioResguardoOficial || ('RESG-' + equipo.idResguardo)"></div>
+                                                        <div class="text-[11px] text-gray-600" x-text="equipo.numeroInventario || equipo.equipoSerie || 'S/N'"></div>
+                                                    </td>
+                                                    <td class="px-4 py-3 text-gray-700 min-w-[150px]">
+                                                        <div class="font-semibold text-gray-900" x-text="equipo.descripcionBien || equipo.equipoMarca"></div>
+                                                        <div class="text-xs text-gray-500 font-mono" x-text="equipo.equipoSerie ? 'SN: ' + equipo.equipoSerie : ''"></div>
+                                                    </td>
                                                     <td class="whitespace-nowrap px-4 py-3 text-center font-bold text-guinda"
                                                         x-text="equipo.cantidadAsignada"></td>
                                                     <td class="whitespace-nowrap px-4 py-3 text-center">
@@ -305,7 +322,7 @@
                                                 </tr>
                                             </template>
                                             <tr x-show="equiposEmpleado.length === 0">
-                                                <td colspan="5" class="px-4 py-12 text-center text-gray-500">Esta
+                                                <td colspan="6" class="px-4 py-12 text-center text-gray-500">Esta
                                                     escuela no tiene equipos a su cargo.</td>
                                             </tr>
                                         </tbody>

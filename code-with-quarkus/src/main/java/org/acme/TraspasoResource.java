@@ -2,7 +2,9 @@ package org.acme;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.eclipse.microprofile.jwt.JsonWebToken;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.annotation.security.RolesAllowed;
@@ -120,7 +122,29 @@ public class TraspasoResource {
                 }
             }
 
+            String anioActual = String.valueOf(LocalDate.now().getYear());
+            Map<String, String> foliosCrePorFondo = new HashMap<>();
+            String adminResponsable = obtenerNombreAdmin();
+
             for (Resguardo rAntiguo : resguardosActivos) {
+                String fondo = "INTERNO";
+                if (rAntiguo.articulo != null && rAntiguo.articulo.fondoOrigen != null && !rAntiguo.articulo.fondoOrigen.isBlank()) {
+                    fondo = rAntiguo.articulo.fondoOrigen.trim().toUpperCase();
+                } else if (rAntiguo.fondoOrigen != null && !rAntiguo.fondoOrigen.isBlank()) {
+                    fondo = rAntiguo.fondoOrigen.trim().toUpperCase();
+                }
+
+                String folioAnterior = (rAntiguo.folioResguardoOficial != null && !rAntiguo.folioResguardoOficial.isBlank())
+                        ? rAntiguo.folioResguardoOficial
+                        : (rAntiguo.articulo != null && rAntiguo.articulo.folioResguardo != null ? rAntiguo.articulo.folioResguardo : "S/F");
+
+                String nuevoFolioCre = foliosCrePorFondo.get(fondo);
+                if (nuevoFolioCre == null) {
+                    long consecutivoFondo = Resguardo.count("upper(fondoOrigen) = ?1", fondo) + 1;
+                    nuevoFolioCre = String.format("%s %05d-CRE", anioActual, consecutivoFondo);
+                    foliosCrePorFondo.put(fondo, nuevoFolioCre);
+                }
+
                 rAntiguo.estadoResguardo = "TRASPASADO";
                 rAntiguo.fechaBaja = LocalDate.now();
                 rAntiguo.firmaDirectorBajaBase64 = request.firmaSalienteBase64;
@@ -131,6 +155,7 @@ public class TraspasoResource {
                     rAntiguo.articulo.resguardanteActual = directorEntrante.nombre;
                     rAntiguo.articulo.centroTrabajo = cctLimpia;
                     rAntiguo.articulo.fechaResguardo = LocalDate.now();
+                    rAntiguo.articulo.folioResguardo = nuevoFolioCre;
                     rAntiguo.articulo.persist();
                 }
 
@@ -140,18 +165,38 @@ public class TraspasoResource {
                 rNuevo.fechaAsignacion = LocalDate.now();
                 rNuevo.cantidadAsignada = rAntiguo.cantidadAsignada;
                 rNuevo.estadoResguardo = "PENDIENTE_FIRMA";
-                rNuevo.nombreAdminAsignador = obtenerNombreAdmin();
+                rNuevo.nombreAdminAsignador = adminResponsable;
                 rNuevo.firmaAdminBase64 = request.firmaSalienteBase64;
                 rNuevo.firmaEmpleadoBase64 = null;
+                rNuevo.fondoOrigen = fondo;
+                rNuevo.folioResguardoOficial = nuevoFolioCre;
                 rNuevo.persist();
 
-                HistorialTrazabilidad historial = new HistorialTrazabilidad();
-                historial.articulo = rAntiguo.articulo;
-                historial.tipoMovimiento = "ROTACION_DIRECTOR";
-                historial.detallesModificacion = "Traspaso en CCT " + cctLimpia + ". Entrega: " + directorSalienteNombre + " | Recibe: " + directorEntrante.nombre;
-                historial.fechaMovimiento = LocalDateTime.now();
-                historial.username = obtenerNombreAdmin();
-                historial.persist();
+                String numInventario = (rAntiguo.articulo != null && rAntiguo.articulo.numeroInventario != null)
+                        ? rAntiguo.articulo.numeroInventario
+                        : (rAntiguo.articulo != null ? String.valueOf(rAntiguo.articulo.id) : "S/N");
+
+                HistorialTrazabilidad hBajaRotacion = new HistorialTrazabilidad();
+                hBajaRotacion.articulo = rAntiguo.articulo;
+                hBajaRotacion.tipoMovimiento = "BAJA_RESGUARDO_ROTACION";
+                hBajaRotacion.detallesModificacion = "Baja de Resguardo por Rotación en CCT " + cctLimpia
+                        + " | No. Inventario: " + numInventario
+                        + " | Folio Resguardo Anterior: " + folioAnterior
+                        + " | Director Saliente: " + directorSalienteNombre;
+                hBajaRotacion.fechaMovimiento = LocalDateTime.now();
+                hBajaRotacion.username = adminResponsable;
+                hBajaRotacion.persist();
+
+                HistorialTrazabilidad hAltaRotacion = new HistorialTrazabilidad();
+                hAltaRotacion.articulo = rAntiguo.articulo;
+                hAltaRotacion.tipoMovimiento = "ALTA_RESGUARDO_ROTACION";
+                hAltaRotacion.detallesModificacion = "Alta de Resguardo por Rotación [" + fondo + "] en CCT " + cctLimpia
+                        + " | No. Inventario: " + numInventario
+                        + " | Nuevo Folio Resguardo: " + nuevoFolioCre
+                        + " | Director Entrante: " + directorEntrante.nombre;
+                hAltaRotacion.fechaMovimiento = LocalDateTime.now();
+                hAltaRotacion.username = adminResponsable;
+                hAltaRotacion.persist();
             }
 
             return Response.ok("{\"mensaje\": \"Traspaso ejecutado correctamente\", \"cct\": \"" + cctLimpia + "\"}").build();

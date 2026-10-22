@@ -132,6 +132,25 @@ public class MultiDataSourceConfig {
         return OrigenDatos.ACERVO_HISTORICO;
     }
 
+    public boolean tieneConexionExternaActiva(OrigenDatos origen) {
+        if (origen == OrigenDatos.INVENTARIO_INTERNO) {
+            return internoExternalEnabled && internoJdbcUrl.isPresent() && !internoJdbcUrl.get().isBlank();
+        }
+        if (origen == OrigenDatos.INVENTARIO_OFICIAL) {
+            return oficialExternalEnabled && oficialJdbcUrl.isPresent() && !oficialJdbcUrl.get().isBlank();
+        }
+        if (origen == OrigenDatos.INVENTARIO_OFICIAL_DESAGREGADOS) {
+            return desagregadosExternalEnabled && desagregadosJdbcUrl.isPresent() && !desagregadosJdbcUrl.get().isBlank();
+        }
+        if (origen == OrigenDatos.CENTROS_TRABAJO_CCT) {
+            return cctExternalEnabled && cctJdbcUrl.isPresent() && !cctJdbcUrl.get().isBlank();
+        }
+        if (origen == OrigenDatos.PERSONAL_RH) {
+            return rhExternalEnabled && rhJdbcUrl.isPresent() && !rhJdbcUrl.get().isBlank();
+        }
+        return false;
+    }
+
     /**
      * Obtiene una conexión SQL para el dominio solicitado.
      * Si el origen externo está habilitado y cuenta con credenciales configuradas,
