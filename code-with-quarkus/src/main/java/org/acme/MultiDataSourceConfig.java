@@ -51,6 +51,8 @@ public class MultiDataSourceConfig {
     @Inject
     DataSource defaultDataSource;
 
+    private volatile String urlInventarioVerificada = null;
+
     @ConfigProperty(name = "setab.datasource.inventario.enabled", defaultValue = "true")
     boolean inventarioExternalEnabled;
 
@@ -63,7 +65,7 @@ public class MultiDataSourceConfig {
     @ConfigProperty(name = "setab.datasource.inventario.password")
     Optional<String> inventarioPassword;
 
-    @ConfigProperty(name = "setab.datasource.inventario.schema", defaultValue = "Inventario")
+    @ConfigProperty(name = "setab.datasource.inventario.schema", defaultValue = "inventario")
     String inventarioSchema;
 
     @ConfigProperty(name = "setab.datasource.interno.enabled", defaultValue = "true")
@@ -222,12 +224,29 @@ public class MultiDataSourceConfig {
 
     private Connection abrirConexionConFallbackEsquemaInventario(String urlPrimaria, String user, String pass) throws SQLException {
         DriverManager.setLoginTimeout(4);
+        boolean esServidorInventarioLocal = urlPrimaria != null && urlPrimaria.contains("192.168.13.100:5432");
+
+        if (esServidorInventarioLocal && urlInventarioVerificada != null) {
+            try {
+                Connection connRapida = DriverManager.getConnection(urlInventarioVerificada, user, pass);
+                try (Statement st = connRapida.createStatement()) {
+                    st.execute("SET search_path TO inventario, \"Inventario\", public;");
+                } catch (SQLException ignored) {
+                }
+                return connRapida;
+            } catch (SQLException e) {
+                urlInventarioVerificada = null;
+            }
+        }
+
         List<String> urlsCandidatas = new ArrayList<>();
-        urlsCandidatas.add(urlPrimaria.trim());
+        if (urlPrimaria != null && !urlPrimaria.isBlank()) {
+            urlsCandidatas.add(urlPrimaria.trim());
+        }
 
         String baseHost = "jdbc:postgresql://192.168.13.100:5432/";
-        if (urlPrimaria.contains("192.168.13.100:5432")) {
-            String params = "?currentSchema=Inventario,inventario,public";
+        if (esServidorInventarioLocal) {
+            String params = "?currentSchema=inventario,Inventario,public";
             String urlPostgres = baseHost + "postgres" + params;
             String urlInventarioMayus = baseHost + "Inventario" + params;
             String urlInventarioMinus = baseHost + "inventario" + params;
@@ -241,8 +260,11 @@ public class MultiDataSourceConfig {
             try {
                 Connection conn = DriverManager.getConnection(urlIntento, user, pass);
                 try (Statement st = conn.createStatement()) {
-                    st.execute("SET search_path TO \"Inventario\", inventario, public;");
+                    st.execute("SET search_path TO inventario, \"Inventario\", public;");
                 } catch (SQLException ignored) {
+                }
+                if (esServidorInventarioLocal) {
+                    urlInventarioVerificada = urlIntento;
                 }
                 return conn;
             } catch (SQLException e) {

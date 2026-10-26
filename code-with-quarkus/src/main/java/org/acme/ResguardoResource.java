@@ -37,6 +37,30 @@ public class ResguardoResource {
     @Inject
     JsonWebToken jwt;
 
+    @Inject
+    PostgresRelacionalCrudService relacionalService;
+
+    private Empleado buscarEmpleadoIntegral(Long idEmpleado) {
+        if (idEmpleado == null) {
+            return null;
+        }
+        Empleado local = Empleado.findById(idEmpleado);
+        if (local != null) {
+            return local;
+        }
+        if (relacionalService != null && relacionalService.puedeOperarResponsables()) {
+            try {
+                for (Empleado e : relacionalService.listarResponsables()) {
+                    if (e != null && idEmpleado.equals(e.idEmpleado)) {
+                        return e;
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        return null;
+    }
+
     @JsonIgnoreProperties(ignoreUnknown = true)
     public static class AsignacionRequest {
         public Long idEmpleado;
@@ -401,8 +425,12 @@ public class ResguardoResource {
                     .build();
         }
 
-        Articulo articulo = Articulo.findById(idEquipo, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
-        Empleado empleado = Empleado.findById(request.idEmpleado);
+        Articulo articulo = relacionalService != null
+                ? relacionalService.sincronizarArticuloEnPanache(idEquipo, null)
+                : Articulo.findById(idEquipo, jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+        Empleado empleado = relacionalService != null
+                ? relacionalService.sincronizarEmpleadoEnPanache(request.idEmpleado)
+                : Empleado.findById(request.idEmpleado);
 
         if (articulo == null || empleado == null) {
             return Response.status(Response.Status.NOT_FOUND)
@@ -411,6 +439,10 @@ public class ResguardoResource {
         }
 
         double stockActual = articulo.cantidadStock != null ? articulo.cantidadStock : 0.0;
+        if (stockActual <= 0 && relacionalService != null && relacionalService.puedeOperarInventario(null)) {
+            stockActual = Math.max(1.0, request.cantidad);
+            articulo.cantidadStock = stockActual;
+        }
         if (Double.isNaN(request.cantidad) || request.cantidad <= 0 || request.cantidad > stockActual) {
             return Response.status(Response.Status.BAD_REQUEST)
                     .entity("{\"error\": \"Stock insuficiente o cantidad inválida. Disponible actual: " + stockActual + "\"}")
@@ -458,6 +490,21 @@ public class ResguardoResource {
         resguardo.folioResguardoOficial = folioOficialNvo;
         resguardo.persist();
 
+        if (relacionalService != null && relacionalService.puedeOperarInventario(null)) {
+            String rfcOClave = (empleado.rfc != null && !empleado.rfc.isBlank())
+                    ? empleado.rfc
+                    : (empleado.claveResponsable != null && !empleado.claveResponsable.isBlank() ? empleado.claveResponsable : empleado.nombre);
+            relacionalService.actualizarResguardoEnInventarioRelacional(
+                    articulo.numeroInventario,
+                    idEquipo,
+                    cctAsignada,
+                    request.idEmpleado,
+                    rfcOClave,
+                    folioOficialNvo,
+                    "NVO"
+            );
+        }
+
         HistorialTrazabilidad historial = new HistorialTrazabilidad();
         historial.articulo = articulo;
         historial.tipoMovimiento = "ASIGNACION_RESGUARDO";
@@ -488,20 +535,60 @@ public class ResguardoResource {
                     .entity("{\"error\": \"ID de director/resguardante requerido.\"}")
                     .build();
         }
-        Empleado empleado = Empleado.findById(idEmpleado);
+        Empleado empleado = relacionalService != null
+                ? relacionalService.sincronizarEmpleadoEnPanache(idEmpleado)
+                : buscarEmpleadoIntegral(idEmpleado);
+        if (empleado == null) {
+            empleado = buscarEmpleadoIntegral(idEmpleado);
+        }
         if (empleado == null) {
             return Response.status(Response.Status.NOT_FOUND)
                     .entity("{\"error\": \"Director/resguardante no encontrado.\"}")
                     .build();
         }
 
-        List<Resguardo> resguardos = Resguardo.find(
-                "empleado.idEmpleado = ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo = 'PENDIENTE_FIRMA' or estadoResguardo is null)",
-                idEmpleado
-        ).list();
+        List<Long> idsEmp = new ArrayList<>();
+        idsEmp.add(idEmpleado);
+        if (empleado.idEmpleado != null && !idsEmp.contains(empleado.idEmpleado)) {
+            idsEmp.add(empleado.idEmpleado);
+        }
+
+        List<Resguardo> resguardos = new ArrayList<>(Resguardo.find(
+                "empleado.idEmpleado in ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo = 'PENDIENTE_FIRMA' or estadoResguardo is null)",
+                idsEmp
+        ).list());
+
+        if (relacionalService != null && relacionalService.puedeOperarInventario(null)) {
+            List<Articulo> bienesExt = relacionalService.listarBienesPorResponsableOCct(
+                    idEmpleado, empleado.rfc, empleado.cct, empleado.nombre
+            );
+            for (Articulo ext : bienesExt) {
+                if (ext == null) continue;
+                Articulo artLocal = relacionalService.sincronizarObjetoArticuloEnPanache(ext, null);
+                if (artLocal == null || artLocal.id == null) continue;
+                boolean yaTieneResguardo = resguardos.stream()
+                        .anyMatch(r -> r != null && r.articulo != null && artLocal.id.equals(r.articulo.id));
+                if (!yaTieneResguardo) {
+                    Resguardo nuevoResg = new Resguardo();
+                    nuevoResg.articulo = artLocal;
+                    nuevoResg.empleado = empleado;
+                    nuevoResg.fechaAsignacion = artLocal.fechaResguardo != null ? artLocal.fechaResguardo : LocalDate.now();
+                    nuevoResg.cantidadAsignada = 1.0;
+                    nuevoResg.nombreAdminAsignador = obtenerNombreAdmin();
+                    nuevoResg.estadoResguardo = "ACTIVO";
+                    nuevoResg.fondoOrigen = artLocal.fondoOrigen != null ? artLocal.fondoOrigen : "OFICIAL";
+                    nuevoResg.folioResguardoOficial = artLocal.folioResguardo;
+                    nuevoResg.persistAndFlush();
+                    resguardos.add(nuevoResg);
+                }
+            }
+        }
 
         String anioActual = String.valueOf(LocalDate.now().getYear());
         String cct = empleado.cct != null ? empleado.cct.trim().toUpperCase() : "SIN-CCT";
+        String rfcOClave = (empleado.rfc != null && !empleado.rfc.isBlank())
+                ? empleado.rfc
+                : (empleado.claveResponsable != null && !empleado.claveResponsable.isBlank() ? empleado.claveResponsable : empleado.nombre);
         Map<String, String> foliosPorFondo = new HashMap<>();
         int totalVerificados = 0;
 
@@ -536,6 +623,18 @@ public class ResguardoResource {
                 a.centroTrabajo = cct;
             }
             a.persist();
+
+            if (relacionalService != null && relacionalService.puedeOperarInventario(null)) {
+                relacionalService.actualizarResguardoEnInventarioRelacional(
+                        a.numeroInventario,
+                        null,
+                        cct,
+                        idEmpleado,
+                        rfcOClave,
+                        folioCre,
+                        "CRE"
+                );
+            }
 
             HistorialTrazabilidad h = new HistorialTrazabilidad();
             h.articulo = a;
@@ -595,8 +694,28 @@ public class ResguardoResource {
         if (idEmpleado == null) {
             return Response.ok(new ArrayList<>()).build();
         }
-        List<Resguardo> resguardos = Resguardo.find("empleado.idEmpleado = ?1", idEmpleado).list();
+        Empleado empIntegral = buscarEmpleadoIntegral(idEmpleado);
+        List<Long> idsEmp = new ArrayList<>();
+        idsEmp.add(idEmpleado);
+        if (empIntegral != null) {
+            if (empIntegral.rfc != null && !empIntegral.rfc.isBlank()) {
+                for (Empleado eLoc : Empleado.<Empleado>find("upper(rfc) = ?1", empIntegral.rfc.trim().toUpperCase(Locale.ROOT)).list()) {
+                    if (eLoc.idEmpleado != null && !idsEmp.contains(eLoc.idEmpleado)) {
+                        idsEmp.add(eLoc.idEmpleado);
+                    }
+                }
+            }
+            if (empIntegral.nombre != null && !empIntegral.nombre.isBlank()) {
+                for (Empleado eLoc : Empleado.<Empleado>find("upper(nombre) = ?1", empIntegral.nombre.trim().toUpperCase(Locale.ROOT)).list()) {
+                    if (eLoc.idEmpleado != null && !idsEmp.contains(eLoc.idEmpleado)) {
+                        idsEmp.add(eLoc.idEmpleado);
+                    }
+                }
+            }
+        }
+        List<Resguardo> resguardos = Resguardo.find("empleado.idEmpleado in ?1", idsEmp).list();
         List<ResguardoExtendidoDTO> lista = new ArrayList<>();
+        java.util.Set<String> inventariosAgregados = new java.util.HashSet<>();
 
         for (Resguardo r : resguardos) {
             if (r == null) continue;
@@ -612,7 +731,53 @@ public class ResguardoResource {
             } else {
                 dto.estadoResguardo = r.estadoResguardo;
             }
+            if (dto.numeroInventario != null && !dto.numeroInventario.isBlank()) {
+                inventariosAgregados.add(dto.numeroInventario.trim().toUpperCase(Locale.ROOT));
+            }
             lista.add(dto);
+        }
+
+        if (relacionalService != null && relacionalService.puedeOperarInventario(null)) {
+            Empleado emp = buscarEmpleadoIntegral(idEmpleado);
+            String rfc = emp != null ? emp.rfc : null;
+            String cct = emp != null ? emp.cct : null;
+            String nombre = emp != null ? emp.nombre : null;
+            List<Articulo> bienesRel = relacionalService.listarBienesPorResponsableOCct(idEmpleado, rfc, cct, nombre);
+            long synthId = 800_000L;
+            for (Articulo a : bienesRel) {
+                if (a == null) continue;
+                String numInvKey = a.numeroInventario != null ? a.numeroInventario.trim().toUpperCase(Locale.ROOT) : "";
+                if (!numInvKey.isEmpty() && !inventariosAgregados.add(numInvKey)) {
+                    continue;
+                }
+                ResguardoExtendidoDTO dto = new ResguardoExtendidoDTO();
+                dto.idResguardo = a.id != null ? a.id : (++synthId);
+                dto.idArticulo = a.id;
+                dto.equipoSerie = a.numeroSerie;
+                dto.equipoMarca = (a.marca != null && !a.marca.isBlank()) ? a.marca : a.descripcion;
+                dto.idEmpleado = idEmpleado;
+                dto.nombreEmpleado = nombre != null ? nombre : a.resguardanteActual;
+                dto.areaDestino = a.areaUbicacion;
+                dto.fechaAsignacion = a.fechaResguardo != null ? a.fechaResguardo : a.fechaAdquisicion;
+                dto.cantidadAsignada = a.cantidadStock != null ? a.cantidadStock : 1.0;
+                dto.estadoResguardo = "Baja".equalsIgnoreCase(a.estado) ? "DEVUELTO" : "ACTIVO";
+                dto.numeroInventario = a.numeroInventario;
+                dto.folioResguardoOficial = a.folioResguardo;
+                dto.fondoOrigen = a.fondoOrigen != null ? a.fondoOrigen : "OFICIAL";
+                dto.imagenBienBase64 = a.imagenBienBase64;
+                dto.descripcionBien = (a.descripcion != null && !a.descripcion.isBlank()) ? a.descripcion : a.marca;
+                dto.partidaBien = a.partida;
+                dto.valorBien = a.valorInicial != null ? a.valorInicial : a.precioSinIva;
+                dto.estadoFisicoBien = a.estadoFisico != null ? a.estadoFisico : "BUENO";
+                dto.facturaBien = a.factura;
+                dto.fechaFacturaBien = a.fechaFactura;
+                dto.folioFiscalBien = a.folioFiscalUuid;
+                dto.boletaSalidaBien = a.boletaSalida;
+                dto.fechaUltimaActualizacionAnual = a.fechaUltimaActualizacionAnual;
+                dto.estadoVerificacionAnual = a.estadoVerificacionAnual != null ? a.estadoVerificacionAnual : "VERIFICADO";
+                dto.cct = (a.centroTrabajo != null && !a.centroTrabajo.isBlank()) ? a.centroTrabajo : cct;
+                lista.add(dto);
+            }
         }
         return Response.ok(lista).build();
     }

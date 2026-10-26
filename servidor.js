@@ -50,6 +50,6 @@ const server = http.createServer((req, res) => {
     });
 });
 
-server.listen(PUERTO, '127.0.0.1', () => {
-    console.log(`Servidor local activo en: http://127.0.0.1:${PUERTO}/login/`);
+server.listen(PUERTO, () => {
+    console.log(`Servidor local activo en: http://localhost:${PUERTO}/login/index.html`);
 });

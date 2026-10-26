@@ -44,10 +44,36 @@ public class PostgresRelacionalCrudService {
         public Map<String, Integer> longitudColumnas = new HashMap<>();
         public Map<String, Integer> tipoSqlColumnas = new HashMap<>();
         public Set<String> columnas = new LinkedHashSet<>();
+        public Map<String, String> nombreRealColumna = new HashMap<>();
         public Map<String, String> fkPorTablaDestino = new HashMap<>();
     }
 
+    private static final long TTL_CACHE_MS = 10 * 60 * 1000L;
+
+    private static class CacheEntry<T> {
+        final T valor;
+        final long expiraEn;
+
+        CacheEntry(T valor, long ttlMs) {
+            this.valor = valor;
+            this.expiraEn = System.currentTimeMillis() + ttlMs;
+        }
+
+        boolean vigente() {
+            return System.currentTimeMillis() < expiraEn;
+        }
+    }
+
     private final Map<String, TablaMeta> cacheMetadatos = new ConcurrentHashMap<>();
+    private final Map<String, CacheEntry<Boolean>> cacheDisponibilidadTablas = new ConcurrentHashMap<>();
+    private final Map<String, CacheEntry<Map<Integer, String>>> cacheMapasSimples = new ConcurrentHashMap<>();
+    private final Map<String, CacheEntry<List<CatalogoGeneral>>> cacheCatalogoPorTipo = new ConcurrentHashMap<>();
+    private volatile CacheEntry<List<CentroTrabajo>> cacheCentrosTrabajo = null;
+    private volatile CacheEntry<Map<Integer, CentroTrabajo>> cacheCctPorId = null;
+    private volatile CacheEntry<List<Empleado>> cacheResponsables = null;
+    private volatile CacheEntry<Map<String, Empleado>> cacheIndiceDirectores = null;
+    private volatile CacheEntry<List<CatalogoGeneral>> cacheTodosCatalogos = null;
+    private volatile CacheEntry<Map<String, String>> cacheMapaCctPorResponsable = null;
 
     public MultiDataSourceConfig.OrigenDatos resolverOrigenInventarioActivo(String fondo) {
         if (fondo != null && !fondo.isBlank()) {
@@ -88,9 +114,17 @@ public class PostgresRelacionalCrudService {
         if (origen == null) {
             return false;
         }
+        String key = "INV::" + origen.name();
+        CacheEntry<Boolean> cached = cacheDisponibilidadTablas.get(key);
+        if (cached != null && cached.vigente()) {
+            return cached.valor;
+        }
         try (Connection conn = multiDataSourceConfig.obtenerConexion(origen)) {
-            return inspeccionarTabla(conn, origen, "inventario") != null;
+            boolean ok = inspeccionarTabla(conn, origen, "inventario") != null;
+            cacheDisponibilidadTablas.put(key, new CacheEntry<>(ok, TTL_CACHE_MS));
+            return ok;
         } catch (Exception e) {
+            cacheDisponibilidadTablas.put(key, new CacheEntry<>(false, 30_000L));
             return false;
         }
     }
@@ -100,9 +134,17 @@ public class PostgresRelacionalCrudService {
         if (origen == null) {
             return false;
         }
+        String key = "CCT::" + origen.name();
+        CacheEntry<Boolean> cached = cacheDisponibilidadTablas.get(key);
+        if (cached != null && cached.vigente()) {
+            return cached.valor;
+        }
         try (Connection conn = multiDataSourceConfig.obtenerConexion(origen)) {
-            return inspeccionarTabla(conn, origen, "cct") != null;
+            boolean ok = inspeccionarTabla(conn, origen, "cct") != null;
+            cacheDisponibilidadTablas.put(key, new CacheEntry<>(ok, TTL_CACHE_MS));
+            return ok;
         } catch (Exception e) {
+            cacheDisponibilidadTablas.put(key, new CacheEntry<>(false, 30_000L));
             return false;
         }
     }
@@ -112,9 +154,17 @@ public class PostgresRelacionalCrudService {
         if (origen == null) {
             return false;
         }
+        String key = "RESP::" + origen.name();
+        CacheEntry<Boolean> cached = cacheDisponibilidadTablas.get(key);
+        if (cached != null && cached.vigente()) {
+            return cached.valor;
+        }
         try (Connection conn = multiDataSourceConfig.obtenerConexion(origen)) {
-            return inspeccionarTabla(conn, origen, "responsables") != null;
+            boolean ok = inspeccionarTabla(conn, origen, "responsables") != null;
+            cacheDisponibilidadTablas.put(key, new CacheEntry<>(ok, TTL_CACHE_MS));
+            return ok;
         } catch (Exception e) {
+            cacheDisponibilidadTablas.put(key, new CacheEntry<>(false, 30_000L));
             return false;
         }
     }
@@ -128,9 +178,17 @@ public class PostgresRelacionalCrudService {
         if (candidatos.length == 0) {
             return false;
         }
+        String key = "CAT::" + origen.name() + "::" + tipoCatalogo.trim().toLowerCase(Locale.ROOT);
+        CacheEntry<Boolean> cached = cacheDisponibilidadTablas.get(key);
+        if (cached != null && cached.vigente()) {
+            return cached.valor;
+        }
         try (Connection conn = multiDataSourceConfig.obtenerConexion(origen)) {
-            return inspeccionarTabla(conn, origen, candidatos) != null;
+            boolean ok = inspeccionarTabla(conn, origen, candidatos) != null;
+            cacheDisponibilidadTablas.put(key, new CacheEntry<>(ok, TTL_CACHE_MS));
+            return ok;
         } catch (Exception e) {
+            cacheDisponibilidadTablas.put(key, new CacheEntry<>(false, 30_000L));
             return false;
         }
     }
@@ -146,12 +204,20 @@ public class PostgresRelacionalCrudService {
             case "naturaleza_gasto", "naturaleza_gastos", "naturaleza_gastos_1" -> new String[]{"naturaleza_gastos_1", "naturaleza_gastos"};
             case "marcas" -> new String[]{"marcas"};
             case "tipos_folios" -> new String[]{"tipos_folios"};
+            case "departamentos" -> new String[]{"departamentos"};
+            case "unidades", "unidades_1" -> new String[]{"unidades_1", "unidades"};
+            case "subdirecciones", "subdirector", "subdirector_1" -> new String[]{"subdirector_1", "subdirector"};
+            case "giros" -> new String[]{"giros"};
+            case "municipios", "municipio" -> new String[]{"municipio"};
+            case "localidades", "localidad" -> new String[]{"localidad"};
+            case "vialidades", "validades" -> new String[]{"validades"};
+            case "asentamientos" -> new String[]{"asentamientos"};
             default -> new String[0];
         };
     }
 
     public TablaMeta inspeccionarTabla(Connection conn, MultiDataSourceConfig.OrigenDatos origen, String... posiblesNombres) throws SQLException {
-        String[] esquemasBusqueda = new String[]{"Inventario", "inventario", "public", null};
+        String[] esquemasBusqueda = new String[]{"inventario", "Inventario", "public", null};
         for (String candidato : posiblesNombres) {
             String cacheKey = origen.name() + "::" + candidato.toLowerCase(Locale.ROOT);
             if (cacheMetadatos.containsKey(cacheKey)) {
@@ -184,15 +250,22 @@ public class PostgresRelacionalCrudService {
 
             try (ResultSet rsCols = md.getColumns(null, meta.schemaReal, nombreEncontrado, null)) {
                 while (rsCols.next()) {
-                    String colName = rsCols.getString("COLUMN_NAME").toLowerCase(Locale.ROOT);
+                    String rawColName = rsCols.getString("COLUMN_NAME");
+                    String colName = rawColName.toLowerCase(Locale.ROOT);
+                    String trimmedCol = colName.trim();
                     int colSize = rsCols.getInt("COLUMN_SIZE");
                     int sqlType = rsCols.getInt("DATA_TYPE");
                     String isAuto = rsCols.getString("IS_AUTOINCREMENT");
                     meta.columnas.add(colName);
+                    meta.columnas.add(trimmedCol);
+                    meta.nombreRealColumna.put(colName, rawColName);
+                    meta.nombreRealColumna.put(trimmedCol, rawColName);
                     meta.longitudColumnas.put(colName, colSize);
+                    meta.longitudColumnas.put(trimmedCol, colSize);
                     meta.tipoSqlColumnas.put(colName, sqlType);
+                    meta.tipoSqlColumnas.put(trimmedCol, sqlType);
                     if ("YES".equalsIgnoreCase(isAuto) && meta.pkColumna == null) {
-                        meta.pkColumna = colName;
+                        meta.pkColumna = trimmedCol;
                         meta.pkAutoincremental = true;
                     }
                 }
@@ -200,7 +273,7 @@ public class PostgresRelacionalCrudService {
 
             try (ResultSet rsPk = md.getPrimaryKeys(null, meta.schemaReal, nombreEncontrado)) {
                 if (rsPk.next()) {
-                    meta.pkColumna = rsPk.getString("COLUMN_NAME").toLowerCase(Locale.ROOT);
+                    meta.pkColumna = rsPk.getString("COLUMN_NAME").toLowerCase(Locale.ROOT).trim();
                 }
             }
 
@@ -213,7 +286,7 @@ public class PostgresRelacionalCrudService {
                     String pktable = rsFk.getString("PKTABLE_NAME");
                     String fkcol = rsFk.getString("FKCOLUMN_NAME");
                     if (pktable != null && fkcol != null) {
-                        meta.fkPorTablaDestino.putIfAbsent(pktable.toLowerCase(Locale.ROOT), fkcol.toLowerCase(Locale.ROOT));
+                        meta.fkPorTablaDestino.putIfAbsent(pktable.toLowerCase(Locale.ROOT).trim(), fkcol.toLowerCase(Locale.ROOT).trim());
                     }
                 }
             }
@@ -239,6 +312,16 @@ public class PostgresRelacionalCrudService {
         if ((t.startsWith("naturaleza_gasto")) && cols.contains("id_naturaleza_gastos")) return "id_naturaleza_gastos";
         if ("tipos_folios".equals(t) && cols.contains("tipo_folio_id")) return "tipo_folio_id";
         if ("tipos".equals(t) && cols.contains("id_tipo")) return "id_tipo";
+        if ("departamentos".equals(t) && cols.contains("id_departamentos")) return "id_departamentos";
+        if ((t.startsWith("unidades")) && cols.contains("id_unidades_1")) return "id_unidades_1";
+        if ((t.startsWith("unidades")) && cols.contains("id_unidades")) return "id_unidades";
+        if ((t.startsWith("subdirector")) && cols.contains("id_subdirector_1")) return "id_subdirector_1";
+        if ((t.startsWith("subdirector")) && cols.contains("id_subdirector")) return "id_subdirector";
+        if ("giros".equals(t) && cols.contains("id_giros_1")) return "id_giros_1";
+        if ("municipio".equals(t) && cols.contains("id_municipio_1")) return "id_municipio_1";
+        if ("localidad".equals(t) && cols.contains("id_localidad_1")) return "id_localidad_1";
+        if ("validades".equals(t) && cols.contains("id_validades_1")) return "id_validades_1";
+        if ("asentamientos".equals(t) && cols.contains("id_asentamiento")) return "id_asentamiento";
         if ("inventario".equals(t)) {
             if (cols.contains("id_inventario")) return "id_inventario";
             if (cols.contains("id")) return "id";
@@ -319,31 +402,90 @@ public class PostgresRelacionalCrudService {
                 String term = "%" + busqueda.trim().toLowerCase(Locale.ROOT) + "%";
                 String ind = indiceBusqueda != null ? indiceBusqueda.trim().toUpperCase(Locale.ROOT) : "TODOS";
                 List<String> colsBusqueda = new ArrayList<>();
+                boolean incluirSubqueryCctResp = false;
+                boolean incluirSubqueryPartidaTipo = false;
+
                 if ("INVENTARIO".equals(ind)) {
                     agregarSiExiste(metaInv, colsBusqueda, "invofm", "inv_ant", "folio");
                 } else if ("SERIE".equals(ind)) {
                     agregarSiExiste(metaInv, colsBusqueda, "serie");
                 } else if ("CCT_RESGUARDANTE".equals(ind) || "RESGUARDANTE_CCT".equals(ind)) {
                     agregarSiExiste(metaInv, colsBusqueda, "cversp_act", "docto", "folio");
+                    incluirSubqueryCctResp = true;
                 } else if ("TIPO_PARTIDA".equals(ind)) {
                     agregarSiExiste(metaInv, colsBusqueda, "partida", "natgasto", "tipo_fin");
+                    incluirSubqueryPartidaTipo = true;
                 } else {
-                    agregarSiExiste(metaInv, colsBusqueda, "invofm", "inv_ant", "descripcion", "descripcion1", "marca", "modelo", "serie", "proveedor", "factura", "partida", "cversp_act");
+                    agregarSiExiste(metaInv, colsBusqueda,
+                            "invofm", "inv_ant", "descripcion", "descripcion1", "marca", "modelo",
+                            "serie", "proveedor", "factura", "dactura", "requis", "requisito",
+                            "fol_fiscal", "folio_fiscal", "partida", "cversp_act", "folio");
+                    incluirSubqueryCctResp = true;
+                    incluirSubqueryPartidaTipo = true;
                 }
-                if (!colsBusqueda.isEmpty()) {
-                    where.append(" AND (");
-                    for (int i = 0; i < colsBusqueda.size(); i++) {
-                        if (i > 0) where.append(" OR ");
-                        where.append("LOWER(COALESCE(CAST(").append(colsBusqueda.get(i)).append(" AS TEXT), '')) LIKE ?");
+
+                List<String> condicionesOr = new ArrayList<>();
+                for (String col : colsBusqueda) {
+                    condicionesOr.add("LOWER(COALESCE(CAST(" + col + " AS TEXT), '')) LIKE ?");
+                    params.add(term);
+                }
+
+                if (incluirSubqueryCctResp) {
+                    String colCct = metaInv.columnas.contains("id_cct") ? "id_cct" : (metaInv.columnas.contains("fk_cct") ? "fk_cct" : null);
+                    TablaMeta metaCct = colCct != null ? inspeccionarTabla(conn, origen, "cct") : null;
+                    if (colCct != null && metaCct != null) {
+                        condicionesOr.add(colCct + " IN (SELECT id_cct FROM " + metaCct.nombreReal
+                                + " WHERE LOWER(COALESCE(clave_ct, '')) LIKE ? OR LOWER(COALESCE(nombre_ct, '')) LIKE ? OR LOWER(COALESCE(director, '')) LIKE ?)");
+                        params.add(term);
+                        params.add(term);
                         params.add(term);
                     }
-                    where.append(")");
+                    String colResp = metaInv.columnas.contains("id_responsable") ? "id_responsable" : (metaInv.columnas.contains("fk_responsable") ? "fk_responsable" : null);
+                    TablaMeta metaResp = colResp != null ? inspeccionarTabla(conn, origen, "responsables") : null;
+                    if (colResp != null && metaResp != null && metaResp.pkColumna != null) {
+                        condicionesOr.add(colResp + " IN (SELECT " + metaResp.pkColumna + " FROM " + metaResp.nombreReal
+                                + " WHERE LOWER(COALESCE(rfc, '')) LIKE ? OR LOWER(COALESCE(nombres, '')) LIKE ? OR LOWER(COALESCE(paterno, '')) LIKE ? OR LOWER(COALESCE(materno, '')) LIKE ? OR LOWER(COALESCE(apellidos, '')) LIKE ?)");
+                        params.add(term);
+                        params.add(term);
+                        params.add(term);
+                        params.add(term);
+                        params.add(term);
+                    }
+                }
+
+                if (incluirSubqueryPartidaTipo) {
+                    String colPart = metaInv.columnas.contains("id_partida") ? "id_partida" : (metaInv.columnas.contains("fk_partida") ? "fk_partida" : null);
+                    TablaMeta metaPart = colPart != null ? inspeccionarTabla(conn, origen, "partidas") : null;
+                    if (colPart != null && metaPart != null) {
+                        condicionesOr.add(colPart + " IN (SELECT id_partida FROM " + metaPart.nombreReal
+                                + " WHERE LOWER(COALESCE(pa_partida, '')) LIKE ? OR LOWER(COALESCE(pa_descripcion, '')) LIKE ?)");
+                        params.add(term);
+                        params.add(term);
+                    }
+                    String colTipo = metaInv.columnas.contains("id_tipo") ? "id_tipo" : (metaInv.columnas.contains("fk_tipo") ? "fk_tipo" : null);
+                    TablaMeta metaTipo = colTipo != null ? inspeccionarTabla(conn, origen, "tipos") : null;
+                    if (colTipo != null && metaTipo != null) {
+                        condicionesOr.add(colTipo + " IN (SELECT id_tipo FROM " + metaTipo.nombreReal
+                                + " WHERE LOWER(COALESCE(tipos, '')) LIKE ? OR LOWER(COALESCE(descripcion, '')) LIKE ?)");
+                        params.add(term);
+                        params.add(term);
+                    }
+                }
+
+                if (!condicionesOr.isEmpty()) {
+                    where.append(" AND (").append(String.join(" OR ", condicionesOr)).append(")");
                 }
             }
 
             if (fondo != null && !fondo.isBlank() && metaInv.columnas.contains("origen")) {
-                where.append(" AND UPPER(COALESCE(origen, '')) = ?");
-                params.add(fondo.trim().toUpperCase(Locale.ROOT));
+                String fondoNorm = fondo.trim().toUpperCase(Locale.ROOT);
+                if ("INTERNO".equals(fondoNorm) || "OFICIAL".equals(fondoNorm)) {
+                    where.append(" AND (UPPER(TRIM(COALESCE(origen, ''))) = ? OR origen IS NULL OR TRIM(origen) = '')");
+                    params.add(fondoNorm);
+                } else {
+                    where.append(" AND UPPER(TRIM(COALESCE(origen, ''))) = ?");
+                    params.add(fondoNorm);
+                }
             }
 
             long total = 0;
@@ -401,6 +543,82 @@ public class PostgresRelacionalCrudService {
         }
     }
 
+    public List<Articulo> listarBienesPorResponsableOCct(Long idEmpleado, String rfc, String cctClave, String nombreResp) {
+        MultiDataSourceConfig.OrigenDatos origen = resolverOrigenInventarioActivo(null);
+        if (origen == null) {
+            return Collections.emptyList();
+        }
+        try (Connection conn = multiDataSourceConfig.obtenerConexion(origen)) {
+            TablaMeta metaInv = inspeccionarTabla(conn, origen, "inventario");
+            if (metaInv == null) {
+                return Collections.emptyList();
+            }
+
+            List<String> ors = new ArrayList<>();
+            List<Object> params = new ArrayList<>();
+
+            String colResp = metaInv.columnas.contains("id_responsable") ? "id_responsable" : (metaInv.columnas.contains("fk_responsable") ? "fk_responsable" : null);
+            if (colResp != null && idEmpleado != null && idEmpleado > 0 && idEmpleado < 900_000L) {
+                ors.add(colResp + " = ?");
+                params.add(idEmpleado.intValue());
+            }
+
+            String colCct = metaInv.columnas.contains("id_cct") ? "id_cct" : (metaInv.columnas.contains("fk_cct") ? "fk_cct" : null);
+            if (colCct != null && cctClave != null && !cctClave.isBlank() && !"SIN-CCT".equalsIgnoreCase(cctClave) && !"CENTRAL".equalsIgnoreCase(cctClave)) {
+                TablaMeta metaCct = inspeccionarTabla(conn, origen, "cct");
+                if (metaCct != null) {
+                    ors.add(colCct + " IN (SELECT id_cct FROM " + metaCct.nombreReal + " WHERE UPPER(TRIM(COALESCE(clave_ct, ''))) = ?)");
+                    params.add(cctClave.trim().toUpperCase(Locale.ROOT));
+                }
+            }
+
+            if (metaInv.columnas.contains("cversp_act")) {
+                if (rfc != null && !rfc.isBlank()) {
+                    ors.add("UPPER(TRIM(COALESCE(cversp_act, ''))) = ?");
+                    params.add(rfc.trim().toUpperCase(Locale.ROOT));
+                }
+                if (nombreResp != null && !nombreResp.isBlank()) {
+                    ors.add("UPPER(TRIM(COALESCE(cversp_act, ''))) = ?");
+                    params.add(nombreResp.trim().toUpperCase(Locale.ROOT));
+                }
+            }
+
+            if (ors.isEmpty()) {
+                return Collections.emptyList();
+            }
+
+            String orderCol = metaInv.pkColumna != null ? metaInv.pkColumna : (metaInv.columnas.contains("invofm") ? "invofm" : "1");
+            String sql = "SELECT * FROM " + metaInv.nombreReal + " WHERE (" + String.join(" OR ", ors) + ") ORDER BY " + orderCol + " DESC LIMIT 500";
+
+            Map<Integer, String> mapaCct = cargarMapaSimple(conn, origen, "cct", "id_cct", "clave_ct");
+            Map<Integer, String> mapaPartidas = cargarMapaSimple(conn, origen, "partidas", "id_partida", "pa_partida");
+            Map<Integer, String> mapaMarcas = cargarMapaSimple(conn, origen, "marcas", "id_marca", "descripcion");
+            Map<Integer, String> mapaProveedores = cargarMapaSimple(conn, origen, "proveedores", "id_proveedor", "nombre");
+            Map<Integer, String> mapaTipos = cargarMapaSimple(conn, origen, "tipos", "id_tipo", "descripcion");
+            Map<Integer, String> mapaNatGasto = cargarMapaSimple(conn, origen, "naturaleza_gastos_1", "id_naturaleza_gastos", "descripcion");
+            Map<Integer, String> mapaTiposFolios = cargarMapaSimple(conn, origen, "tipos_folios", "tipo_folio_id", "clave");
+
+            List<Articulo> resultado = new ArrayList<>();
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                for (int i = 0; i < params.size(); i++) {
+                    ps.setObject(i + 1, params.get(i));
+                }
+                try (ResultSet rs = ps.executeQuery()) {
+                    long rowCounter = 1L;
+                    while (rs.next()) {
+                        resultado.add(mapearResultSetAArticulo(
+                                rs, metaInv, origen, rowCounter++,
+                                mapaCct, mapaPartidas, mapaMarcas, mapaProveedores, mapaTipos, mapaNatGasto, mapaTiposFolios
+                        ));
+                    }
+                }
+            }
+            return resultado;
+        } catch (Exception e) {
+            return Collections.emptyList();
+        }
+    }
+
     public Articulo buscarPorFolio(String folio) throws SQLException {
         if (folio == null || folio.isBlank()) {
             return null;
@@ -452,6 +670,341 @@ public class PostgresRelacionalCrudService {
         }
     }
 
+    public Articulo buscarPorIdRelacional(Long id) {
+        if (id == null) {
+            return null;
+        }
+        MultiDataSourceConfig.OrigenDatos origen = resolverOrigenInventarioActivo(null);
+        if (origen == null) {
+            return null;
+        }
+        try (Connection conn = multiDataSourceConfig.obtenerConexion(origen)) {
+            TablaMeta metaInv = inspeccionarTabla(conn, origen, "inventario");
+            if (metaInv == null || metaInv.pkColumna == null) {
+                return null;
+            }
+            String sql = "SELECT * FROM " + metaInv.nombreReal + " WHERE " + metaInv.pkColumna + " = ? LIMIT 1";
+            Map<Integer, String> mapaCct = cargarMapaSimple(conn, origen, "cct", "id_cct", "clave_ct");
+            Map<Integer, String> mapaPartidas = cargarMapaSimple(conn, origen, "partidas", "id_partida", "pa_partida");
+            Map<Integer, String> mapaMarcas = cargarMapaSimple(conn, origen, "marcas", "id_marca", "descripcion");
+            Map<Integer, String> mapaProveedores = cargarMapaSimple(conn, origen, "proveedores", "id_proveedor", "nombre");
+            Map<Integer, String> mapaTipos = cargarMapaSimple(conn, origen, "tipos", "id_tipo", "descripcion");
+            Map<Integer, String> mapaNatGasto = cargarMapaSimple(conn, origen, "naturaleza_gastos_1", "id_naturaleza_gastos", "descripcion");
+            Map<Integer, String> mapaTiposFolios = cargarMapaSimple(conn, origen, "tipos_folios", "tipo_folio_id", "clave");
+
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setObject(1, id);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return mapearResultSetAArticulo(
+                                rs, metaInv, origen, id,
+                                mapaCct, mapaPartidas, mapaMarcas, mapaProveedores, mapaTipos, mapaNatGasto, mapaTiposFolios
+                        );
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    public void actualizarResguardoEnInventarioRelacional(
+            String invofm,
+            Long idInventario,
+            String cctClave,
+            Long idResponsable,
+            String rfcOClaveResp,
+            String folioResguardo,
+            String tipoFolio
+    ) {
+        MultiDataSourceConfig.OrigenDatos origen = resolverOrigenInventarioActivo(null);
+        if (origen == null) {
+            return;
+        }
+        try (Connection conn = multiDataSourceConfig.obtenerConexion(origen)) {
+            TablaMeta metaInv = inspeccionarTabla(conn, origen, "inventario");
+            if (metaInv == null) {
+                return;
+            }
+
+            Map<String, Object> sets = new LinkedHashMap<>();
+
+            if (cctClave != null && !cctClave.isBlank()
+                    && !"SIN-CCT".equalsIgnoreCase(cctClave.trim())
+                    && !"CENTRAL".equalsIgnoreCase(cctClave.trim())) {
+                Integer fkCct = resolverFkEnTabla(conn, origen, "cct", "id_cct", new String[]{"clave_ct", "nombre_ct"}, cctClave.trim());
+                if (fkCct != null) {
+                    if (metaInv.columnas.contains("id_cct")) sets.put("id_cct", fkCct);
+                    if (metaInv.columnas.contains("fk_cct")) sets.put("fk_cct", fkCct);
+                }
+            }
+
+            Integer fkResp = null;
+            if (idResponsable != null && idResponsable > 0 && idResponsable < 900_000L) {
+                fkResp = idResponsable.intValue();
+            } else if (rfcOClaveResp != null && !rfcOClaveResp.isBlank()) {
+                TablaMeta metaResp = inspeccionarTabla(conn, origen, "responsables");
+                if (metaResp != null && metaResp.pkColumna != null) {
+                    fkResp = resolverFkEnTabla(
+                            conn, origen, "responsables", metaResp.pkColumna,
+                            new String[]{"rfc", "rfc2", "curp", "nombres"}, rfcOClaveResp.trim()
+                    );
+                }
+            }
+            if (fkResp != null) {
+                if (metaInv.columnas.contains("id_responsable")) sets.put("id_responsable", fkResp);
+                if (metaInv.columnas.contains("fk_responsable")) sets.put("fk_responsable", fkResp);
+            }
+
+            if (rfcOClaveResp != null && !rfcOClaveResp.isBlank()) {
+                ponerTexto(metaInv, sets, "cversp_act", extraerClaveInicial(rfcOClaveResp));
+            }
+            if (folioResguardo != null && !folioResguardo.isBlank()) {
+                ponerTexto(metaInv, sets, "folio", folioResguardo.trim());
+            }
+            if (tipoFolio != null && !tipoFolio.isBlank()) {
+                ponerTexto(metaInv, sets, "tipofolio", tipoFolio.trim());
+                Integer fkTf = resolverFkEnTabla(conn, origen, "tipos_folios", "tipo_folio_id", new String[]{"clave", "descripcion"}, tipoFolio.trim());
+                if (fkTf != null) {
+                    if (metaInv.columnas.contains("id_tipo_folio")) sets.put("id_tipo_folio", fkTf);
+                    if (metaInv.columnas.contains("fk_tipofolio")) sets.put("fk_tipofolio", fkTf);
+                }
+            }
+            ponerFecha(metaInv, sets, "fecres", LocalDate.now());
+
+            if (sets.isEmpty()) {
+                return;
+            }
+
+            List<String> cols = new ArrayList<>(sets.keySet());
+            StringBuilder baseUpdate = new StringBuilder("UPDATE ").append(metaInv.nombreReal).append(" SET ");
+            for (int i = 0; i < cols.size(); i++) {
+                if (i > 0) baseUpdate.append(", ");
+                baseUpdate.append(columnaSqlSegura(metaInv, cols.get(i))).append(" = ?");
+            }
+
+            int updated = 0;
+            if (idInventario != null && idInventario > 0 && metaInv.pkColumna != null) {
+                String sqlById = baseUpdate + " WHERE " + metaInv.pkColumna + " = ?";
+                try (PreparedStatement ps = conn.prepareStatement(sqlById)) {
+                    int idx = 1;
+                    for (String col : cols) {
+                        asignarParametroSql(ps, idx++, sets.get(col));
+                    }
+                    ps.setObject(idx, idInventario);
+                    updated = ps.executeUpdate();
+                }
+            }
+
+            if (updated == 0 && invofm != null && !invofm.isBlank() && metaInv.columnas.contains("invofm")) {
+                String sqlByInv = baseUpdate + " WHERE UPPER(TRIM(COALESCE(invofm, ''))) = ?";
+                try (PreparedStatement ps = conn.prepareStatement(sqlByInv)) {
+                    int idx = 1;
+                    for (String col : cols) {
+                        asignarParametroSql(ps, idx++, sets.get(col));
+                    }
+                    ps.setString(idx, invofm.trim().toUpperCase(Locale.ROOT));
+                    ps.executeUpdate();
+                }
+            }
+
+            cacheMapaCctPorResponsable = null;
+            cacheResponsables = null;
+            cacheIndiceDirectores = null;
+        } catch (Exception ignored) {
+        }
+    }
+
+    public Articulo sincronizarArticuloEnPanache(Long idSolicitado, String numeroInventarioHint) {
+        Articulo localPorId = idSolicitado != null ? Articulo.findById(idSolicitado) : null;
+        Articulo ext = null;
+        if (puedeOperarInventario(null)) {
+            try {
+                if (idSolicitado != null) {
+                    ext = buscarPorIdRelacional(idSolicitado);
+                }
+                if (ext == null && numeroInventarioHint != null && !numeroInventarioHint.isBlank()) {
+                    ext = buscarPorFolio(numeroInventarioHint.trim());
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        if (ext == null) {
+            if (localPorId != null) {
+                return localPorId;
+            }
+            if (numeroInventarioHint != null && !numeroInventarioHint.isBlank()) {
+                return Articulo.find("upper(numeroInventario) = ?1", numeroInventarioHint.trim().toUpperCase(Locale.ROOT)).firstResult();
+            }
+            return null;
+        }
+        return sincronizarObjetoArticuloEnPanache(ext, localPorId);
+    }
+
+    public Articulo sincronizarObjetoArticuloEnPanache(Articulo ext, Articulo localPorId) {
+        if (ext == null) {
+            return localPorId;
+        }
+        if (localPorId != null && ext.numeroInventario != null && localPorId.numeroInventario != null
+                && ext.numeroInventario.trim().equalsIgnoreCase(localPorId.numeroInventario.trim())) {
+            return localPorId;
+        }
+        if (ext.numeroInventario != null && !ext.numeroInventario.isBlank()) {
+            Articulo existentePorInv = Articulo.find(
+                    "upper(numeroInventario) = ?1",
+                    ext.numeroInventario.trim().toUpperCase(Locale.ROOT)
+            ).firstResult();
+            if (existentePorInv != null) {
+                return existentePorInv;
+            }
+        } else if (localPorId != null) {
+            return localPorId;
+        }
+
+        Articulo nuevo = new Articulo();
+        nuevo.id = null;
+        nuevo.numeroInventario = ext.numeroInventario != null ? ext.numeroInventario : ("REL-" + ext.id);
+        nuevo.numeroInventarioAnterior = ext.numeroInventarioAnterior;
+        nuevo.fondoOrigen = ext.fondoOrigen != null ? ext.fondoOrigen : "OFICIAL";
+        nuevo.tokenQR = ext.tokenQR != null ? ext.tokenQR : UUID.randomUUID().toString();
+        nuevo.tipoMaterial = ext.tipoMaterial;
+        nuevo.subClave = ext.subClave;
+        nuevo.cuentaContable = ext.cuentaContable;
+        nuevo.descripcion = ext.descripcion;
+        nuevo.descripcionSecundaria = ext.descripcionSecundaria;
+        nuevo.marca = ext.marca;
+        nuevo.modelo = ext.modelo;
+        nuevo.numeroSerie = ext.numeroSerie;
+        nuevo.color = ext.color;
+        nuevo.categoria = ext.categoria;
+        nuevo.areaUbicacion = ext.areaUbicacion;
+        nuevo.unidadResponsable = ext.unidadResponsable;
+        nuevo.subdireccion = ext.subdireccion;
+        nuevo.departamento = ext.departamento;
+        nuevo.centroTrabajo = ext.centroTrabajo;
+        nuevo.resguardanteActual = ext.resguardanteActual;
+        nuevo.resguardanteHistorico = ext.resguardanteHistorico;
+        nuevo.folioResguardo = ext.folioResguardo;
+        nuevo.tipoFolioResguardo = ext.tipoFolioResguardo;
+        nuevo.documentoResguardo = ext.documentoResguardo;
+        nuevo.fechaResguardo = ext.fechaResguardo;
+        nuevo.cantidadStock = (ext.cantidadStock != null && ext.cantidadStock > 0) ? ext.cantidadStock : 1.0;
+        nuevo.estadoFisico = ext.estadoFisico != null ? ext.estadoFisico : "BUENO";
+        nuevo.estado = ext.estado != null ? ext.estado : "Activo";
+        nuevo.proveedor = ext.proveedor;
+        nuevo.factura = ext.factura;
+        nuevo.folioFiscalUuid = ext.folioFiscalUuid;
+        nuevo.boletaSalida = ext.boletaSalida;
+        nuevo.fechaFactura = ext.fechaFactura;
+        nuevo.fechaAdquisicion = ext.fechaAdquisicion != null ? ext.fechaAdquisicion : LocalDate.now();
+        nuevo.precioSinIva = ext.precioSinIva;
+        nuevo.valorInicial = ext.valorInicial;
+        nuevo.pedido = ext.pedido;
+        nuevo.requisicion = ext.requisicion;
+        nuevo.naturalezaGasto = ext.naturalezaGasto;
+        nuevo.partida = ext.partida;
+        nuevo.motor = ext.motor;
+        nuevo.placa = ext.placa;
+        nuevo.poliza = ext.poliza;
+        nuevo.vigenciaDesde = ext.vigenciaDesde;
+        nuevo.vigenciaPoliza = ext.vigenciaPoliza;
+        nuevo.tipoBaja = ext.tipoBaja;
+        nuevo.carpetaInvestigacion = ext.carpetaInvestigacion;
+        nuevo.oficioBaja = ext.oficioBaja;
+        nuevo.fechaBaja = ext.fechaBaja;
+        nuevo.numeroActa = ext.numeroActa;
+        nuevo.fechaActa = ext.fechaActa;
+        nuevo.imagenBienBase64 = ext.imagenBienBase64;
+        nuevo.fechaUltimaActualizacionAnual = ext.fechaUltimaActualizacionAnual;
+        nuevo.estadoVerificacionAnual = ext.estadoVerificacionAnual != null ? ext.estadoVerificacionAnual : "PENDIENTE";
+        nuevo.persistAndFlush();
+        return nuevo;
+    }
+
+    public Empleado sincronizarEmpleadoEnPanache(Long idEmpleadoSolicitado) {
+        if (idEmpleadoSolicitado == null) {
+            return null;
+        }
+        Empleado localPorId = Empleado.findById(idEmpleadoSolicitado);
+        Empleado ext = null;
+        if (puedeOperarResponsables()) {
+            try {
+                for (Empleado e : listarResponsables()) {
+                    if (e != null && idEmpleadoSolicitado.equals(e.idEmpleado)) {
+                        ext = e;
+                        break;
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+        }
+        if (ext == null) {
+            return localPorId;
+        }
+        if (localPorId != null) {
+            boolean coincideRfc = ext.rfc != null && !ext.rfc.isBlank()
+                    && localPorId.rfc != null && ext.rfc.trim().equalsIgnoreCase(localPorId.rfc.trim());
+            boolean coincideNombre = ext.nombre != null && !ext.nombre.isBlank()
+                    && localPorId.nombre != null && ext.nombre.trim().equalsIgnoreCase(localPorId.nombre.trim());
+            if (coincideRfc || coincideNombre) {
+                if ((localPorId.cct == null || localPorId.cct.isBlank()) && ext.cct != null && !ext.cct.isBlank()) {
+                    localPorId.cct = ext.cct;
+                    localPorId.nombreEscuela = ext.nombreEscuela;
+                    localPorId.persist();
+                }
+                return localPorId;
+            }
+        }
+
+        Empleado existente = null;
+        if (ext.rfc != null && !ext.rfc.isBlank()) {
+            String rfcUp = ext.rfc.trim().toUpperCase(Locale.ROOT);
+            existente = Empleado.find(
+                    "upper(rfc) = ?1 or upper(usuario) = ?1 or upper(claveResponsable) = ?1",
+                    rfcUp
+            ).firstResult();
+        }
+        if (existente == null && ext.nombre != null && !ext.nombre.isBlank()) {
+            String nomUp = ext.nombre.trim().toUpperCase(Locale.ROOT);
+            if (ext.cct != null && !ext.cct.isBlank()) {
+                existente = Empleado.find(
+                        "upper(nombre) = ?1 and upper(cct) = ?2",
+                        nomUp,
+                        ext.cct.trim().toUpperCase(Locale.ROOT)
+                ).firstResult();
+            }
+            if (existente == null) {
+                existente = Empleado.find("upper(nombre) = ?1", nomUp).firstResult();
+            }
+        }
+        if (existente != null) {
+            if ((existente.cct == null || existente.cct.isBlank()) && ext.cct != null && !ext.cct.isBlank()) {
+                existente.cct = ext.cct;
+                existente.nombreEscuela = ext.nombreEscuela;
+                existente.persist();
+            }
+            return existente;
+        }
+
+        Empleado nuevo = new Empleado();
+        nuevo.idEmpleado = null;
+        nuevo.nombre = ext.nombre;
+        nuevo.numeroEmpleado = ext.numeroEmpleado;
+        nuevo.rfc = ext.rfc;
+        nuevo.cct = ext.cct;
+        nuevo.nombreEscuela = ext.nombreEscuela;
+        nuevo.usuario = ext.usuario;
+        nuevo.cargo = ext.cargo;
+        nuevo.area = ext.area;
+        nuevo.curp = ext.curp;
+        nuevo.claveResponsable = ext.claveResponsable;
+        nuevo.apellidoPaterno = ext.apellidoPaterno;
+        nuevo.apellidoMaterno = ext.apellidoMaterno;
+        nuevo.activo = ext.activo != null ? ext.activo : 1;
+        nuevo.persistAndFlush();
+        return nuevo;
+    }
+
     public Articulo insertarArticulo(Articulo articulo, String usuarioAdmin) throws SQLException {
         MultiDataSourceConfig.OrigenDatos origen = resolverOrigenInventarioActivo(articulo.fondoOrigen);
         if (origen == null) {
@@ -493,7 +1046,7 @@ public class PostgresRelacionalCrudService {
                     sql.append(", ");
                     placeholders.append(", ");
                 }
-                sql.append(cols.get(i));
+                sql.append(columnaSqlSegura(metaInv, cols.get(i)));
                 placeholders.append("?");
             }
             sql.append(") VALUES (").append(placeholders).append(")");
@@ -542,7 +1095,7 @@ public class PostgresRelacionalCrudService {
             StringBuilder sql = new StringBuilder("UPDATE ").append(metaInv.nombreReal).append(" SET ");
             for (int i = 0; i < cols.size(); i++) {
                 if (i > 0) sql.append(", ");
-                sql.append(cols.get(i)).append(" = ?");
+                sql.append(columnaSqlSegura(metaInv, cols.get(i))).append(" = ?");
             }
 
             boolean usarInvofm = (datos.numeroInventario != null && !datos.numeroInventario.isBlank() && metaInv.columnas.contains("invofm"))
@@ -622,7 +1175,7 @@ public class PostgresRelacionalCrudService {
     ) throws SQLException {
         Map<String, Object> m = new LinkedHashMap<>();
 
-        ponerTexto(meta, m, "cversp_act", a.resguardanteActual);
+        ponerTexto(meta, m, "cversp_act", extraerClaveInicial(a.resguardanteActual));
         ponerTexto(meta, m, "tipo_fin", a.cuentaContable);
         ponerTexto(meta, m, "folio", a.folioResguardo);
         ponerTexto(meta, m, "tipofolio", a.tipoFolioResguardo);
@@ -644,18 +1197,26 @@ public class PostgresRelacionalCrudService {
         ponerTexto(meta, m, "estado", mapearEstadoFisicoACodigo(a.estadoFisico));
         ponerTexto(meta, m, "proveedor", a.proveedor);
         ponerTexto(meta, m, "pedido", a.pedido);
+        ponerTexto(meta, m, "requisito", a.requisicion);
         ponerTexto(meta, m, "requis", a.requisicion);
         ponerTexto(meta, m, "salida", a.boletaSalida);
         if (meta.columnas.contains("precio")) {
             Double precio = a.valorInicial != null ? a.valorInicial : a.precioSinIva;
             m.put("precio", precio != null ? precio : 0.0);
         }
+        ponerTexto(meta, m, "dactura", a.factura);
         ponerTexto(meta, m, "factura", a.factura);
+        ponerTexto(meta, m, "folio_fiscal", a.folioFiscalUuid);
         ponerTexto(meta, m, "fol_fiscal", a.folioFiscalUuid);
+        ponerFecha(meta, m, "fecha_factura", a.fechaFactura);
         ponerFecha(meta, m, "fechafact", a.fechaFactura);
         ponerTexto(meta, m, "ofibaja", a.oficioBaja);
+        ponerTexto(meta, m, "numero_baja", a.oficioBaja);
+        ponerFecha(meta, m, "fechabaja", a.fechaBaja);
         ponerFecha(meta, m, "fecbaja", a.fechaBaja);
+        ponerTexto(meta, m, "numero_acta", a.numeroActa);
         ponerTexto(meta, m, "numacta", a.numeroActa);
+        ponerFecha(meta, m, "fecha_acta", a.fechaActa);
         ponerFecha(meta, m, "fecacta", a.fechaActa);
         ponerTexto(meta, m, "tipo_baja", a.tipoBaja);
         ponerTexto(meta, m, "carp_inves", a.carpetaInvestigacion);
@@ -669,49 +1230,75 @@ public class PostgresRelacionalCrudService {
         ponerFecha(meta, m, "vigenhasta", a.vigenciaPoliza);
         ponerTexto(meta, m, "usuario", usuarioAdmin);
 
-        // Resolución automática de FKs hacia las 8 tablas de catálogo del Diagrama ER
-        if (meta.columnas.contains("fk_cct") && a.centroTrabajo != null && !a.centroTrabajo.isBlank()) {
+        // Resolución automática de FKs hacia las tablas de catálogo reales (id_* y fk_*)
+        if (a.centroTrabajo != null && !a.centroTrabajo.isBlank()) {
             Integer fkCct = resolverFkEnTabla(conn, origen, "cct", "id_cct", new String[]{"clave_ct", "nombre_ct"}, a.centroTrabajo);
-            if (fkCct != null) m.put("fk_cct", fkCct);
-        }
-        if (meta.columnas.contains("fk_proveedor") && a.proveedor != null && !a.proveedor.isBlank()) {
-            Integer fkProv = resolverFkEnTabla(conn, origen, "proveedores", "id_proveedor", new String[]{"nombre", "rfc"}, a.proveedor);
-            if (fkProv != null) m.put("fk_proveedor", fkProv);
-        }
-        if (meta.columnas.contains("fk_responsable") && a.resguardanteActual != null && !a.resguardanteActual.isBlank()) {
-            TablaMeta metaResp = inspeccionarTabla(conn, origen, "responsables");
-            if (metaResp != null && metaResp.pkColumna != null) {
-                Integer fkResp = resolverFkEnTabla(conn, origen, "responsables", metaResp.pkColumna, new String[]{"rfc", "rfc2", "curp", "nombres"}, a.resguardanteActual);
-                if (fkResp != null) m.put("fk_responsable", fkResp);
+            if (fkCct != null) {
+                if (meta.columnas.contains("id_cct")) m.put("id_cct", fkCct);
+                if (meta.columnas.contains("fk_cct")) m.put("fk_cct", fkCct);
             }
         }
-        if (meta.columnas.contains("fk_marca") && a.marca != null && !a.marca.isBlank()) {
+        if (a.proveedor != null && !a.proveedor.isBlank()) {
+            Integer fkProv = resolverFkEnTabla(conn, origen, "proveedores", "id_proveedor", new String[]{"nombre", "rfc"}, a.proveedor);
+            if (fkProv != null) {
+                if (meta.columnas.contains("id_proveedor")) m.put("id_proveedor", fkProv);
+                if (meta.columnas.contains("fk_proveedor")) m.put("fk_proveedor", fkProv);
+            }
+        }
+        if (a.resguardanteActual != null && !a.resguardanteActual.isBlank()) {
+            TablaMeta metaResp = inspeccionarTabla(conn, origen, "responsables");
+            if (metaResp != null && metaResp.pkColumna != null) {
+                String respKey = a.resguardanteActual;
+                int parenIdx = respKey.lastIndexOf('(');
+                int parenClose = respKey.lastIndexOf(')');
+                if (parenIdx > 0 && parenClose > parenIdx) {
+                    respKey = respKey.substring(parenIdx + 1, parenClose).trim();
+                }
+                Integer fkResp = resolverFkEnTabla(conn, origen, "responsables", metaResp.pkColumna, new String[]{"rfc", "rfc2", "curp", "nombres"}, respKey);
+                if (fkResp == null) {
+                    fkResp = resolverFkEnTabla(conn, origen, "responsables", metaResp.pkColumna, new String[]{"rfc", "rfc2", "curp", "nombres"}, a.resguardanteActual);
+                }
+                if (fkResp != null) {
+                    if (meta.columnas.contains("id_responsable")) m.put("id_responsable", fkResp);
+                    if (meta.columnas.contains("fk_responsable")) m.put("fk_responsable", fkResp);
+                }
+            }
+        }
+        if (a.marca != null && !a.marca.isBlank()) {
             Integer fkMarca = resolverFkEnTabla(conn, origen, "marcas", "id_marca", new String[]{"descripcion", "clave"}, a.marca);
-            if (fkMarca != null) m.put("fk_marca", fkMarca);
+            if (fkMarca != null) {
+                if (meta.columnas.contains("id_marca")) m.put("id_marca", fkMarca);
+                if (meta.columnas.contains("fk_marca")) m.put("fk_marca", fkMarca);
+            }
         }
-        if (meta.columnas.contains("fk_naturalezagastos") && a.naturalezaGasto != null && !a.naturalezaGasto.isBlank()) {
+        if (a.naturalezaGasto != null && !a.naturalezaGasto.isBlank()) {
             Integer fkNat = resolverFkEnTabla(conn, origen, "naturaleza_gastos_1", "id_naturaleza_gastos", new String[]{"clave", "descripcion"}, extraerClaveInicial(a.naturalezaGasto));
-            if (fkNat != null) m.put("fk_naturalezagastos", fkNat);
+            if (fkNat != null) {
+                if (meta.columnas.contains("id_naturaleza_gastos")) m.put("id_naturaleza_gastos", fkNat);
+                if (meta.columnas.contains("fk_naturalezagastos")) m.put("fk_naturalezagastos", fkNat);
+            }
         }
-        if (meta.columnas.contains("fk_tipofolio") && a.tipoFolioResguardo != null && !a.tipoFolioResguardo.isBlank()) {
+        if (a.tipoFolioResguardo != null && !a.tipoFolioResguardo.isBlank()) {
             Integer fkTf = resolverFkEnTabla(conn, origen, "tipos_folios", "tipo_folio_id", new String[]{"clave", "descripcion"}, a.tipoFolioResguardo);
-            if (fkTf != null) m.put("fk_tipofolio", fkTf);
+            if (fkTf != null) {
+                if (meta.columnas.contains("id_tipo_folio")) m.put("id_tipo_folio", fkTf);
+                if (meta.columnas.contains("fk_tipofolio")) m.put("fk_tipofolio", fkTf);
+            }
         }
-        if (meta.columnas.contains("fk_tipo") && a.tipoMaterial != null && !a.tipoMaterial.isBlank()) {
+        if (a.tipoMaterial != null && !a.tipoMaterial.isBlank()) {
             Integer fkTipo = resolverFkEnTabla(conn, origen, "tipos", "id_tipo", new String[]{"tipos", "descripcion", "subclave"}, extraerClaveInicial(a.tipoMaterial));
-            if (fkTipo != null) m.put("fk_tipo", fkTipo);
+            if (fkTipo != null) {
+                if (meta.columnas.contains("id_tipo")) m.put("id_tipo", fkTipo);
+                if (meta.columnas.contains("fk_tipo")) m.put("fk_tipo", fkTipo);
+            }
         }
         if (a.partida != null && !a.partida.isBlank()) {
             Integer fkPart = resolverFkEnTabla(conn, origen, "partidas", "id_partida", new String[]{"pa_partida", "pa_descripcion"}, extraerClaveInicial(a.partida));
             if (fkPart != null) {
-                String colFkPartida = meta.fkPorTablaDestino.getOrDefault("partidas",
-                        meta.columnas.contains("fk_partida") ? "fk_partida" : (meta.columnas.contains("id_partida") ? "id_partida" : null));
-                if (colFkPartida != null && meta.columnas.contains(colFkPartida)) {
-                    m.put(colFkPartida, fkPart);
-                }
-                if (meta.columnas.contains("fk_partida_anterior")) {
-                    m.putIfAbsent("fk_partida_anterior", fkPart);
-                }
+                if (meta.columnas.contains("id_partida")) m.put("id_partida", fkPart);
+                if (meta.columnas.contains("fk_partida")) m.put("fk_partida", fkPart);
+                if (meta.columnas.contains("id_partida_anterior")) m.putIfAbsent("id_partida_anterior", fkPart);
+                if (meta.columnas.contains("fk_partida_anterior")) m.putIfAbsent("fk_partida_anterior", fkPart);
             }
         }
         return m;
@@ -759,63 +1346,106 @@ public class PostgresRelacionalCrudService {
         a.descripcion = leerString(rs, metaInv, "descripcion");
         a.descripcionSecundaria = leerString(rs, metaInv, "descripcion1");
         a.marca = leerString(rs, metaInv, "marca");
-        if ((a.marca == null || a.marca.isBlank()) && metaInv.columnas.contains("fk_marca")) {
-            Integer fk = leerEntero(rs, metaInv, "fk_marca");
-            if (fk != null) a.marca = mapaMarcas.get(fk);
+        if (a.marca == null || a.marca.isBlank()) {
+            Integer fkMarca = leerPrimerEnteroNoNulo(rs, metaInv, "id_marca", "fk_marca");
+            if (fkMarca != null) a.marca = mapaMarcas.get(fkMarca);
         }
         a.modelo = leerString(rs, metaInv, "modelo");
         a.numeroSerie = leerString(rs, metaInv, "serie");
         a.color = leerString(rs, metaInv, "color");
         a.estadoFisico = mapearCodigoAEstadoFisico(leerString(rs, metaInv, "estado"));
         a.proveedor = leerString(rs, metaInv, "proveedor");
-        if ((a.proveedor == null || a.proveedor.isBlank()) && metaInv.columnas.contains("fk_proveedor")) {
-            Integer fk = leerEntero(rs, metaInv, "fk_proveedor");
-            if (fk != null) a.proveedor = mapaProveedores.get(fk);
+        if (a.proveedor == null || a.proveedor.isBlank()) {
+            Integer fkProv = leerPrimerEnteroNoNulo(rs, metaInv, "id_proveedor", "fk_proveedor");
+            if (fkProv != null) a.proveedor = mapaProveedores.get(fkProv);
         }
         a.pedido = leerString(rs, metaInv, "pedido");
-        a.requisicion = leerString(rs, metaInv, "requis");
+        a.requisicion = leerPrimerTextoNoVacio(rs, metaInv, "requisito", "requis");
         a.boletaSalida = leerString(rs, metaInv, "salida");
         Double precio = leerDouble(rs, metaInv, "precio");
         if (precio != null) {
             a.valorInicial = precio;
             a.precioSinIva = Math.round((precio / 1.16) * 100.0) / 100.0;
         }
-        a.factura = leerString(rs, metaInv, "factura");
-        a.folioFiscalUuid = leerString(rs, metaInv, "fol_fiscal");
-        a.fechaFactura = leerFecha(rs, metaInv, "fechafact");
-        a.oficioBaja = leerString(rs, metaInv, "ofibaja");
-        a.fechaBaja = leerFecha(rs, metaInv, "fecbaja");
-        a.numeroActa = leerString(rs, metaInv, "numacta");
-        a.fechaActa = leerFecha(rs, metaInv, "fecacta");
+        a.factura = leerPrimerTextoNoVacio(rs, metaInv, "dactura", "factura");
+        a.folioFiscalUuid = leerPrimerTextoNoVacio(rs, metaInv, "folio_fiscal", "fol_fiscal");
+        a.fechaFactura = leerPrimeraFechaNoNula(rs, metaInv, "fecha_factura", "fechafact");
+        a.oficioBaja = leerPrimerTextoNoVacio(rs, metaInv, "ofibaja", "numero_baja");
+        a.fechaBaja = leerPrimeraFechaNoNula(rs, metaInv, "fechabaja", "fecbaja");
+        a.numeroActa = leerPrimerTextoNoVacio(rs, metaInv, "numero_acta", "numacta");
+        a.fechaActa = leerPrimeraFechaNoNula(rs, metaInv, "fecha_acta", "fecacta");
         a.tipoBaja = leerString(rs, metaInv, "tipo_baja");
         a.carpetaInvestigacion = leerString(rs, metaInv, "carp_inves");
         a.estado = (a.fechaBaja != null || (a.oficioBaja != null && !a.oficioBaja.isBlank())) ? "Baja" : "Activo";
 
         a.naturalezaGasto = leerString(rs, metaInv, "natgasto");
-        if ((a.naturalezaGasto == null || a.naturalezaGasto.isBlank()) && metaInv.columnas.contains("fk_naturalezagastos")) {
-            Integer fk = leerEntero(rs, metaInv, "fk_naturalezagastos");
-            if (fk != null) a.naturalezaGasto = mapaNatGasto.get(fk);
+        if (a.naturalezaGasto == null || a.naturalezaGasto.isBlank()) {
+            Integer fkNat = leerPrimerEnteroNoNulo(rs, metaInv, "id_naturaleza_gastos", "fk_naturalezagastos");
+            if (fkNat != null) a.naturalezaGasto = mapaNatGasto.get(fkNat);
         }
         a.partida = leerString(rs, metaInv, "partida");
         if (a.partida == null || a.partida.isBlank()) {
-            Integer fkPart = leerEntero(rs, metaInv, "fk_partida");
-            if (fkPart == null) fkPart = leerEntero(rs, metaInv, "fk_partida_anterior");
+            Integer fkPart = leerPrimerEnteroNoNulo(rs, metaInv, "id_partida", "fk_partida", "id_partida_anterior", "fk_partida_anterior");
             if (fkPart != null) a.partida = mapaPartidas.get(fkPart);
         }
-        if (metaInv.columnas.contains("fk_tipo")) {
-            Integer fkTipo = leerEntero(rs, metaInv, "fk_tipo");
-            if (fkTipo != null) a.tipoMaterial = mapaTipos.get(fkTipo);
+        Integer fkTipo = leerPrimerEnteroNoNulo(rs, metaInv, "id_tipo", "fk_tipo");
+        if (fkTipo != null) {
+            a.tipoMaterial = mapaTipos.get(fkTipo);
         }
-        if (metaInv.columnas.contains("fk_cct")) {
-            Integer fkCct = leerEntero(rs, metaInv, "fk_cct");
-            if (fkCct != null) a.centroTrabajo = mapaCct.get(fkCct);
+
+        Integer fkCct = leerPrimerEnteroNoNulo(rs, metaInv, "id_cct", "fk_cct");
+        CentroTrabajo ctObj = obtenerCentroTrabajoPorId(fkCct);
+        if (ctObj != null) {
+            if (ctObj.claveCT != null && !ctObj.claveCT.isBlank()) {
+                a.centroTrabajo = ctObj.claveCT.trim().toUpperCase(Locale.ROOT);
+            }
+            if (ctObj.nombreCT != null && !ctObj.nombreCT.isBlank()) {
+                a.areaUbicacion = ctObj.nombreCT.trim();
+            }
+            a.unidadResponsable = ctObj.unidadResp;
+            a.subdireccion = ctObj.subDireccion;
+            a.departamento = ctObj.departamento;
+        } else if (fkCct != null) {
+            a.centroTrabajo = mapaCct.get(fkCct);
         }
-        a.resguardanteActual = leerString(rs, metaInv, "cversp_act");
+
+        if (a.centroTrabajo == null || a.centroTrabajo.isBlank()) {
+            String[] colsTextoCct = {"clave_ct", "cct", "centro_trabajo", "adscripcion", "ubicacion", "depto"};
+            for (String colCct : colsTextoCct) {
+                String valCct = leerString(rs, metaInv, colCct);
+                if (valCct != null && !valCct.isBlank()) {
+                    a.centroTrabajo = valCct.trim().toUpperCase(Locale.ROOT);
+                    break;
+                }
+            }
+        }
+
+        String rawResp = leerPrimerTextoNoVacio(rs, metaInv, "cversp_act", "responsable", "resguardante");
+        Integer fkRespId = leerPrimerEnteroNoNulo(rs, metaInv, "id_responsable", "fk_responsable");
+
+        Empleado directorResuelto = resolverDirectorEnCache(fkRespId, rawResp, a.centroTrabajo);
+        if (directorResuelto != null) {
+            String rfcTag = (directorResuelto.rfc != null && !directorResuelto.rfc.isBlank() && !directorResuelto.nombre.contains(directorResuelto.rfc))
+                    ? (" (" + directorResuelto.rfc + ")")
+                    : "";
+            a.resguardanteActual = directorResuelto.nombre + rfcTag;
+            if ((a.centroTrabajo == null || a.centroTrabajo.isBlank()) && directorResuelto.cct != null && !directorResuelto.cct.isBlank()) {
+                a.centroTrabajo = directorResuelto.cct;
+                if (a.areaUbicacion == null || a.areaUbicacion.isBlank()) {
+                    a.areaUbicacion = directorResuelto.nombreEscuela;
+                }
+            }
+        } else if (ctObj != null && ctObj.director != null && !ctObj.director.isBlank()) {
+            a.resguardanteActual = ctObj.director.trim().toUpperCase(Locale.ROOT);
+        } else {
+            a.resguardanteActual = rawResp;
+        }
+
         a.cuentaContable = leerString(rs, metaInv, "tipo_fin");
         a.folioResguardo = leerString(rs, metaInv, "folio");
         a.tipoFolioResguardo = leerString(rs, metaInv, "tipofolio");
-        if ((a.tipoFolioResguardo == null || a.tipoFolioResguardo.isBlank()) && metaInv.columnas.contains("fk_tipofolio")) {
-            Integer fkTf = leerEntero(rs, metaInv, "fk_tipofolio");
+        if (a.tipoFolioResguardo == null || a.tipoFolioResguardo.isBlank()) {
+            Integer fkTf = leerPrimerEnteroNoNulo(rs, metaInv, "id_tipo_folio", "fk_tipofolio");
             if (fkTf != null) a.tipoFolioResguardo = mapaTiposFolios.get(fkTf);
         }
         a.documentoResguardo = leerString(rs, metaInv, "docto");
@@ -828,8 +1458,69 @@ public class PostgresRelacionalCrudService {
         a.vigenciaPoliza = leerFecha(rs, metaInv, "vigenhasta");
         a.cantidadStock = 1.0;
         a.categoria = (a.placa != null && !a.placa.isBlank()) ? "Vehiculos" : "Mobiliario";
-        a.areaUbicacion = a.centroTrabajo != null ? a.centroTrabajo : "AlmacenGeneral";
+
+        if (a.areaUbicacion == null || a.areaUbicacion.isBlank()) {
+            if (a.centroTrabajo != null && !a.centroTrabajo.isBlank()) {
+                String claveCct = a.centroTrabajo.trim().toUpperCase(Locale.ROOT);
+                a.centroTrabajo = claveCct;
+                a.areaUbicacion = "CCT: " + claveCct;
+            } else if (a.resguardanteActual != null && !a.resguardanteActual.isBlank()) {
+                a.areaUbicacion = "Director Escolar: " + a.resguardanteActual;
+            } else {
+                a.areaUbicacion = "AlmacenGeneral";
+            }
+        }
         return a;
+    }
+
+    private CentroTrabajo obtenerCentroTrabajoPorId(Integer idCct) {
+        if (idCct == null || idCct <= 0) {
+            return null;
+        }
+        try {
+            CacheEntry<Map<Integer, CentroTrabajo>> cached = cacheCctPorId;
+            if (cached == null || !cached.vigente()) {
+                listarCentrosTrabajo();
+                cached = cacheCctPorId;
+            }
+            if (cached != null && cached.valor != null) {
+                return cached.valor.get(idCct);
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    private Empleado resolverDirectorEnCache(Integer fkRespId, String rawResp, String claveCct) {
+        try {
+            CacheEntry<Map<String, Empleado>> idxCache = cacheIndiceDirectores;
+            if (idxCache == null || !idxCache.vigente()) {
+                listarResponsables();
+                idxCache = cacheIndiceDirectores;
+            }
+            if (idxCache == null || idxCache.valor == null || idxCache.valor.isEmpty()) {
+                return null;
+            }
+            Map<String, Empleado> indice = idxCache.valor;
+            if (fkRespId != null && fkRespId > 0) {
+                Empleado porId = indice.get("ID::" + fkRespId.longValue());
+                if (porId != null) return porId;
+            }
+            if (rawResp != null && !rawResp.isBlank()) {
+                String limpio = rawResp.trim().toUpperCase(Locale.ROOT);
+                Empleado porIdTexto = indice.get("ID::" + limpio);
+                if (porIdTexto != null) return porIdTexto;
+                Empleado porClave = indice.get("KEY::" + limpio);
+                if (porClave != null) return porClave;
+            }
+            if (claveCct != null && !claveCct.isBlank()) {
+                String cctUp = claveCct.trim().toUpperCase(Locale.ROOT);
+                Empleado porCct = indice.get("CCT::" + cctUp);
+                if (porCct != null) return porCct;
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
     }
 
     // =========================================================================
@@ -837,6 +1528,10 @@ public class PostgresRelacionalCrudService {
     // =========================================================================
 
     public List<CentroTrabajo> listarCentrosTrabajo() throws SQLException {
+        CacheEntry<List<CentroTrabajo>> cached = cacheCentrosTrabajo;
+        if (cached != null && cached.vigente()) {
+            return cached.valor;
+        }
         MultiDataSourceConfig.OrigenDatos origen = resolverOrigenCCTActivo();
         if (origen == null) {
             return Collections.emptyList();
@@ -846,7 +1541,28 @@ public class PostgresRelacionalCrudService {
             if (meta == null) {
                 return Collections.emptyList();
             }
+
+            Map<String, String> mapaMunicipios = new HashMap<>();
+            try {
+                TablaMeta metaMun = inspeccionarTabla(conn, origen, "municipio");
+                if (metaMun != null && metaMun.columnas.contains("clave") && metaMun.columnas.contains("descripcion")) {
+                    try (PreparedStatement psMun = conn.prepareStatement("SELECT clave, descripcion FROM " + metaMun.nombreReal);
+                         ResultSet rsMun = psMun.executeQuery()) {
+                        while (rsMun.next()) {
+                            String cve = rsMun.getString(1);
+                            String desc = rsMun.getString(2);
+                            if (cve != null && desc != null) {
+                                String k = cve.trim();
+                                mapaMunicipios.put(k, k + " - " + desc.trim());
+                            }
+                        }
+                    }
+                }
+            } catch (Exception ignored) {
+            }
+
             List<CentroTrabajo> lista = new ArrayList<>();
+            Map<Integer, CentroTrabajo> porId = new HashMap<>();
             String sql = "SELECT * FROM " + meta.nombreReal + " ORDER BY " + (meta.pkColumna != null ? meta.pkColumna : "1") + " ASC";
             try (PreparedStatement ps = conn.prepareStatement(sql);
                  ResultSet rs = ps.executeQuery()) {
@@ -855,32 +1571,43 @@ public class PostgresRelacionalCrudService {
                     CentroTrabajo ct = new CentroTrabajo();
                     Long idVal = leerLong(rs, meta, "id_cct");
                     ct.id = idVal != null ? idVal : idx++;
-                    ct.claveCT = leerString(rs, meta, "clave_ct");
-                    if (ct.claveCT == null || ct.claveCT.isBlank()) {
-                        ct.claveCT = leerString(rs, meta, "clave_ct1");
-                    }
-                    ct.nombreCT = leerString(rs, meta, "nombre_ct");
-                    if (ct.nombreCT == null || ct.nombreCT.isBlank()) {
-                        ct.nombreCT = leerString(rs, meta, "nomct_ant");
-                    }
+                    ct.claveCT = leerPrimerTextoNoVacio(rs, meta, "clave_ct", "clave_ct1");
+                    ct.nombreCT = leerPrimerTextoNoVacio(rs, meta, "nombre_ct", "nomct_ant");
                     ct.unidadResp = leerString(rs, meta, "unid_responsable");
                     ct.subDireccion = leerString(rs, meta, "subdirector");
                     ct.departamento = leerString(rs, meta, "departamento");
                     ct.nombreVial = leerString(rs, meta, "domicilio");
-                    ct.codPostal = leerString(rs, meta, "codpost");
-                    ct.municipio = leerString(rs, meta, "municipio");
+                    ct.codPostal = leerPrimerTextoNoVacio(rs, meta, "codigopostal", "codpost");
+                    String rawMun = leerString(rs, meta, "municipio");
+                    if (rawMun != null && !rawMun.isBlank()) {
+                        ct.municipio = mapaMunicipios.getOrDefault(rawMun.trim(), rawMun.trim());
+                    }
                     ct.localidad = leerString(rs, meta, "localidad");
                     ct.telefono = leerString(rs, meta, "telefono");
+                    ct.numExt = leerString(rs, meta, "numero_exterior");
+                    ct.numInt = leerString(rs, meta, "numero_interior");
+                    ct.tipoVial = leerString(rs, meta, "clave_vial");
+                    ct.tipoAsent = leerString(rs, meta, "clave_asen");
+                    ct.nomAsent = leerString(rs, meta, "nombre_asen");
+                    ct.vialidDer = leerString(rs, meta, "vialid_der");
+                    ct.vialidIzq = leerString(rs, meta, "vialid_izq");
+                    ct.vialidPost = leerString(rs, meta, "viali_post");
+                    ct.refVialid = leerString(rs, meta, "descripcion_ubc");
                     ct.turno = leerString(rs, meta, "turno");
-                    ct.zonaEscolar = leerString(rs, meta, "zonaescola");
+                    ct.zonaEscolar = leerPrimerTextoNoVacio(rs, meta, "zonaescolar", "zonaescola");
                     ct.sector = leerString(rs, meta, "sector");
                     ct.director = leerString(rs, meta, "director");
                     String st = leerString(rs, meta, "status");
                     Integer act = leerEntero(rs, meta, "activo");
                     ct.estatus = (st != null && !st.isBlank()) ? st : ((act != null && act == 0) ? "B" : "A");
                     lista.add(ct);
+                    if (ct.id != null) {
+                        porId.put(ct.id.intValue(), ct);
+                    }
                 }
             }
+            cacheCctPorId = new CacheEntry<>(porId, TTL_CACHE_MS);
+            cacheCentrosTrabajo = new CacheEntry<>(lista, TTL_CACHE_MS);
             return lista;
         }
     }
@@ -896,6 +1623,10 @@ public class PostgresRelacionalCrudService {
                 ct.id = sigId;
             }
             ejecutarInsertGenerico(conn, meta, m, idGen -> ct.id = idGen);
+            cacheCentrosTrabajo = null;
+            cacheCctPorId = null;
+            cacheResponsables = null;
+            cacheMapasSimples.keySet().removeIf(k -> k.contains("::cct::"));
             return ct;
         }
     }
@@ -908,6 +1639,10 @@ public class PostgresRelacionalCrudService {
             m.remove(meta.pkColumna);
             ejecutarUpdateGenerico(conn, meta, m, id);
             ct.id = id;
+            cacheCentrosTrabajo = null;
+            cacheCctPorId = null;
+            cacheResponsables = null;
+            cacheMapasSimples.keySet().removeIf(k -> k.contains("::cct::"));
             return ct;
         }
     }
@@ -924,11 +1659,22 @@ public class PostgresRelacionalCrudService {
         }
         ponerTexto(meta, m, "nombre_ct", ct.nombreCT);
         ponerTexto(meta, m, "domicilio", ct.nombreVial);
+        ponerTexto(meta, m, "codigopostal", ct.codPostal);
         ponerTexto(meta, m, "codpost", ct.codPostal);
-        ponerTexto(meta, m, "municipio", ct.municipio);
-        ponerTexto(meta, m, "localidad", ct.localidad);
+        ponerTexto(meta, m, "municipio", extraerClaveInicial(ct.municipio));
+        ponerTexto(meta, m, "localidad", extraerClaveInicial(ct.localidad));
         ponerTexto(meta, m, "telefono", ct.telefono);
+        ponerTexto(meta, m, "numero_exterior", ct.numExt);
+        ponerTexto(meta, m, "numero_interior", ct.numInt);
+        ponerTexto(meta, m, "clave_vial", extraerClaveInicial(ct.tipoVial));
+        ponerTexto(meta, m, "clave_asen", extraerClaveInicial(ct.tipoAsent));
+        ponerTexto(meta, m, "nombre_asen", ct.nomAsent);
+        ponerTexto(meta, m, "vialid_der", ct.vialidDer);
+        ponerTexto(meta, m, "vialid_izq", ct.vialidIzq);
+        ponerTexto(meta, m, "viali_post", ct.vialidPost);
+        ponerTexto(meta, m, "descripcion_ubc", ct.refVialid);
         ponerTexto(meta, m, "turno", ct.turno);
+        ponerTexto(meta, m, "zonaescolar", ct.zonaEscolar);
         ponerTexto(meta, m, "zonaescola", ct.zonaEscolar);
         ponerTexto(meta, m, "sector", ct.sector);
         ponerTexto(meta, m, "director", ct.director);
@@ -943,54 +1689,249 @@ public class PostgresRelacionalCrudService {
     // 3. CRUD DE RESPONSABLES (responsables <-> Empleado)
     // =========================================================================
 
+    private Map<String, String> obtenerMapaCctPorResponsableDesdeInventario(Connection conn, MultiDataSourceConfig.OrigenDatos origen, Map<Integer, String> mapaCctPorId) {
+        CacheEntry<Map<String, String>> cached = cacheMapaCctPorResponsable;
+        if (cached != null && cached.vigente()) {
+            return cached.valor;
+        }
+        Map<String, String> resultado = new HashMap<>();
+        try {
+            TablaMeta metaInv = inspeccionarTabla(conn, origen, "inventario");
+            if (metaInv != null) {
+                String colCct = metaInv.columnas.contains("id_cct") ? "id_cct" : (metaInv.columnas.contains("fk_cct") ? "fk_cct" : null);
+                String colResp = metaInv.columnas.contains("id_responsable") ? "id_responsable" : (metaInv.columnas.contains("fk_responsable") ? "fk_responsable" : null);
+                List<String> colsSelect = new ArrayList<>();
+                if (colCct != null) colsSelect.add(colCct);
+                if (colResp != null) colsSelect.add(colResp);
+                if (metaInv.columnas.contains("cversp_act")) colsSelect.add("cversp_act");
+
+                if (!colsSelect.isEmpty()) {
+                    String sql = "SELECT DISTINCT " + String.join(", ", colsSelect) + " FROM " + metaInv.nombreReal + " LIMIT 10000";
+                    try (PreparedStatement ps = conn.prepareStatement(sql);
+                         ResultSet rs = ps.executeQuery()) {
+                        while (rs.next()) {
+                            String claveCct = null;
+                            if (colCct != null) {
+                                int idCct = rs.getInt(colCct);
+                                if (!rs.wasNull() && idCct > 0) {
+                                    claveCct = mapaCctPorId.get(idCct);
+                                    if (claveCct != null && !claveCct.isBlank()) {
+                                        resultado.put("TIENE_BIENES_CCT::" + claveCct, "1");
+                                    }
+                                }
+                            }
+                            if (colResp != null) {
+                                int idResp = rs.getInt(colResp);
+                                if (!rs.wasNull() && idResp > 0) {
+                                    resultado.put("TIENE_BIENES_RESP::" + idResp, "1");
+                                    if (claveCct != null && !claveCct.isBlank()) {
+                                        resultado.putIfAbsent("ID::" + idResp, claveCct);
+                                    }
+                                }
+                            }
+                            if (metaInv.columnas.contains("cversp_act")) {
+                                String cv = rs.getString("cversp_act");
+                                if (cv != null && !cv.isBlank()) {
+                                    String cvUp = cv.trim().toUpperCase(Locale.ROOT);
+                                    resultado.put("TIENE_BIENES_CV::" + cvUp, "1");
+                                    if (claveCct != null && !claveCct.isBlank()) {
+                                        resultado.putIfAbsent("CV::" + cvUp, claveCct);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        cacheMapaCctPorResponsable = new CacheEntry<>(resultado, TTL_CACHE_MS);
+        return resultado;
+    }
+
     public List<Empleado> listarResponsables() throws SQLException {
+        CacheEntry<List<Empleado>> cached = cacheResponsables;
+        if (cached != null && cached.vigente()) {
+            return cached.valor;
+        }
         MultiDataSourceConfig.OrigenDatos origen = resolverOrigenResponsablesActivo();
         if (origen == null) {
             return Collections.emptyList();
         }
-        try (Connection conn = multiDataSourceConfig.obtenerConexion(origen)) {
-            TablaMeta meta = inspeccionarTabla(conn, origen, "responsables");
-            if (meta == null) {
-                return Collections.emptyList();
-            }
-            List<Empleado> lista = new ArrayList<>();
-            String sql = "SELECT * FROM " + meta.nombreReal + " ORDER BY " + (meta.pkColumna != null ? meta.pkColumna : "1") + " ASC";
-            try (PreparedStatement ps = conn.prepareStatement(sql);
-                 ResultSet rs = ps.executeQuery()) {
-                long idx = 1L;
-                while (rs.next()) {
-                    Empleado emp = new Empleado();
-                    Long pkNum = meta.pkColumna != null ? leerLong(rs, meta, meta.pkColumna) : null;
-                    emp.idEmpleado = (pkNum != null && pkNum > 0) ? pkNum : idx++;
-                    emp.rfc = leerString(rs, meta, "rfc");
-                    String rfc2 = leerString(rs, meta, "rfc2");
-                    emp.claveResponsable = (rfc2 != null && !rfc2.isBlank()) ? rfc2 : emp.rfc;
-                    emp.numeroEmpleado = emp.claveResponsable;
-                    emp.curp = leerString(rs, meta, "curp");
-                    emp.apellidoPaterno = leerString(rs, meta, "paterno");
-                    emp.apellidoMaterno = leerString(rs, meta, "materno");
-                    String nombres = leerString(rs, meta, "nombres");
-                    String apellidos = leerString(rs, meta, "apellidos");
-                    StringBuilder nomCompleto = new StringBuilder();
-                    if (nombres != null && !nombres.isBlank()) nomCompleto.append(nombres.trim());
-                    if (emp.apellidoPaterno != null && !emp.apellidoPaterno.isBlank()) {
-                        if (nomCompleto.length() > 0) nomCompleto.append(" ");
-                        nomCompleto.append(emp.apellidoPaterno.trim());
-                    }
-                    if (emp.apellidoMaterno != null && !emp.apellidoMaterno.isBlank()) {
-                        if (nomCompleto.length() > 0) nomCompleto.append(" ");
-                        nomCompleto.append(emp.apellidoMaterno.trim());
-                    }
-                    if (nomCompleto.length() == 0 && apellidos != null && !apellidos.isBlank()) {
-                        nomCompleto.append(apellidos.trim());
-                    }
-                    emp.nombre = nomCompleto.length() > 0 ? nomCompleto.toString() : (emp.rfc != null ? emp.rfc : "RESPONSABLE");
-                    Integer act = leerEntero(rs, meta, "activo");
-                    emp.activo = act != null ? act : 1;
-                    emp.cargo = "RESPONSABLE DE RESGUARDO";
-                    lista.add(emp);
+        List<CentroTrabajo> listaCcts = listarCentrosTrabajo();
+        Map<String, CentroTrabajo> cctPorClave = new HashMap<>();
+        Map<String, CentroTrabajo> cctPorDirector = new HashMap<>();
+        Map<Integer, String> mapaIdCctAClave = new HashMap<>();
+        for (CentroTrabajo ct : listaCcts) {
+            if (ct == null) continue;
+            if (ct.claveCT != null && !ct.claveCT.isBlank()) {
+                String claveUp = ct.claveCT.trim().toUpperCase(Locale.ROOT);
+                cctPorClave.putIfAbsent(claveUp, ct);
+                if (ct.id != null) {
+                    mapaIdCctAClave.put(ct.id.intValue(), claveUp);
                 }
             }
+            if (ct.director != null && !ct.director.isBlank()) {
+                cctPorDirector.putIfAbsent(ct.director.trim().toUpperCase(Locale.ROOT), ct);
+            }
+        }
+
+        try (Connection conn = multiDataSourceConfig.obtenerConexion(origen)) {
+            Map<String, String> cctPorRespInv = obtenerMapaCctPorResponsableDesdeInventario(conn, origen, mapaIdCctAClave);
+            List<Empleado> conBienesYEscuela = new ArrayList<>();
+            List<Empleado> conEscuelaActiva = new ArrayList<>();
+            List<Empleado> padronHistorico = new ArrayList<>();
+            Set<String> cctsConDirectorRegistrado = new LinkedHashSet<>();
+
+            String[] colsCarpetas = {"c01", "c05", "c06", "c07", "c11", "c12", "c13", "c14", "c15", "17", "c18", "c19"};
+
+            TablaMeta meta = inspeccionarTabla(conn, origen, "responsables");
+            if (meta != null) {
+                String sql = "SELECT * FROM " + meta.nombreReal + " ORDER BY " + (meta.pkColumna != null ? meta.pkColumna : "1") + " ASC";
+                try (PreparedStatement ps = conn.prepareStatement(sql);
+                     ResultSet rs = ps.executeQuery()) {
+                    long idx = 1L;
+                    while (rs.next()) {
+                        Empleado emp = new Empleado();
+                        Long pkNum = meta.pkColumna != null ? leerLong(rs, meta, meta.pkColumna) : null;
+                        emp.idEmpleado = (pkNum != null && pkNum > 0) ? pkNum : idx++;
+                        emp.rfc = leerString(rs, meta, "rfc");
+                        String rfc2 = leerString(rs, meta, "rfc2");
+                        emp.claveResponsable = (rfc2 != null && !rfc2.isBlank()) ? rfc2 : emp.rfc;
+                        emp.numeroEmpleado = emp.claveResponsable;
+                        emp.usuario = (emp.rfc != null && !emp.rfc.isBlank()) ? emp.rfc : emp.claveResponsable;
+                        emp.curp = leerString(rs, meta, "curp");
+                        emp.apellidoPaterno = leerString(rs, meta, "paterno");
+                        emp.apellidoMaterno = leerString(rs, meta, "materno");
+                        String nombres = leerString(rs, meta, "nombres");
+                        String apellidos = leerString(rs, meta, "apellidos");
+                        StringBuilder nomCompleto = new StringBuilder();
+                        if (nombres != null && !nombres.isBlank()) nomCompleto.append(nombres.trim());
+                        if (emp.apellidoPaterno != null && !emp.apellidoPaterno.isBlank()) {
+                            if (nomCompleto.length() > 0) nomCompleto.append(" ");
+                            nomCompleto.append(emp.apellidoPaterno.trim());
+                        }
+                        if (emp.apellidoMaterno != null && !emp.apellidoMaterno.isBlank()) {
+                            if (nomCompleto.length() > 0) nomCompleto.append(" ");
+                            nomCompleto.append(emp.apellidoMaterno.trim());
+                        }
+                        if (nomCompleto.length() == 0 && apellidos != null && !apellidos.isBlank()) {
+                            nomCompleto.append(apellidos.trim());
+                        }
+                        emp.nombre = nomCompleto.length() > 0 ? nomCompleto.toString().toUpperCase(Locale.ROOT) : (emp.rfc != null ? emp.rfc : "DIRECTOR DE CENTRO DE TRABAJO");
+
+                        String altNombreApellidosPrimero = ((apellidos != null ? apellidos.trim() : "") + " " + (nombres != null ? nombres.trim() : "")).trim().toUpperCase(Locale.ROOT);
+
+                        String cctDirecto = leerPrimerTextoNoVacio(rs, meta, "cct", "clave_ct");
+                        if (cctDirecto == null || cctDirecto.isBlank()) {
+                            Integer fkCct = leerPrimerEnteroNoNulo(rs, meta, "id_cct", "fk_cct");
+                            if (fkCct != null) cctDirecto = mapaIdCctAClave.get(fkCct);
+                        }
+                        if (cctDirecto == null || cctDirecto.isBlank()) {
+                            cctDirecto = cctPorRespInv.get("ID::" + emp.idEmpleado);
+                            if (cctDirecto == null && emp.rfc != null) cctDirecto = cctPorRespInv.get("CV::" + emp.rfc.trim().toUpperCase(Locale.ROOT));
+                            if (cctDirecto == null && emp.claveResponsable != null) cctDirecto = cctPorRespInv.get("CV::" + emp.claveResponsable.trim().toUpperCase(Locale.ROOT));
+                            if (cctDirecto == null && emp.nombre != null) cctDirecto = cctPorRespInv.get("CV::" + emp.nombre.trim().toUpperCase(Locale.ROOT));
+                        }
+                        if (cctDirecto == null || cctDirecto.isBlank()) {
+                            CentroTrabajo ctMatch = cctPorDirector.get(emp.nombre);
+                            if (ctMatch == null && !altNombreApellidosPrimero.isEmpty()) ctMatch = cctPorDirector.get(altNombreApellidosPrimero);
+                            if (ctMatch == null && emp.rfc != null) ctMatch = cctPorDirector.get(emp.rfc.trim().toUpperCase(Locale.ROOT));
+                            if (ctMatch != null) cctDirecto = ctMatch.claveCT;
+                        }
+
+                        boolean tieneBienes = cctPorRespInv.containsKey("TIENE_BIENES_RESP::" + emp.idEmpleado)
+                                || (emp.rfc != null && cctPorRespInv.containsKey("TIENE_BIENES_CV::" + emp.rfc.trim().toUpperCase(Locale.ROOT)));
+
+                        Integer act = leerEntero(rs, meta, "activo");
+                        emp.activo = act != null ? act : 1;
+
+                        if (cctDirecto != null && !cctDirecto.isBlank()) {
+                            String claveUp = cctDirecto.trim().toUpperCase(Locale.ROOT);
+                            emp.cct = claveUp;
+                            CentroTrabajo ctObj = cctPorClave.get(claveUp);
+                            emp.nombreEscuela = (ctObj != null && ctObj.nombreCT != null && !ctObj.nombreCT.isBlank())
+                                    ? ctObj.nombreCT
+                                    : ("CENTRO EDUCATIVO " + claveUp);
+                            emp.area = "Escuela / CCT";
+                            emp.cargo = "DIRECTOR DE CENTRO DE TRABAJO (CCT)";
+                            cctsConDirectorRegistrado.add(claveUp);
+                            if (ctObj != null && (ctObj.director == null || ctObj.director.isBlank())) {
+                                ctObj.director = emp.nombre;
+                            }
+                            if (tieneBienes || cctPorRespInv.containsKey("TIENE_BIENES_CCT::" + claveUp)) {
+                                conBienesYEscuela.add(emp);
+                            } else {
+                                conEscuelaActiva.add(emp);
+                            }
+                        } else {
+                            List<String> carpetas = new ArrayList<>();
+                            for (String colCarp : colsCarpetas) {
+                                String valCarp = leerString(rs, meta, colCarp);
+                                if (valCarp != null && !valCarp.isBlank()) {
+                                    carpetas.add(colCarp.toUpperCase(Locale.ROOT) + ":" + valCarp);
+                                }
+                            }
+                            String etiquetaCarpeta = carpetas.isEmpty() ? "REGISTRO GENERAL" : String.join(", ", carpetas);
+                            emp.cct = (emp.rfc != null && !emp.rfc.isBlank()) ? emp.rfc : ("RESP-" + emp.idEmpleado);
+                            emp.nombreEscuela = "PADRÓN HISTÓRICO SETAB (" + etiquetaCarpeta + ")";
+                            emp.area = "Resguardante (" + etiquetaCarpeta + ")";
+                            emp.cargo = "RESGUARDANTE PATRIMONIAL SETAB";
+                            if (tieneBienes) {
+                                conBienesYEscuela.add(emp);
+                            } else {
+                                padronHistorico.add(emp);
+                            }
+                        }
+                    }
+                }
+            }
+
+            long syntheticIdBase = 900_000L;
+            for (CentroTrabajo ct : listaCcts) {
+                if (ct == null || ct.claveCT == null || ct.claveCT.isBlank()) continue;
+                String claveUp = ct.claveCT.trim().toUpperCase(Locale.ROOT);
+                if (cctsConDirectorRegistrado.contains(claveUp)) continue;
+
+                Empleado empCct = new Empleado();
+                empCct.idEmpleado = ct.id != null ? (syntheticIdBase + ct.id) : (++syntheticIdBase);
+                empCct.cct = claveUp;
+                empCct.nombreEscuela = (ct.nombreCT != null && !ct.nombreCT.isBlank()) ? ct.nombreCT : ("ESCUELA " + claveUp);
+                empCct.nombre = (ct.director != null && !ct.director.isBlank())
+                        ? ct.director.trim().toUpperCase(Locale.ROOT)
+                        : ("TITULAR CCT " + claveUp + " - " + empCct.nombreEscuela);
+                empCct.rfc = claveUp;
+                empCct.claveResponsable = claveUp;
+                empCct.numeroEmpleado = claveUp;
+                empCct.usuario = claveUp;
+                empCct.area = "Escuela / CCT";
+                empCct.cargo = "DIRECTOR DE CENTRO DE TRABAJO (CCT)";
+                empCct.activo = "B".equalsIgnoreCase(ct.estatus) ? 0 : 1;
+                if (cctPorRespInv.containsKey("TIENE_BIENES_CCT::" + claveUp)) {
+                    conBienesYEscuela.add(empCct);
+                } else {
+                    conEscuelaActiva.add(empCct);
+                }
+                cctsConDirectorRegistrado.add(claveUp);
+            }
+
+            List<Empleado> lista = new ArrayList<>(conBienesYEscuela.size() + conEscuelaActiva.size() + padronHistorico.size());
+            lista.addAll(conBienesYEscuela);
+            lista.addAll(conEscuelaActiva);
+            lista.addAll(padronHistorico);
+
+            Map<String, Empleado> indice = new HashMap<>(lista.size() * 4);
+            for (Empleado e : lista) {
+                if (e == null) continue;
+                if (e.idEmpleado != null) indice.putIfAbsent("ID::" + e.idEmpleado, e);
+                if (e.rfc != null && !e.rfc.isBlank()) indice.putIfAbsent("KEY::" + e.rfc.trim().toUpperCase(Locale.ROOT), e);
+                if (e.claveResponsable != null && !e.claveResponsable.isBlank()) indice.putIfAbsent("KEY::" + e.claveResponsable.trim().toUpperCase(Locale.ROOT), e);
+                if (e.curp != null && !e.curp.isBlank()) indice.putIfAbsent("KEY::" + e.curp.trim().toUpperCase(Locale.ROOT), e);
+                if (e.nombre != null && !e.nombre.isBlank()) indice.putIfAbsent("KEY::" + e.nombre.trim().toUpperCase(Locale.ROOT), e);
+                if (e.cct != null && !e.cct.isBlank()) indice.putIfAbsent("CCT::" + e.cct.trim().toUpperCase(Locale.ROOT), e);
+            }
+            cacheIndiceDirectores = new CacheEntry<>(indice, TTL_CACHE_MS);
+            cacheResponsables = new CacheEntry<>(lista, TTL_CACHE_MS);
             return lista;
         }
     }
@@ -1012,6 +1953,9 @@ public class PostgresRelacionalCrudService {
             if (emp.idEmpleado == null) {
                 emp.idEmpleado = System.currentTimeMillis() % 1000000L;
             }
+            cacheResponsables = null;
+            cacheIndiceDirectores = null;
+            cacheCentrosTrabajo = null;
             return emp;
         }
     }
@@ -1028,6 +1972,9 @@ public class PostgresRelacionalCrudService {
                 ejecutarUpdatePorColumnaTexto(conn, meta, m, "rfc", emp.rfc);
             }
             emp.idEmpleado = id;
+            cacheResponsables = null;
+            cacheIndiceDirectores = null;
+            cacheCentrosTrabajo = null;
             return emp;
         }
     }
@@ -1050,18 +1997,27 @@ public class PostgresRelacionalCrudService {
     }
 
     // =========================================================================
-    // 4. CRUD DE LOS 6 CATÁLOGOS SATÉLITE DEL DIAGRAMA ER (<-> CatalogoGeneral)
-    //    proveedores, partidas, tipos, naturaleza_gastos_1, marcas, tipos_folios
+    // 4. CRUD DE LOS 14 CATÁLOGOS DEL ESQUEMA "inventario" (<-> CatalogoGeneral)
     // =========================================================================
 
     public List<CatalogoGeneral> listarTodosCatalogosDiagrama() throws SQLException {
+        CacheEntry<List<CatalogoGeneral>> cached = cacheTodosCatalogos;
+        if (cached != null && cached.vigente()) {
+            return cached.valor;
+        }
         List<CatalogoGeneral> acumulado = new ArrayList<>();
-        String[] tiposDiagrama = {"proveedores", "partidas", "tipos_articulos", "naturaleza_gasto", "marcas", "tipos_folios"};
+        String[] tiposDiagrama = {
+            "proveedores", "partidas", "tipos_articulos", "naturaleza_gasto",
+            "marcas", "tipos_folios", "departamentos", "unidades",
+            "subdirecciones", "giros", "municipios", "localidades",
+            "vialidades", "asentamientos"
+        };
         for (String t : tiposDiagrama) {
             if (puedeOperarCatalogo(t)) {
                 acumulado.addAll(listarCatalogoPorTipo(t));
             }
         }
+        cacheTodosCatalogos = new CacheEntry<>(acumulado, TTL_CACHE_MS);
         return acumulado;
     }
 
@@ -1071,6 +2027,10 @@ public class PostgresRelacionalCrudService {
             return Collections.emptyList();
         }
         String tipoNorm = tipoCatalogo.trim().toLowerCase(Locale.ROOT);
+        CacheEntry<List<CatalogoGeneral>> cached = cacheCatalogoPorTipo.get(tipoNorm);
+        if (cached != null && cached.vigente()) {
+            return cached.valor;
+        }
         String[] candidatos = candidatosTablaCatalogo(tipoNorm);
         if (candidatos.length == 0) {
             return Collections.emptyList();
@@ -1081,7 +2041,8 @@ public class PostgresRelacionalCrudService {
                 return Collections.emptyList();
             }
             List<CatalogoGeneral> lista = new ArrayList<>();
-            String sql = "SELECT * FROM " + meta.nombreReal + " ORDER BY " + (meta.pkColumna != null ? meta.pkColumna : "1") + " ASC";
+            String orderByCol = meta.pkColumna != null ? columnaSqlSegura(meta, meta.pkColumna) : "1";
+            String sql = "SELECT * FROM " + meta.nombreReal + " ORDER BY " + orderByCol + " ASC";
             try (PreparedStatement ps = conn.prepareStatement(sql);
                  ResultSet rs = ps.executeQuery()) {
                 long idx = 1L;
@@ -1115,10 +2076,7 @@ public class PostgresRelacionalCrudService {
                             c.clave = leerString(rs, meta, "tipos");
                             c.descripcion = leerString(rs, meta, "descripcion");
                             c.nombre = c.descripcion;
-                            c.partidaAsociada = leerString(rs, meta, "partida");
-                            if (c.partidaAsociada == null || c.partidaAsociada.isBlank()) {
-                                c.partidaAsociada = leerString(rs, meta, "part_se");
-                            }
+                            c.partidaAsociada = leerPrimerTextoNoVacio(rs, meta, "partida", "part_se");
                             c.subclave = leerString(rs, meta, "subclave");
                         }
                         case "naturaleza_gasto", "naturaleza_gastos", "naturaleza_gastos_1" -> {
@@ -1137,10 +2095,78 @@ public class PostgresRelacionalCrudService {
                             c.descripcion = leerString(rs, meta, "descripcion");
                             c.nombre = c.descripcion;
                         }
+                        case "departamentos" -> {
+                            String uni = leerString(rs, meta, "unidad");
+                            String sub = leerString(rs, meta, "subdirector");
+                            String dep = leerString(rs, meta, "departamentos");
+                            StringBuilder cveDep = new StringBuilder();
+                            if (uni != null && !uni.isBlank()) cveDep.append(uni);
+                            if (sub != null && !sub.isBlank()) {
+                                if (cveDep.length() > 0) cveDep.append(".");
+                                cveDep.append(sub);
+                            }
+                            if (dep != null && !dep.isBlank()) {
+                                if (cveDep.length() > 0) cveDep.append(".");
+                                cveDep.append(dep);
+                            }
+                            c.clave = cveDep.length() > 0 ? cveDep.toString() : String.valueOf(c.id);
+                            c.descripcion = leerString(rs, meta, "descripcion");
+                            c.nombre = c.descripcion;
+                            c.subclave = sub;
+                            c.partidaAsociada = uni;
+                        }
+                        case "unidades", "unidades_1" -> {
+                            c.tipoCatalogo = "unidades";
+                            c.clave = leerPrimerTextoNoVacio(rs, meta, "u_unidad", "unidad", "clave");
+                            c.descripcion = leerPrimerTextoNoVacio(rs, meta, "u_desc1", "descripcion");
+                            c.nombre = c.descripcion;
+                        }
+                        case "subdirecciones", "subdirector", "subdirector_1" -> {
+                            c.tipoCatalogo = "subdirecciones";
+                            String u = leerString(rs, meta, "unidad");
+                            String s = leerPrimerTextoNoVacio(rs, meta, "subdirector", "sub_director", "clave");
+                            c.clave = (u != null && !u.isBlank() && s != null && !s.isBlank()) ? (u + "." + s) : (s != null ? s : String.valueOf(c.id));
+                            c.descripcion = leerString(rs, meta, "descripcion");
+                            c.nombre = c.descripcion;
+                            c.partidaAsociada = u;
+                        }
+                        case "giros" -> {
+                            c.clave = leerString(rs, meta, "clave");
+                            c.descripcion = leerString(rs, meta, "descripcion");
+                            c.nombre = c.descripcion;
+                            c.subclave = leerString(rs, meta, "ringiro");
+                        }
+                        case "municipios", "municipio" -> {
+                            c.tipoCatalogo = "municipios";
+                            c.clave = leerString(rs, meta, "clave");
+                            c.descripcion = leerString(rs, meta, "descripcion");
+                            c.nombre = c.descripcion;
+                            c.subclave = leerString(rs, meta, "urse");
+                            c.partidaAsociada = leerString(rs, meta, "rspurse");
+                        }
+                        case "localidades", "localidad" -> {
+                            c.tipoCatalogo = "localidades";
+                            c.clave = leerPrimerTextoNoVacio(rs, meta, "localidad", "clave");
+                            c.descripcion = leerString(rs, meta, "descripcion");
+                            c.nombre = c.descripcion;
+                            c.partidaAsociada = leerString(rs, meta, "municipio");
+                        }
+                        case "vialidades", "validades" -> {
+                            c.tipoCatalogo = "vialidades";
+                            c.clave = leerString(rs, meta, "clave");
+                            c.descripcion = leerString(rs, meta, "descripcion");
+                            c.nombre = c.descripcion;
+                        }
+                        case "asentamientos" -> {
+                            c.clave = leerString(rs, meta, "clave");
+                            c.descripcion = leerString(rs, meta, "descripcion");
+                            c.nombre = c.descripcion;
+                        }
                     }
                     lista.add(c);
                 }
             }
+            cacheCatalogoPorTipo.put(tipoNorm, new CacheEntry<>(lista, TTL_CACHE_MS));
             return lista;
         }
     }
@@ -1158,6 +2184,7 @@ public class PostgresRelacionalCrudService {
             }
             ejecutarInsertGenerico(conn, meta, m, idGen -> item.id = idGen);
             item.tipoCatalogo = tipoNorm;
+            invalidarCacheCatalogo(tipoNorm);
             return item;
         }
     }
@@ -1172,8 +2199,15 @@ public class PostgresRelacionalCrudService {
             ejecutarUpdateGenerico(conn, meta, m, id);
             item.id = id;
             item.tipoCatalogo = tipoNorm;
+            invalidarCacheCatalogo(tipoNorm);
             return item;
         }
+    }
+
+    private void invalidarCacheCatalogo(String tipoNorm) {
+        cacheCatalogoPorTipo.remove(tipoNorm);
+        cacheTodosCatalogos = null;
+        cacheMapasSimples.clear();
     }
 
     private Map<String, Object> mapearCamposCatalogo(TablaMeta meta, String tipoNorm, CatalogoGeneral item, boolean esAlta) {
@@ -1220,6 +2254,49 @@ public class PostgresRelacionalCrudService {
                 ponerTexto(meta, m, "descripcion", desc);
                 if (meta.columnas.contains("estatus")) m.put("estatus", 1);
             }
+            case "departamentos" -> {
+                ponerTexto(meta, m, "unidad", item.partidaAsociada != null ? item.partidaAsociada : "01");
+                ponerTexto(meta, m, "subdirector", item.subclave != null ? item.subclave : "01");
+                ponerTexto(meta, m, "departamentos", item.clave);
+                ponerTexto(meta, m, "descripcion", desc);
+                if (meta.columnas.contains("activo")) m.put("activo", 1);
+            }
+            case "unidades", "unidades_1" -> {
+                ponerTexto(meta, m, "u_unidad", item.clave);
+                ponerTexto(meta, m, "u_desc1", desc);
+                if (meta.columnas.contains("activo")) m.put("activo", 1);
+            }
+            case "subdirecciones", "subdirector", "subdirector_1" -> {
+                ponerTexto(meta, m, "unidad", item.partidaAsociada != null ? item.partidaAsociada : "01");
+                ponerTexto(meta, m, "subdirector", item.clave);
+                ponerTexto(meta, m, "sub_director", item.clave);
+                ponerTexto(meta, m, "descripcion", desc);
+                if (meta.columnas.contains("activo")) m.put("activo", 1);
+            }
+            case "giros" -> {
+                ponerTexto(meta, m, "clave", item.clave);
+                ponerTexto(meta, m, "descripcion", desc);
+                ponerTexto(meta, m, "ringiro", item.subclave);
+                if (meta.columnas.contains("activo")) m.put("activo", 1);
+            }
+            case "municipios", "municipio" -> {
+                ponerTexto(meta, m, "clave", item.clave);
+                ponerTexto(meta, m, "descripcion", desc);
+                ponerTexto(meta, m, "urse", item.subclave);
+                ponerTexto(meta, m, "rspurse", item.partidaAsociada);
+                if (meta.columnas.contains("activo")) m.put("activo", 1);
+            }
+            case "localidades", "localidad" -> {
+                ponerTexto(meta, m, "municipio", item.partidaAsociada != null ? item.partidaAsociada : "04");
+                ponerTexto(meta, m, "localidad", item.clave);
+                ponerTexto(meta, m, "descripcion", desc);
+                if (meta.columnas.contains("activo")) m.put("activo", 1);
+            }
+            case "vialidades", "validades", "asentamientos" -> {
+                ponerTexto(meta, m, "clave", item.clave);
+                ponerTexto(meta, m, "descripcion", desc);
+                if (meta.columnas.contains("activo")) m.put("activo", 1);
+            }
         }
         return m;
     }
@@ -1232,6 +2309,14 @@ public class PostgresRelacionalCrudService {
         void onId(Long id);
     }
 
+    private String columnaSqlSegura(TablaMeta meta, String col) {
+        String real = meta.nombreRealColumna.getOrDefault(col.toLowerCase(Locale.ROOT), col);
+        if (real.contains(" ") || real.matches("^[0-9].*")) {
+            return "\"" + real.replace("\"", "\"\"") + "\"";
+        }
+        return real;
+    }
+
     private void ejecutarInsertGenerico(Connection conn, TablaMeta meta, Map<String, Object> valores, IdCallback callback) throws SQLException {
         List<String> cols = new ArrayList<>(valores.keySet());
         StringBuilder sql = new StringBuilder("INSERT INTO ").append(meta.nombreReal).append(" (");
@@ -1241,7 +2326,7 @@ public class PostgresRelacionalCrudService {
                 sql.append(", ");
                 ph.append(", ");
             }
-            sql.append(cols.get(i));
+            sql.append(columnaSqlSegura(meta, cols.get(i)));
             ph.append("?");
         }
         sql.append(") VALUES (").append(ph).append(")");
@@ -1266,9 +2351,9 @@ public class PostgresRelacionalCrudService {
         StringBuilder sql = new StringBuilder("UPDATE ").append(meta.nombreReal).append(" SET ");
         for (int i = 0; i < cols.size(); i++) {
             if (i > 0) sql.append(", ");
-            sql.append(cols.get(i)).append(" = ?");
+            sql.append(columnaSqlSegura(meta, cols.get(i))).append(" = ?");
         }
-        sql.append(" WHERE ").append(meta.pkColumna).append(" = ?");
+        sql.append(" WHERE ").append(columnaSqlSegura(meta, meta.pkColumna)).append(" = ?");
         try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             int idx = 1;
             for (String col : cols) {
@@ -1285,9 +2370,9 @@ public class PostgresRelacionalCrudService {
         StringBuilder sql = new StringBuilder("UPDATE ").append(meta.nombreReal).append(" SET ");
         for (int i = 0; i < cols.size(); i++) {
             if (i > 0) sql.append(", ");
-            sql.append(cols.get(i)).append(" = ?");
+            sql.append(columnaSqlSegura(meta, cols.get(i))).append(" = ?");
         }
-        sql.append(" WHERE UPPER(TRIM(").append(colWhere).append(")) = ?");
+        sql.append(" WHERE UPPER(TRIM(").append(columnaSqlSegura(meta, colWhere)).append(")) = ?");
         try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
             int idx = 1;
             for (String col : cols) {
@@ -1323,10 +2408,10 @@ public class PostgresRelacionalCrudService {
             if (colsValidas.isEmpty()) {
                 return null;
             }
-            StringBuilder sql = new StringBuilder("SELECT ").append(pkCol).append(" FROM ").append(meta.nombreReal).append(" WHERE ");
+            StringBuilder sql = new StringBuilder("SELECT ").append(columnaSqlSegura(meta, pkCol)).append(" FROM ").append(meta.nombreReal).append(" WHERE ");
             for (int i = 0; i < colsValidas.size(); i++) {
                 if (i > 0) sql.append(" OR ");
-                sql.append("UPPER(TRIM(CAST(").append(colsValidas.get(i)).append(" AS TEXT))) = ?");
+                sql.append("UPPER(TRIM(CAST(").append(columnaSqlSegura(meta, colsValidas.get(i))).append(" AS TEXT))) = ?");
             }
             sql.append(" LIMIT 1");
             String limpio = valorBuscado.trim().toUpperCase(Locale.ROOT);
@@ -1352,13 +2437,18 @@ public class PostgresRelacionalCrudService {
             String pkCol,
             String valorCol
     ) {
+        String cacheKey = origen.name() + "::" + tabla.toLowerCase(Locale.ROOT) + "::" + pkCol.toLowerCase(Locale.ROOT) + "::" + valorCol.toLowerCase(Locale.ROOT);
+        CacheEntry<Map<Integer, String>> cached = cacheMapasSimples.get(cacheKey);
+        if (cached != null && cached.vigente()) {
+            return cached.valor;
+        }
         Map<Integer, String> mapa = new HashMap<>();
         try {
             TablaMeta meta = inspeccionarTabla(conn, origen, tabla, "naturaleza_gastos");
             if (meta == null || !meta.columnas.contains(pkCol.toLowerCase(Locale.ROOT)) || !meta.columnas.contains(valorCol.toLowerCase(Locale.ROOT))) {
                 return mapa;
             }
-            String sql = "SELECT " + pkCol + ", " + valorCol + " FROM " + meta.nombreReal;
+            String sql = "SELECT " + columnaSqlSegura(meta, pkCol) + ", " + columnaSqlSegura(meta, valorCol) + " FROM " + meta.nombreReal;
             try (PreparedStatement ps = conn.prepareStatement(sql);
                  ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
@@ -1369,6 +2459,7 @@ public class PostgresRelacionalCrudService {
                     }
                 }
             }
+            cacheMapasSimples.put(cacheKey, new CacheEntry<>(mapa, TTL_CACHE_MS));
         } catch (Exception ignored) {
         }
         return mapa;
@@ -1401,7 +2492,7 @@ public class PostgresRelacionalCrudService {
     private void agregarSiExiste(TablaMeta meta, List<String> destino, String... candidatos) {
         for (String c : candidatos) {
             if (meta.columnas.contains(c.toLowerCase(Locale.ROOT))) {
-                destino.add(c.toLowerCase(Locale.ROOT));
+                destino.add(columnaSqlSegura(meta, c.toLowerCase(Locale.ROOT)));
             }
         }
     }
@@ -1446,10 +2537,42 @@ public class PostgresRelacionalCrudService {
         return t;
     }
 
+    private String leerPrimerTextoNoVacio(ResultSet rs, TablaMeta meta, String... cols) {
+        for (String col : cols) {
+            String v = leerString(rs, meta, col);
+            if (v != null && !v.isBlank()) {
+                return v;
+            }
+        }
+        return null;
+    }
+
+    private Integer leerPrimerEnteroNoNulo(ResultSet rs, TablaMeta meta, String... cols) {
+        for (String col : cols) {
+            Integer v = leerEntero(rs, meta, col);
+            if (v != null && v != 0) {
+                return v;
+            }
+        }
+        return null;
+    }
+
+    private LocalDate leerPrimeraFechaNoNula(ResultSet rs, TablaMeta meta, String... cols) {
+        for (String col : cols) {
+            LocalDate v = leerFecha(rs, meta, col);
+            if (v != null) {
+                return v;
+            }
+        }
+        return null;
+    }
+
     private String leerString(ResultSet rs, TablaMeta meta, String col) {
-        if (!meta.columnas.contains(col.toLowerCase(Locale.ROOT))) return null;
+        String key = col.toLowerCase(Locale.ROOT);
+        if (!meta.columnas.contains(key)) return null;
+        String real = meta.nombreRealColumna.getOrDefault(key, col);
         try {
-            String v = rs.getString(col);
+            String v = rs.getString(real);
             return v != null ? v.trim() : null;
         } catch (Exception e) {
             return null;
@@ -1457,9 +2580,11 @@ public class PostgresRelacionalCrudService {
     }
 
     private Integer leerEntero(ResultSet rs, TablaMeta meta, String col) {
-        if (!meta.columnas.contains(col.toLowerCase(Locale.ROOT))) return null;
+        String key = col.toLowerCase(Locale.ROOT);
+        if (!meta.columnas.contains(key)) return null;
+        String real = meta.nombreRealColumna.getOrDefault(key, col);
         try {
-            int v = rs.getInt(col);
+            int v = rs.getInt(real);
             return rs.wasNull() ? null : v;
         } catch (Exception e) {
             return null;
@@ -1467,9 +2592,11 @@ public class PostgresRelacionalCrudService {
     }
 
     private Long leerLong(ResultSet rs, TablaMeta meta, String col) {
-        if (!meta.columnas.contains(col.toLowerCase(Locale.ROOT))) return null;
+        String key = col.toLowerCase(Locale.ROOT);
+        if (!meta.columnas.contains(key)) return null;
+        String real = meta.nombreRealColumna.getOrDefault(key, col);
         try {
-            long v = rs.getLong(col);
+            long v = rs.getLong(real);
             return rs.wasNull() ? null : v;
         } catch (Exception e) {
             return null;
@@ -1477,9 +2604,11 @@ public class PostgresRelacionalCrudService {
     }
 
     private Double leerDouble(ResultSet rs, TablaMeta meta, String col) {
-        if (!meta.columnas.contains(col.toLowerCase(Locale.ROOT))) return null;
+        String key = col.toLowerCase(Locale.ROOT);
+        if (!meta.columnas.contains(key)) return null;
+        String real = meta.nombreRealColumna.getOrDefault(key, col);
         try {
-            double v = rs.getDouble(col);
+            double v = rs.getDouble(real);
             return rs.wasNull() ? null : v;
         } catch (Exception e) {
             return null;
@@ -1487,9 +2616,11 @@ public class PostgresRelacionalCrudService {
     }
 
     private LocalDate leerFecha(ResultSet rs, TablaMeta meta, String col) {
-        if (!meta.columnas.contains(col.toLowerCase(Locale.ROOT))) return null;
+        String key = col.toLowerCase(Locale.ROOT);
+        if (!meta.columnas.contains(key)) return null;
+        String real = meta.nombreRealColumna.getOrDefault(key, col);
         try {
-            Date d = rs.getDate(col);
+            Date d = rs.getDate(real);
             return d != null ? d.toLocalDate() : null;
         } catch (Exception e) {
             return null;

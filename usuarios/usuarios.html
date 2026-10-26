@@ -190,7 +190,7 @@
                                         class="w-full bg-white rounded-md border-gray-300 py-2.5 px-3 shadow-sm sm:text-sm border font-mono uppercase focus:ring-guinda focus:border-guinda"
                                         autocomplete="off">
                                     <datalist id="lista-cct-oficiales">
-                                        <template x-for="ct in centrosTrabajo" :key="ct.id || ct.claveCT">
+                                        <template x-for="ct in centrosTrabajoLimitados" :key="ct.id || ct.claveCT">
                                             <option :value="ct.claveCT" x-text="ct.nombreCT"></option>
                                         </template>
                                     </datalist>

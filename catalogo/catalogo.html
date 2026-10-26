@@ -514,42 +514,42 @@
                         </div>
 
                         <datalist id="dl-tipos-articulos">
-                            <template x-for="item in catalogoPorTipo('tipos_articulos')" :key="item.id">
+                            <template x-for="item in catalogoPorTipoLimitado('tipos_articulos', 100)" :key="item.id">
                                 <option :value="`${item.clave ? item.clave + ' ' : ''}${item.descripcion || item.nombre || ''}`.trim()"></option>
                             </template>
                         </datalist>
                         <datalist id="dl-proveedores">
-                            <template x-for="item in catalogoPorTipo('proveedores')" :key="item.id">
+                            <template x-for="item in catalogoPorTipoLimitado('proveedores', 100)" :key="item.id">
                                 <option :value="item.descripcion || item.nombre || item.clave"></option>
                             </template>
                         </datalist>
                         <datalist id="dl-naturaleza-gasto">
-                            <template x-for="item in catalogoPorTipo('naturaleza_gasto')" :key="item.id">
+                            <template x-for="item in catalogoPorTipoLimitado('naturaleza_gasto', 100)" :key="item.id">
                                 <option :value="item.descripcion || item.nombre || item.clave"></option>
                             </template>
                         </datalist>
                         <datalist id="dl-partidas">
-                            <template x-for="item in catalogoPorTipo('partidas')" :key="item.id">
+                            <template x-for="item in catalogoPorTipoLimitado('partidas', 100)" :key="item.id">
                                 <option :value="`${item.clave ? item.clave + ' - ' : ''}${item.descripcion || item.nombre || ''}`.trim()"></option>
                             </template>
                         </datalist>
                         <datalist id="dl-departamentos">
-                            <template x-for="item in catalogoPorTipo('departamentos')" :key="item.id">
+                            <template x-for="item in catalogoPorTipoLimitado('departamentos', 100)" :key="item.id">
                                 <option :value="`${item.clave ? item.clave + ' - ' : ''}${item.descripcion || item.nombre || ''}`.trim()"></option>
                             </template>
                         </datalist>
                         <datalist id="dl-cct-catalogo">
-                            <template x-for="ct in centrosTrabajo" :key="ct.id || ct.claveCT">
+                            <template x-for="ct in centrosTrabajoLimitados" :key="ct.id || ct.claveCT">
                                 <option :value="ct.claveCT" x-text="`${ct.nombreCT || ''} (${ct.municipio || ''})`"></option>
                             </template>
                         </datalist>
                         <datalist id="dl-marcas">
-                            <template x-for="item in catalogoPorTipo('marcas')" :key="item.id">
+                            <template x-for="item in catalogoPorTipoLimitado('marcas', 100)" :key="item.id">
                                 <option :value="item.descripcion || item.nombre || item.clave"></option>
                             </template>
                         </datalist>
                         <datalist id="dl-tipos-folios">
-                            <template x-for="item in catalogoPorTipo('tipos_folios')" :key="item.id">
+                            <template x-for="item in catalogoPorTipoLimitado('tipos_folios', 100)" :key="item.id">
                                 <option :value="item.clave || item.descripcion || item.nombre"></option>
                             </template>
                         </datalist>

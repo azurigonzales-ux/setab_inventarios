@@ -2,6 +2,7 @@ package org.acme;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -26,6 +27,9 @@ public class TraspasoResource {
 
     @Inject
     JsonWebToken jwt;
+
+    @Inject
+    PostgresRelacionalCrudService relacionalService;
 
     private String obtenerNombreAdmin() {
         String adminNombre = "Administrador del Sistema";
@@ -71,22 +75,71 @@ public class TraspasoResource {
                         .entity("{\"error\": \"Debe seleccionar al Director Entrante.\"}").build();
             }
 
-            Empleado directorEntrante = Empleado.findById(request.idEmpleadoEntrante);
+            Empleado directorEntrante = relacionalService != null
+                    ? relacionalService.sincronizarEmpleadoEnPanache(request.idEmpleadoEntrante)
+                    : Empleado.findById(request.idEmpleadoEntrante);
             if (directorEntrante == null) {
                 return Response.status(Response.Status.NOT_FOUND)
                         .entity("{\"error\": \"Director entrante no encontrado.\"}").build();
             }
 
-            Empleado directorSaliente = request.idEmpleadoSaliente != null ? Empleado.findById(request.idEmpleadoSaliente) : null;
+            Empleado directorSaliente = request.idEmpleadoSaliente != null
+                    ? (relacionalService != null
+                            ? relacionalService.sincronizarEmpleadoEnPanache(request.idEmpleadoSaliente)
+                            : Empleado.findById(request.idEmpleadoSaliente))
+                    : null;
             String cctLimpia = (request.cct != null && !request.cct.trim().isEmpty())
                     ? request.cct.trim().toUpperCase()
                     : (directorSaliente != null && directorSaliente.cct != null ? directorSaliente.cct.trim().toUpperCase() : "SIN-CCT");
 
-            List<Resguardo> resguardosActivos;
+            List<Resguardo> resguardosActivos = new ArrayList<>();
             if (directorSaliente != null) {
-                resguardosActivos = Resguardo.find("empleado.idEmpleado = ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo is null or estadoResguardo = 'PENDIENTE_FIRMA')", directorSaliente.idEmpleado).list();
-            } else {
-                resguardosActivos = Resguardo.find("upper(empleado.cct) = ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo is null or estadoResguardo = 'PENDIENTE_FIRMA')", cctLimpia).list();
+                List<Long> idsSaliente = new ArrayList<>();
+                if (directorSaliente.idEmpleado != null) idsSaliente.add(directorSaliente.idEmpleado);
+                if (request.idEmpleadoSaliente != null && !idsSaliente.contains(request.idEmpleadoSaliente)) {
+                    idsSaliente.add(request.idEmpleadoSaliente);
+                }
+                if (!idsSaliente.isEmpty()) {
+                    resguardosActivos.addAll(Resguardo.find(
+                            "empleado.idEmpleado in ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo is null or estadoResguardo = 'PENDIENTE_FIRMA')",
+                            idsSaliente
+                    ).list());
+                }
+            }
+            if (resguardosActivos.isEmpty() && !"SIN-CCT".equals(cctLimpia)) {
+                resguardosActivos.addAll(Resguardo.find(
+                        "upper(empleado.cct) = ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo is null or estadoResguardo = 'PENDIENTE_FIRMA')",
+                        cctLimpia
+                ).list());
+            }
+
+            if (relacionalService != null && relacionalService.puedeOperarInventario(null)) {
+                List<Articulo> bienesRel = relacionalService.listarBienesPorResponsableOCct(
+                        request.idEmpleadoSaliente,
+                        directorSaliente != null ? directorSaliente.rfc : null,
+                        cctLimpia,
+                        directorSaliente != null ? directorSaliente.nombre : null
+                );
+                for (Articulo ext : bienesRel) {
+                    if (ext == null) continue;
+                    Articulo artLocal = relacionalService.sincronizarObjetoArticuloEnPanache(ext, null);
+                    if (artLocal == null || artLocal.id == null) continue;
+                    boolean yaExiste = resguardosActivos.stream()
+                            .anyMatch(r -> r != null && r.articulo != null && artLocal.id.equals(r.articulo.id));
+                    if (!yaExiste) {
+                        Resguardo rSync = new Resguardo();
+                        rSync.articulo = artLocal;
+                        rSync.empleado = directorSaliente;
+                        rSync.fechaAsignacion = artLocal.fechaResguardo != null ? artLocal.fechaResguardo : LocalDate.now();
+                        rSync.cantidadAsignada = 1.0;
+                        rSync.estadoResguardo = "ACTIVO";
+                        rSync.nombreAdminAsignador = obtenerNombreAdmin();
+                        rSync.fondoOrigen = artLocal.fondoOrigen != null ? artLocal.fondoOrigen : "OFICIAL";
+                        rSync.folioResguardoOficial = artLocal.folioResguardo;
+                        rSync.persistAndFlush();
+                        resguardosActivos.add(rSync);
+                    }
+                }
             }
 
             if (resguardosActivos.isEmpty()) {
@@ -125,6 +178,11 @@ public class TraspasoResource {
             String anioActual = String.valueOf(LocalDate.now().getYear());
             Map<String, String> foliosCrePorFondo = new HashMap<>();
             String adminResponsable = obtenerNombreAdmin();
+            String rfcOClaveEntrante = (directorEntrante.rfc != null && !directorEntrante.rfc.isBlank())
+                    ? directorEntrante.rfc
+                    : (directorEntrante.claveResponsable != null && !directorEntrante.claveResponsable.isBlank()
+                            ? directorEntrante.claveResponsable
+                            : directorEntrante.nombre);
 
             for (Resguardo rAntiguo : resguardosActivos) {
                 String fondo = "INTERNO";
@@ -176,6 +234,18 @@ public class TraspasoResource {
                         ? rAntiguo.articulo.numeroInventario
                         : (rAntiguo.articulo != null ? String.valueOf(rAntiguo.articulo.id) : "S/N");
 
+                if (relacionalService != null && relacionalService.puedeOperarInventario(null)) {
+                    relacionalService.actualizarResguardoEnInventarioRelacional(
+                            numInventario,
+                            null,
+                            cctLimpia,
+                            request.idEmpleadoEntrante,
+                            rfcOClaveEntrante,
+                            nuevoFolioCre,
+                            "CRE"
+                    );
+                }
+
                 HistorialTrazabilidad hBajaRotacion = new HistorialTrazabilidad();
                 hBajaRotacion.articulo = rAntiguo.articulo;
                 hBajaRotacion.tipoMovimiento = "BAJA_RESGUARDO_ROTACION";
@@ -209,15 +279,25 @@ public class TraspasoResource {
 
     @GET
     @Path("/acta/{idEmpleadoEntrante}")
+    @Transactional
     @RolesAllowed({"SUPERADMIN", "admin", "Admin"})
     public Response obtenerDatosActaTraspaso(@PathParam("idEmpleadoEntrante") Long idEmpleadoEntrante) {
-        Empleado entrante = Empleado.findById(idEmpleadoEntrante);
+        Empleado entrante = relacionalService != null
+                ? relacionalService.sincronizarEmpleadoEnPanache(idEmpleadoEntrante)
+                : Empleado.findById(idEmpleadoEntrante);
         if (entrante == null) {
             return Response.status(Response.Status.NOT_FOUND).build();
         }
 
+        List<Long> idsEntrante = new ArrayList<>();
+        if (entrante.idEmpleado != null) idsEntrante.add(entrante.idEmpleado);
+        if (idEmpleadoEntrante != null && !idsEntrante.contains(idEmpleadoEntrante)) idsEntrante.add(idEmpleadoEntrante);
+
         String cctLimpia = entrante.cct != null ? entrante.cct.trim().toUpperCase() : "S/N";
-        List<Resguardo> vigentes = Resguardo.find("empleado.idEmpleado = ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo = 'PENDIENTE_FIRMA')", idEmpleadoEntrante).list();
+        List<Resguardo> vigentes = Resguardo.find(
+                "empleado.idEmpleado in ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo = 'PENDIENTE_FIRMA')",
+                idsEntrante
+        ).list();
         List<Resguardo> traspasados = Resguardo.find("upper(empleado.cct) = ?1 and estadoResguardo = 'TRASPASADO' order by id desc", cctLimpia).list();
 
         ActaTraspasoDTO acta = new ActaTraspasoDTO();

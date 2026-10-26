@@ -450,7 +450,7 @@
 
                 modalAbierto: false, modalRegistroAbierto: false, modalRegistroUsuarioAbierto: false, modalResguardoAbierto: false,
                 modalConfirmacionAbierto: false, modalHistorialAbierto: false, modalFirmaDirectorAbierto: false,
-                modalSeguridadAbierto: false, textoConfirmacion: '', idBajaPendiente: null, modalTraspasoAbierto: false, idDirectorEntrante: '', procesandoTraspaso: false, empleadosGeneral: [],
+                modalSeguridadAbierto: false, textoConfirmacion: '', idBajaPendiente: null, modalTraspasoAbierto: false, idDirectorEntrante: '', busquedaDirectorTraspaso: '', procesandoTraspaso: false, empleadosGeneral: [],
 
                 articuloSeleccionado: {},
                 nuevoArticulo: {
@@ -472,6 +472,7 @@
                 solicitudesBaja: [],
 
                 empleados: [], empleadosFiltrados: [], filtroEmpleado: '', filtroNivel: '',
+                paginaEmpleadosActual: 0, totalPaginasEmpleados: 1, totalEmpleadosFiltrados: 0,
                 modalEquiposAbierto: false, empleadoSeleccionado: {}, equiposEmpleado: [],
                 cargandoEquipos: false, cargandoPersonal: false, modalAprobarBajaAbierto: false,
                 equipoADevolver: {}, firmaBase64: null, liberando: false, vinoDesdeBandeja: false,
@@ -824,10 +825,10 @@
                 get directoresActualizacionFiltrados() {
                     const lista = Array.isArray(this.empleados) && this.empleados.length > 0 ? this.empleados : this.empleadosGeneral;
                     if (!this.busquedaActualizacionAnual || !this.busquedaActualizacionAnual.trim()) {
-                        return lista;
+                        return (lista || []).slice(0, 80);
                     }
                     const term = this.busquedaActualizacionAnual.trim().toLowerCase();
-                    return lista.filter(e => {
+                    return (lista || []).filter(e => {
                         const matchEmp = (e.nombre && e.nombre.toLowerCase().includes(term)) ||
                             (e.cct && e.cct.toLowerCase().includes(term)) ||
                             (e.rfc && e.rfc.toLowerCase().includes(term)) ||
@@ -839,7 +840,7 @@
                             ((a.centroTrabajo && e.cct && a.centroTrabajo.toUpperCase() === e.cct.toUpperCase()) ||
                              (a.resguardanteActual && e.nombre && a.resguardanteActual.toUpperCase() === e.nombre.toUpperCase()))
                         );
-                    });
+                    }).slice(0, 80);
                 },
 
                 async seleccionarDirectorActualizacion(emp) {
@@ -1577,13 +1578,14 @@
                 },
 
                 get centrosFiltrados() {
-                    if (!this.busquedaCT) return this.centrosTrabajo;
+                    if (!this.busquedaCT) return (this.centrosTrabajo || []).slice(0, 80);
                     const b = this.busquedaCT.toLowerCase();
-                    return this.centrosTrabajo.filter(c =>
+                    return (this.centrosTrabajo || []).filter(c =>
                         (c.claveCT && c.claveCT.toLowerCase().includes(b)) ||
                         (c.nombreCT && c.nombreCT.toLowerCase().includes(b)) ||
-                        (c.municipio && c.municipio.toLowerCase().includes(b))
-                    );
+                        (c.municipio && c.municipio.toLowerCase().includes(b)) ||
+                        (c.director && c.director.toLowerCase().includes(b))
+                    ).slice(0, 80);
                 },
 
                 async cargarCentrosTrabajo(forzar = false) {
@@ -1659,6 +1661,21 @@
                     return this.catalogosAuxiliares.filter(i => i && (i.tipoCatalogo || '').toLowerCase() === t);
                 },
 
+                catalogoPorTipoLimitado(tipo, limite = 100) {
+                    const lista = this.catalogoPorTipo(tipo);
+                    return Array.isArray(lista) ? lista.slice(0, limite) : [];
+                },
+
+                get centrosTrabajoLimitados() {
+                    if (!Array.isArray(this.centrosTrabajo)) return [];
+                    const termRaw = (this.nuevoArticulo?.centroTrabajo || this.articuloSeleccionado?.centroTrabajo || this.nuevoUsuario?.cct || '').trim().toLowerCase();
+                    if (!termRaw) return this.centrosTrabajo.slice(0, 100);
+                    return this.centrosTrabajo.filter(c =>
+                        (c.claveCT && c.claveCT.toLowerCase().includes(termRaw)) ||
+                        (c.nombreCT && c.nombreCT.toLowerCase().includes(termRaw))
+                    ).slice(0, 100);
+                },
+
                 async cargarCatalogosAuxiliares(forzar = false) {
                     if (!forzar && Array.isArray(this.catalogosAuxiliares) && this.catalogosAuxiliares.length > 0) return;
                     try {
@@ -1692,13 +1709,13 @@
                 },
 
                 get datosCatalogoFiltrados() {
-                    if (!this.busquedaCatalogo) return this.datosCatalogo;
+                    if (!this.busquedaCatalogo) return (this.datosCatalogo || []).slice(0, 80);
                     const b = this.busquedaCatalogo.toLowerCase();
-                    return this.datosCatalogo.filter(i =>
+                    return (this.datosCatalogo || []).filter(i =>
                         (i.clave && i.clave.toLowerCase().includes(b)) ||
                         (i.descripcion && i.descripcion.toLowerCase().includes(b)) ||
                         (i.nombre && i.nombre.toLowerCase().includes(b))
-                    );
+                    ).slice(0, 80);
                 },
 
                 cambiarTabCatalogo(idTab, nombreTab) {
@@ -2177,10 +2194,6 @@
 
                     if (this.rolUsuario === 'SUPERADMIN') {
                         this.cambiarVista('catalogo', '../catalogo/catalogo.html');
-                        this.cargarEmpleados();
-                        this.cargarSolicitudesBaja();
-                        this.cargarUsuarios();
-                        this.cargarCentrosTrabajo();
                     } else if (this.rolUsuario === 'admin') {
                         this.cambiarVista('mi_escuela', '../catalogo/catalogo.html');
                         this.cargarPendientes();
@@ -2231,16 +2244,16 @@
                         this.sidebarAbierto = false;
                     }
 
-                    if (nombreVista === 'catalogo') { this.cargarArticulos(50); this.cargarCatalogosAuxiliares(); this.cargarCentrosTrabajo(); }
+                    if (nombreVista === 'catalogo') { this.cargarArticulos(50); setTimeout(() => { this.cargarCatalogosAuxiliares(); this.cargarCentrosTrabajo(); }, 600); }
                     if (nombreVista === 'mi_escuela') { this.cargarMisEquipos(); this.cargarPendientes(); }
                     if (nombreVista === 'firmas') this.cargarPendientes();
                     if (nombreVista === 'usuarios') { this.cargarUsuarios(); this.cargarCentrosTrabajo(); }
-                    if (nombreVista === 'resguardos') { this.filtrarLocal(); }
+                    if (nombreVista === 'resguardos') { if (this.empleados.length === 0) { await this.cargarEmpleados(); } this.filtrarLocal(); }
                     if (nombreVista === 'solicitudes') { this.cargarSolicitudesBaja(); }
-                    if (nombreVista === 'centros_trabajo') { this.cargarCentrosTrabajo(); this.cargarEmpleados(); this.cargarArticulos(500); }
+                    if (nombreVista === 'centros_trabajo') { this.cargarCentrosTrabajo(); this.cargarEmpleados(); this.cargarArticulos(100); }
                     if (nombreVista === 'catalogos_lista') this.cargarDatosCatalogoSelectivo();
-                    if (nombreVista === 'qr') { this.cargarArticulos(1000); this.cambiarTabQR('generar'); }
-                    if (nombreVista === 'reportes') { this.cargarArticulos(1000); this.cargarSolicitudesBaja(); this.cargarCentrosTrabajo(); }
+                    if (nombreVista === 'qr') { this.cargarArticulos(100); this.cambiarTabQR('generar'); }
+                    if (nombreVista === 'reportes') { this.cargarArticulos(100); this.cargarSolicitudesBaja(); this.cargarCentrosTrabajo(); if (this.empleados.length === 0) this.cargarEmpleados(); }
                     if (nombreVista === 'historial') { this.busquedaFolioHistorial = ''; this.equipoAuditado = null; }
                 },
 
@@ -2265,7 +2278,7 @@
                             return nombre.includes(term) || usuario.includes(term) || cct.includes(term) || curp.includes(term) || claveResp.includes(term);
                         });
                     }
-                    return filtrados;
+                    return filtrados.slice(0, 80);
                 },
 
                 async cargarUsuarios() {
@@ -2329,20 +2342,53 @@
                     } catch (error) { this.notificar("Fallo de conexión.", "error"); }
                 },
 
-                filtrarLocal() {
-                    let filtrados = this.empleados;
-                    if (this.filtroNivel !== '') { filtrados = filtrados.filter(e => e.area === this.filtroNivel); }
+                filtrarLocal(resetPagina = true) {
+                    if (resetPagina) {
+                        this.paginaEmpleadosActual = 0;
+                    }
+                    let filtrados = this.empleados || [];
+                    if (this.filtroNivel !== '') { filtrados = filtrados.filter(e => e.area === this.filtroNivel || (e.area && e.area.includes(this.filtroNivel))); }
                     if (this.filtroEmpleado !== '') {
                         const termino = this.filtroEmpleado.toLowerCase();
-                        filtrados = filtrados.filter(e => (e.nombre && e.nombre.toLowerCase().includes(termino)) || (e.cct && e.cct.toLowerCase().includes(termino)) || (e.nombreEscuela && e.nombreEscuela.toLowerCase().includes(termino)) || (e.usuario && e.usuario.toLowerCase().includes(termino)) || (e.area && e.area.toLowerCase().includes(termino)));
+                        filtrados = filtrados.filter(e => (e.nombre && e.nombre.toLowerCase().includes(termino)) || (e.cct && e.cct.toLowerCase().includes(termino)) || (e.nombreEscuela && e.nombreEscuela.toLowerCase().includes(termino)) || (e.rfc && e.rfc.toLowerCase().includes(termino)) || (e.usuario && e.usuario.toLowerCase().includes(termino)) || (e.area && e.area.toLowerCase().includes(termino)));
                     }
-                    this.empleadosFiltrados = filtrados;
+                    const pageSize = 50;
+                    this.totalEmpleadosFiltrados = filtrados.length;
+                    this.totalPaginasEmpleados = Math.max(1, Math.ceil(filtrados.length / pageSize));
+                    if (this.paginaEmpleadosActual >= this.totalPaginasEmpleados) {
+                        this.paginaEmpleadosActual = 0;
+                    }
+                    const start = this.paginaEmpleadosActual * pageSize;
+                    this.empleadosFiltrados = filtrados.slice(start, start + pageSize);
+                },
+
+                cambiarPaginaEmpleados(nuevaPagina) {
+                    if (nuevaPagina >= 0 && nuevaPagina < this.totalPaginasEmpleados) {
+                        this.paginaEmpleadosActual = nuevaPagina;
+                        this.filtrarLocal(false);
+                    }
                 },
 
                 get empleadosFiltradosList() {
-                    if (!this.busquedaEmpleado) return this.empleados;
+                    if (!this.busquedaEmpleado) return (this.empleados || []).slice(0, 80);
                     const busq = this.busquedaEmpleado.toLowerCase();
-                    return this.empleados.filter(e => (e.nombre && e.nombre.toLowerCase().includes(busq)) || (e.rfc && e.rfc.toLowerCase().includes(busq)) || (e.cct && e.cct.toLowerCase().includes(busq)));
+                    return (this.empleados || []).filter(e => (e.nombre && e.nombre.toLowerCase().includes(busq)) || (e.rfc && e.rfc.toLowerCase().includes(busq)) || (e.cct && e.cct.toLowerCase().includes(busq)) || (e.nombreEscuela && e.nombreEscuela.toLowerCase().includes(busq))).slice(0, 80);
+                },
+
+                get empleadosTraspasoFiltrados() {
+                    const idSaliente = this.empleadoSeleccionado?.id_empleado;
+                    const lista = (this.empleados || []).filter(e => e && e.id_empleado !== idSaliente);
+                    if (!this.busquedaDirectorTraspaso || !this.busquedaDirectorTraspaso.trim()) {
+                        return lista.slice(0, 80);
+                    }
+                    const busq = this.busquedaDirectorTraspaso.trim().toLowerCase();
+                    return lista.filter(e =>
+                        (e.nombre && e.nombre.toLowerCase().includes(busq)) ||
+                        (e.rfc && e.rfc.toLowerCase().includes(busq)) ||
+                        (e.cct && e.cct.toLowerCase().includes(busq)) ||
+                        (e.usuario && e.usuario.toLowerCase().includes(busq)) ||
+                        (e.nombreEscuela && e.nombreEscuela.toLowerCase().includes(busq))
+                    ).slice(0, 80);
                 },
 
                 atenderSolicitud(solicitud) {
@@ -2440,11 +2486,15 @@
                     } else { this.notificar("GPS no soportado", "error"); }
                 },
 
-                async cargarEmpleados() {
+                async cargarEmpleados(forzar = false) {
+                    if (!forzar && Array.isArray(this.empleados) && this.empleados.length > 0) {
+                        this.filtrarLocal();
+                        return;
+                    }
                     this.cargandoPersonal = true;
                     try {
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/empleados`, { method: 'GET', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` } });
-                        if (respuesta.ok) { this.empleados = await respuesta.json(); this.empleadosFiltrados = this.empleados; }
+                        if (respuesta.ok) { this.empleados = await respuesta.json(); this.filtrarLocal(); }
                     } catch (error) { console.error(error); } finally { this.cargandoPersonal = false; }
                 },
 
@@ -2509,6 +2559,8 @@
                 },
 
                 abrirModalRegistro() {
+                    this.cargarCatalogosAuxiliares();
+                    this.cargarCentrosTrabajo();
                     const anio = new Date().getFullYear().toString().slice(-2);
                     const numeroConsecutivo = String(this.totalRegistros + 1).padStart(5, '0');
                     const folioAutogenerado = `SE-AG-${anio}-${numeroConsecutivo}`;
@@ -2533,6 +2585,7 @@
                 },
                 cerrarModalRegistro() { this.modalRegistroAbierto = false; },
                 abrirModalRegistroUsuario() {
+                    this.cargarCentrosTrabajo();
                     this.nuevoUsuario = {
                         nombre: '', apellidos: '', email: '', username: '', password: '',
                         cct: '', nivelEducativo: 'Primaria', nombreEscuela: '', rol: 'Admin',
@@ -2600,6 +2653,8 @@
                 },
 
                 abrirModal(articulo) {
+                    this.cargarCatalogosAuxiliares();
+                    this.cargarCentrosTrabajo();
                     this.tabModalEdicion = 'identificacion';
                     const copia = JSON.parse(JSON.stringify(articulo));
                     if (!copia.fondoOrigen) copia.fondoOrigen = 'OFICIAL';
@@ -2654,7 +2709,15 @@
                     } catch (error) { this.notificar("Error de conexión", "error"); } finally { this.guardando = false; }
                 },
 
-                abrirModalResguardo(articulo) { this.articuloSeleccionado = articulo; this.busquedaEmpleado = ''; this.datosResguardo = { idEmpleado: '', cantidad: 1, latitud: null, longitud: null, firmaBase64: null }; this.modalResguardoAbierto = true; },
+                abrirModalResguardo(articulo) {
+                    if (!Array.isArray(this.empleados) || this.empleados.length === 0) {
+                        this.cargarEmpleados();
+                    }
+                    this.articuloSeleccionado = articulo;
+                    this.busquedaEmpleado = '';
+                    this.datosResguardo = { idEmpleado: '', cantidad: 1, latitud: null, longitud: null, firmaBase64: null };
+                    this.modalResguardoAbierto = true;
+                },
                 cerrarModalResguardo() { this.modalResguardoAbierto = false; this.articuloSeleccionado = {}; },
 
                 confirmarAsignacion() {
@@ -2767,10 +2830,10 @@
                 abrirModalTraspaso(empleado) {
                     this.empleadoSeleccionado = empleado;
                     this.idDirectorEntrante = '';
+                    this.busquedaDirectorTraspaso = '';
                     this.procesandoTraspaso = false;
                     this.modalTraspasoAbierto = true;
                     this.initCanvas('canvas-firma-traspaso');
-                    this.empleadosGeneral = [...this.empleados];
                 },
 
                 cerrarModalTraspaso() {
@@ -2779,6 +2842,7 @@
                     setTimeout(() => {
                         this.empleadoSeleccionado = {};
                         this.idDirectorEntrante = '';
+                        this.busquedaDirectorTraspaso = '';
                     }, 300);
                 },
 

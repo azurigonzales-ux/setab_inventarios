@@ -471,7 +471,9 @@ public class ArticuloResource {
                     .entity("{\"error\": \"La evidencia fotográfica en Base64 es obligatoria.\"}")
                     .build();
         }
-        Articulo articulo = Articulo.findById(id);
+        Articulo articulo = relacionalService != null
+                ? relacionalService.sincronizarArticuloEnPanache(id, null)
+                : Articulo.findById(id);
         if (articulo == null) {
             return Response.status(Response.Status.NOT_FOUND)
                     .entity("{\"error\": \"El artículo con ID " + id + " no existe.\"}")
@@ -505,7 +507,9 @@ public class ArticuloResource {
                     .entity("{\"error\": \"Debe indicar el nuevo fondo operativo destino.\"}")
                     .build();
         }
-        Articulo articulo = Articulo.findById(id);
+        Articulo articulo = relacionalService != null
+                ? relacionalService.sincronizarArticuloEnPanache(id, null)
+                : Articulo.findById(id);
         if (articulo == null) {
             return Response.status(Response.Status.NOT_FOUND)
                     .entity("{\"error\": \"El artículo con ID " + id + " no existe.\"}")
