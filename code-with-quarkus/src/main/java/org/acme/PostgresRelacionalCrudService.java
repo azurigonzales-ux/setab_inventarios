@@ -271,22 +271,11 @@ public class PostgresRelacionalCrudService {
                 }
             }
 
-            try (ResultSet rsPk = md.getPrimaryKeys(null, meta.schemaReal, nombreEncontrado)) {
-                if (rsPk.next()) {
-                    meta.pkColumna = rsPk.getString("COLUMN_NAME").toLowerCase(Locale.ROOT).trim();
-                }
-            }
-
+            meta.pkColumna = deducirPkPorConvencion(nombreEncontrado, meta.columnas);
             if (meta.pkColumna == null) {
-                meta.pkColumna = deducirPkPorConvencion(nombreEncontrado, meta.columnas);
-            }
-
-            try (ResultSet rsFk = md.getImportedKeys(null, meta.schemaReal, nombreEncontrado)) {
-                while (rsFk.next()) {
-                    String pktable = rsFk.getString("PKTABLE_NAME");
-                    String fkcol = rsFk.getString("FKCOLUMN_NAME");
-                    if (pktable != null && fkcol != null) {
-                        meta.fkPorTablaDestino.putIfAbsent(pktable.toLowerCase(Locale.ROOT).trim(), fkcol.toLowerCase(Locale.ROOT).trim());
+                try (ResultSet rsPk = md.getPrimaryKeys(null, meta.schemaReal, nombreEncontrado)) {
+                    if (rsPk.next()) {
+                        meta.pkColumna = rsPk.getString("COLUMN_NAME").toLowerCase(Locale.ROOT).trim();
                     }
                 }
             }
@@ -479,12 +468,64 @@ public class PostgresRelacionalCrudService {
 
             if (fondo != null && !fondo.isBlank() && metaInv.columnas.contains("origen")) {
                 String fondoNorm = fondo.trim().toUpperCase(Locale.ROOT);
-                if ("INTERNO".equals(fondoNorm) || "OFICIAL".equals(fondoNorm)) {
+                if ("INTERNO".equals(fondoNorm) || "OFICIAL".equals(fondoNorm)
+                        || "OFICIAL_DESEGREGADOS".equals(fondoNorm) || "OFICIAL_DESAGREGADOS".equals(fondoNorm)) {
                     where.append(" AND (UPPER(TRIM(COALESCE(origen, ''))) = ? OR origen IS NULL OR TRIM(origen) = '')");
                     params.add(fondoNorm);
                 } else {
                     where.append(" AND UPPER(TRIM(COALESCE(origen, ''))) = ?");
                     params.add(fondoNorm);
+                }
+            }
+
+            if (categoria != null && !categoria.isBlank()) {
+                String catNorm = categoria.trim().toUpperCase(Locale.ROOT);
+                String colCct = metaInv.columnas.contains("id_cct") ? "id_cct" : (metaInv.columnas.contains("fk_cct") ? "fk_cct" : null);
+                String colResp = metaInv.columnas.contains("id_responsable") ? "id_responsable" : (metaInv.columnas.contains("fk_responsable") ? "fk_responsable" : null);
+                if ("EN_RESGUARDO".equals(catNorm) || "EN RESGUARDO CCT".equals(catNorm)) {
+                    List<String> conds = new ArrayList<>();
+                    if (colCct != null) conds.add("(" + colCct + " IS NOT NULL AND " + colCct + " > 0)");
+                    if (colResp != null) conds.add("(" + colResp + " IS NOT NULL AND " + colResp + " > 0)");
+                    if (metaInv.columnas.contains("cversp_act")) conds.add("(cversp_act IS NOT NULL AND TRIM(cversp_act) <> '')");
+                    if (!conds.isEmpty()) {
+                        where.append(" AND (").append(String.join(" OR ", conds)).append(")");
+                    }
+                    if (metaInv.columnas.contains("tipofolio")) {
+                        where.append(" AND UPPER(TRIM(COALESCE(tipofolio, ''))) <> 'BAJ'");
+                    }
+                } else if ("DISPONIBLE".equals(catNorm) || "DISPONIBLE EN ALMACÉN".equals(catNorm) || "ALMACEN".equals(catNorm)) {
+                    if (colCct != null) where.append(" AND (").append(colCct).append(" IS NULL OR ").append(colCct).append(" = 0)");
+                    if (colResp != null) where.append(" AND (").append(colResp).append(" IS NULL OR ").append(colResp).append(" = 0)");
+                    if (metaInv.columnas.contains("cversp_act")) where.append(" AND (cversp_act IS NULL OR TRIM(cversp_act) = '')");
+                    if (metaInv.columnas.contains("tipofolio")) where.append(" AND UPPER(TRIM(COALESCE(tipofolio, ''))) <> 'BAJ'");
+                } else if ("BAJA".equals(catNorm) || "BAJ".equals(catNorm)) {
+                    List<String> condBaja = new ArrayList<>();
+                    if (metaInv.columnas.contains("tipofolio")) condBaja.add("UPPER(TRIM(COALESCE(tipofolio, ''))) = 'BAJ'");
+                    if (metaInv.columnas.contains("fechabaja")) condBaja.add("fechabaja IS NOT NULL");
+                    if (metaInv.columnas.contains("ofibaja")) condBaja.add("(ofibaja IS NOT NULL AND TRIM(ofibaja) <> '')");
+                    if (!condBaja.isEmpty()) {
+                        where.append(" AND (").append(String.join(" OR ", condBaja)).append(")");
+                    }
+                } else if ("VEHICULOS".equals(catNorm) && metaInv.columnas.contains("placa")) {
+                    where.append(" AND placa IS NOT NULL AND TRIM(placa) <> ''");
+                } else if ("MOBILIARIO".equals(catNorm) && metaInv.columnas.contains("placa")) {
+                    where.append(" AND (placa IS NULL OR TRIM(placa) = '')");
+                }
+            }
+
+            if (area != null && !area.isBlank()) {
+                String areaNorm = area.trim().toUpperCase(Locale.ROOT);
+                if (metaInv.columnas.contains("estado") && ("NUEVO".equals(areaNorm) || "BUENO".equals(areaNorm) || "B".equals(areaNorm))) {
+                    where.append(" AND UPPER(TRIM(COALESCE(estado, 'B'))) IN ('B', 'BUENO', 'N', 'NUEVO', '1', '')");
+                } else if (metaInv.columnas.contains("estado") && ("REGULAR".equals(areaNorm) || "R".equals(areaNorm))) {
+                    where.append(" AND UPPER(TRIM(COALESCE(estado, ''))) IN ('R', 'REGULAR', '2')");
+                } else if (metaInv.columnas.contains("estado") && ("MALO".equals(areaNorm) || "M".equals(areaNorm))) {
+                    where.append(" AND UPPER(TRIM(COALESCE(estado, ''))) IN ('M', 'MALO', '3')");
+                } else if ("ALMACENGENERAL".equals(areaNorm)) {
+                    String colCct = metaInv.columnas.contains("id_cct") ? "id_cct" : (metaInv.columnas.contains("fk_cct") ? "fk_cct" : null);
+                    if (colCct != null) {
+                        where.append(" AND (").append(colCct).append(" IS NULL OR ").append(colCct).append(" = 0)");
+                    }
                 }
             }
 
@@ -534,6 +575,8 @@ public class PostgresRelacionalCrudService {
                     }
                 }
             }
+
+            enriquecerConMetadatosPanache(lista);
 
             ArticuloResource.PaginacionResponse resp = new ArticuloResource.PaginacionResponse();
             resp.articulos = lista;
@@ -613,6 +656,7 @@ public class PostgresRelacionalCrudService {
                     }
                 }
             }
+            enriquecerConMetadatosPanache(resultado);
             return resultado;
         } catch (Exception e) {
             return Collections.emptyList();
@@ -640,7 +684,7 @@ public class PostgresRelacionalCrudService {
             StringBuilder sql = new StringBuilder("SELECT * FROM ").append(metaInv.nombreReal).append(" WHERE ");
             for (int i = 0; i < cols.size(); i++) {
                 if (i > 0) sql.append(" OR ");
-                sql.append("UPPER(COALESCE(CAST(").append(cols.get(i)).append(" AS TEXT), '')) = ?");
+                sql.append("UPPER(TRIM(COALESCE(CAST(").append(cols.get(i)).append(" AS TEXT), ''))) = ?");
             }
             sql.append(" LIMIT 1");
 
@@ -659,11 +703,19 @@ public class PostgresRelacionalCrudService {
                 }
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
-                        return mapearResultSetAArticulo(
+                        Articulo art = mapearResultSetAArticulo(
                                 rs, metaInv, origen, 1L,
                                 mapaCct, mapaPartidas, mapaMarcas, mapaProveedores, mapaTipos, mapaNatGasto, mapaTiposFolios
                         );
+                        enriquecerConMetadatosPanache(Collections.singletonList(art));
+                        return art;
                     }
+                }
+            }
+            if (f.matches("\\d+")) {
+                try {
+                    return buscarPorIdRelacional(Long.parseLong(f));
+                } catch (NumberFormatException ignored) {
                 }
             }
             return null;
@@ -696,16 +748,122 @@ public class PostgresRelacionalCrudService {
                 ps.setObject(1, id);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
-                        return mapearResultSetAArticulo(
+                        Articulo art = mapearResultSetAArticulo(
                                 rs, metaInv, origen, id,
                                 mapaCct, mapaPartidas, mapaMarcas, mapaProveedores, mapaTipos, mapaNatGasto, mapaTiposFolios
                         );
+                        enriquecerConMetadatosPanache(Collections.singletonList(art));
+                        return art;
                     }
                 }
             }
         } catch (Exception ignored) {
         }
         return null;
+    }
+
+    private void enriquecerConMetadatosPanache(List<Articulo> lista) {
+        if (lista == null || lista.isEmpty()) {
+            return;
+        }
+        try {
+            List<Articulo> extendidos = Articulo.find(
+                    "imagenBienBase64 is not null or estadoVerificacionAnual = ?1 or fechaUltimaActualizacionAnual is not null",
+                    "VERIFICADO"
+            ).list();
+            if (extendidos == null || extendidos.isEmpty()) {
+                return;
+            }
+            Map<String, Articulo> porNumInv = new HashMap<>();
+            Map<Long, Articulo> porId = new HashMap<>();
+            for (Articulo ext : extendidos) {
+                if (ext == null) continue;
+                if (ext.id != null) {
+                    porId.put(ext.id, ext);
+                }
+                if (ext.numeroInventario != null && !ext.numeroInventario.isBlank()) {
+                    porNumInv.put(ext.numeroInventario.trim().toUpperCase(Locale.ROOT), ext);
+                }
+            }
+            for (Articulo a : lista) {
+                if (a == null) continue;
+                Articulo match = null;
+                if (a.numeroInventario != null && !a.numeroInventario.isBlank()) {
+                    match = porNumInv.get(a.numeroInventario.trim().toUpperCase(Locale.ROOT));
+                }
+                if (match == null && a.id != null) {
+                    match = porId.get(a.id);
+                }
+                if (match != null) {
+                    if (match.imagenBienBase64 != null && !match.imagenBienBase64.isBlank()) {
+                        a.imagenBienBase64 = match.imagenBienBase64;
+                    }
+                    if (match.estadoVerificacionAnual != null && !match.estadoVerificacionAnual.isBlank()) {
+                        a.estadoVerificacionAnual = match.estadoVerificacionAnual;
+                    }
+                    if (match.fechaUltimaActualizacionAnual != null) {
+                        a.fechaUltimaActualizacionAnual = match.fechaUltimaActualizacionAnual;
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+    }
+
+    public void registrarBajaOLiberacionEnInventarioRelacional(String invofm, Long idInventario) {
+        MultiDataSourceConfig.OrigenDatos origen = resolverOrigenInventarioActivo(null);
+        if (origen == null) {
+            return;
+        }
+        try (Connection conn = multiDataSourceConfig.obtenerConexion(origen)) {
+            TablaMeta metaInv = inspeccionarTabla(conn, origen, "inventario");
+            if (metaInv == null) {
+                return;
+            }
+            List<String> setsSql = new ArrayList<>();
+            List<Object> params = new ArrayList<>();
+            if (metaInv.columnas.contains("id_cct")) setsSql.add("id_cct = NULL");
+            if (metaInv.columnas.contains("fk_cct")) setsSql.add("fk_cct = NULL");
+            if (metaInv.columnas.contains("id_responsable")) setsSql.add("id_responsable = NULL");
+            if (metaInv.columnas.contains("fk_responsable")) setsSql.add("fk_responsable = NULL");
+            if (metaInv.columnas.contains("cversp_act")) setsSql.add("cversp_act = NULL");
+            if (metaInv.columnas.contains("tipofolio")) {
+                setsSql.add("tipofolio = ?");
+                params.add("BAJ");
+            }
+            if (metaInv.columnas.contains("fechabaja")) {
+                setsSql.add("fechabaja = ?");
+                params.add(java.sql.Date.valueOf(LocalDate.now()));
+            } else if (metaInv.columnas.contains("fecbaja")) {
+                setsSql.add("fecbaja = ?");
+                params.add(java.sql.Date.valueOf(LocalDate.now()));
+            }
+            if (setsSql.isEmpty()) {
+                return;
+            }
+            String baseUpdate = "UPDATE " + metaInv.nombreReal + " SET " + String.join(", ", setsSql);
+            int updated = 0;
+            if (idInventario != null && idInventario > 0 && metaInv.pkColumna != null) {
+                try (PreparedStatement ps = conn.prepareStatement(baseUpdate + " WHERE " + metaInv.pkColumna + " = ?")) {
+                    int idx = 1;
+                    for (Object p : params) ps.setObject(idx++, p);
+                    ps.setObject(idx, idInventario);
+                    updated = ps.executeUpdate();
+                }
+            }
+            if (updated == 0 && invofm != null && !invofm.isBlank() && metaInv.columnas.contains("invofm")) {
+                try (PreparedStatement ps = conn.prepareStatement(baseUpdate + " WHERE UPPER(TRIM(COALESCE(invofm, ''))) = ?")) {
+                    int idx = 1;
+                    for (Object p : params) ps.setObject(idx++, p);
+                    ps.setString(idx, invofm.trim().toUpperCase(Locale.ROOT));
+                    ps.executeUpdate();
+                }
+            }
+            cacheMapaCctPorResponsable = null;
+            cacheResponsables = null;
+            cacheIndiceDirectores = null;
+        } catch (Exception ignored) {
+        }
     }
 
     public void actualizarResguardoEnInventarioRelacional(
@@ -934,6 +1092,9 @@ public class PostgresRelacionalCrudService {
                         ext = e;
                         break;
                     }
+                }
+                if (ext == null) {
+                    ext = buscarResponsablePorIdRelacional(idEmpleadoSolicitado);
                 }
             } catch (Exception ignored) {
             }
@@ -1456,8 +1617,30 @@ public class PostgresRelacionalCrudService {
         a.poliza = leerString(rs, metaInv, "poliza");
         a.vigenciaDesde = leerFecha(rs, metaInv, "vigendesde");
         a.vigenciaPoliza = leerFecha(rs, metaInv, "vigenhasta");
-        a.cantidadStock = 1.0;
         a.categoria = (a.placa != null && !a.placa.isBlank()) ? "Vehiculos" : "Mobiliario";
+
+        boolean esBaja = a.fechaBaja != null
+                || (a.oficioBaja != null && !a.oficioBaja.isBlank())
+                || "BAJ".equalsIgnoreCase(a.tipoFolioResguardo);
+        boolean tieneCctAsignado = (fkCct != null && fkCct > 0)
+                || (a.centroTrabajo != null && !a.centroTrabajo.isBlank()
+                && !"CENTRAL".equalsIgnoreCase(a.centroTrabajo.trim())
+                && !"ALMACENGENERAL".equalsIgnoreCase(a.centroTrabajo.trim())
+                && !"SIN-CCT".equalsIgnoreCase(a.centroTrabajo.trim()));
+        boolean tieneResponsableAsignado = (fkRespId != null && fkRespId > 0)
+                || (rawResp != null && !rawResp.isBlank())
+                || (a.resguardanteActual != null && !a.resguardanteActual.isBlank());
+
+        if (esBaja) {
+            a.cantidadStock = 0.0;
+            a.estado = "Baja";
+        } else if (tieneCctAsignado || tieneResponsableAsignado) {
+            a.cantidadStock = 0.0;
+            a.estado = "En Resguardo CCT";
+        } else {
+            a.cantidadStock = 1.0;
+            a.estado = "Disponible en Almacén";
+        }
 
         if (a.areaUbicacion == null || a.areaUbicacion.isBlank()) {
             if (a.centroTrabajo != null && !a.centroTrabajo.isBlank()) {
@@ -1479,12 +1662,41 @@ public class PostgresRelacionalCrudService {
         }
         try {
             CacheEntry<Map<Integer, CentroTrabajo>> cached = cacheCctPorId;
-            if (cached == null || !cached.vigente()) {
-                listarCentrosTrabajo();
-                cached = cacheCctPorId;
+            if (cached != null && cached.vigente() && cached.valor != null) {
+                CentroTrabajo found = cached.valor.get(idCct);
+                if (found != null) {
+                    return found;
+                }
             }
-            if (cached != null && cached.valor != null) {
-                return cached.valor.get(idCct);
+            MultiDataSourceConfig.OrigenDatos origen = resolverOrigenCCTActivo();
+            if (origen == null) {
+                return null;
+            }
+            try (Connection conn = multiDataSourceConfig.obtenerConexion(origen);
+                 PreparedStatement ps = conn.prepareStatement(
+                         "SELECT id_cct, clave_ct, nombre_ct, unid_responsable, subdirector, departamento, director FROM inventario.cct WHERE id_cct = ? LIMIT 1"
+                 )) {
+                ps.setInt(1, idCct);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        CentroTrabajo ct = new CentroTrabajo();
+                        ct.id = rs.getLong("id_cct");
+                        ct.claveCT = rs.getString("clave_ct");
+                        ct.nombreCT = rs.getString("nombre_ct");
+                        ct.unidadResp = rs.getString("unid_responsable");
+                        ct.subDireccion = rs.getString("subdirector");
+                        ct.departamento = rs.getString("departamento");
+                        ct.director = rs.getString("director");
+                        if (cached == null || !cached.vigente() || cached.valor == null) {
+                            Map<Integer, CentroTrabajo> nuevoMapa = new ConcurrentHashMap<>();
+                            nuevoMapa.put(idCct, ct);
+                            cacheCctPorId = new CacheEntry<>(nuevoMapa, TTL_CACHE_MS);
+                        } else {
+                            cached.valor.put(idCct, ct);
+                        }
+                        return ct;
+                    }
+                }
             }
         } catch (Exception ignored) {
         }
@@ -1561,9 +1773,27 @@ public class PostgresRelacionalCrudService {
             } catch (Exception ignored) {
             }
 
+            String[] colsRequeridas = {
+                "id_cct", "clave_ct", "clave_ct1", "nombre_ct", "nomct_ant",
+                "unid_responsable", "subdirector", "departamento", "domicilio",
+                "codigopostal", "codpost", "municipio", "localidad", "telefono",
+                "numero_exterior", "numero_interior", "clave_vial", "clave_asen",
+                "nombre_asen", "vialid_der", "vialid_izq", "viali_post",
+                "descripcion_ubc", "turno", "zonaescolar", "zonaescola",
+                "sector", "director", "status", "activo"
+            };
+            List<String> colsPresentes = new ArrayList<>();
+            for (String col : colsRequeridas) {
+                if (meta.columnas.contains(col)) {
+                    colsPresentes.add(columnaSqlSegura(meta, col));
+                }
+            }
+            String selectList = colsPresentes.isEmpty() ? "*" : String.join(", ", colsPresentes);
+
             List<CentroTrabajo> lista = new ArrayList<>();
-            Map<Integer, CentroTrabajo> porId = new HashMap<>();
-            String sql = "SELECT * FROM " + meta.nombreReal + " ORDER BY " + (meta.pkColumna != null ? meta.pkColumna : "1") + " ASC";
+            Map<Integer, CentroTrabajo> porId = new ConcurrentHashMap<>();
+            String sql = "SELECT " + selectList + " FROM " + meta.nombreReal
+                    + " ORDER BY " + (meta.pkColumna != null ? meta.pkColumna : "1") + " ASC";
             try (PreparedStatement ps = conn.prepareStatement(sql);
                  ResultSet rs = ps.executeQuery()) {
                 long idx = 1L;
@@ -1689,251 +1919,266 @@ public class PostgresRelacionalCrudService {
     // 3. CRUD DE RESPONSABLES (responsables <-> Empleado)
     // =========================================================================
 
-    private Map<String, String> obtenerMapaCctPorResponsableDesdeInventario(Connection conn, MultiDataSourceConfig.OrigenDatos origen, Map<Integer, String> mapaCctPorId) {
-        CacheEntry<Map<String, String>> cached = cacheMapaCctPorResponsable;
-        if (cached != null && cached.vigente()) {
-            return cached.valor;
-        }
-        Map<String, String> resultado = new HashMap<>();
-        try {
-            TablaMeta metaInv = inspeccionarTabla(conn, origen, "inventario");
-            if (metaInv != null) {
-                String colCct = metaInv.columnas.contains("id_cct") ? "id_cct" : (metaInv.columnas.contains("fk_cct") ? "fk_cct" : null);
-                String colResp = metaInv.columnas.contains("id_responsable") ? "id_responsable" : (metaInv.columnas.contains("fk_responsable") ? "fk_responsable" : null);
-                List<String> colsSelect = new ArrayList<>();
-                if (colCct != null) colsSelect.add(colCct);
-                if (colResp != null) colsSelect.add(colResp);
-                if (metaInv.columnas.contains("cversp_act")) colsSelect.add("cversp_act");
+    public List<Empleado> listarResponsables() throws SQLException {
+        return listarResponsables(null, 600);
+    }
 
-                if (!colsSelect.isEmpty()) {
-                    String sql = "SELECT DISTINCT " + String.join(", ", colsSelect) + " FROM " + metaInv.nombreReal + " LIMIT 10000";
-                    try (PreparedStatement ps = conn.prepareStatement(sql);
-                         ResultSet rs = ps.executeQuery()) {
-                        while (rs.next()) {
-                            String claveCct = null;
-                            if (colCct != null) {
-                                int idCct = rs.getInt(colCct);
-                                if (!rs.wasNull() && idCct > 0) {
-                                    claveCct = mapaCctPorId.get(idCct);
-                                    if (claveCct != null && !claveCct.isBlank()) {
-                                        resultado.put("TIENE_BIENES_CCT::" + claveCct, "1");
-                                    }
-                                }
-                            }
-                            if (colResp != null) {
-                                int idResp = rs.getInt(colResp);
-                                if (!rs.wasNull() && idResp > 0) {
-                                    resultado.put("TIENE_BIENES_RESP::" + idResp, "1");
-                                    if (claveCct != null && !claveCct.isBlank()) {
-                                        resultado.putIfAbsent("ID::" + idResp, claveCct);
-                                    }
-                                }
-                            }
-                            if (metaInv.columnas.contains("cversp_act")) {
-                                String cv = rs.getString("cversp_act");
-                                if (cv != null && !cv.isBlank()) {
-                                    String cvUp = cv.trim().toUpperCase(Locale.ROOT);
-                                    resultado.put("TIENE_BIENES_CV::" + cvUp, "1");
-                                    if (claveCct != null && !claveCct.isBlank()) {
-                                        resultado.putIfAbsent("CV::" + cvUp, claveCct);
-                                    }
-                                }
-                            }
+    public List<Empleado> listarResponsables(String busqueda, int limite) throws SQLException {
+        boolean sinFiltro = (busqueda == null || busqueda.isBlank());
+        int lim = limite > 0 ? Math.min(limite, 2000) : 600;
+        if (sinFiltro && lim == 600) {
+            CacheEntry<List<Empleado>> cached = cacheResponsables;
+            if (cached != null && cached.vigente()) {
+                return cached.valor;
+            }
+        }
+
+        MultiDataSourceConfig.OrigenDatos origen = resolverOrigenResponsablesActivo();
+        if (origen == null) {
+            return Collections.emptyList();
+        }
+
+        try (Connection conn = multiDataSourceConfig.obtenerConexion(origen)) {
+            StringBuilder sql = new StringBuilder(
+                    "SELECT r.id_responsable, r.rfc, r.rfc2, r.curp, r.nombres, r.paterno, r.materno, r.apellidos, r.activo, "
+                    + "c.clave_ct, c.nombre_ct, "
+                    + "CASE WHEN inv.id_responsable IS NOT NULL OR c.id_cct IS NOT NULL THEN 1 ELSE 0 END AS prioridad "
+                    + "FROM inventario.responsables r "
+                    + "LEFT JOIN ( "
+                    + "    SELECT DISTINCT ON (id_responsable) id_responsable, id_cct "
+                    + "    FROM inventario.inventario "
+                    + "    WHERE id_responsable IS NOT NULL AND id_cct IS NOT NULL "
+                    + ") inv ON inv.id_responsable = r.id_responsable "
+                    + "LEFT JOIN inventario.cct c ON c.id_cct = inv.id_cct "
+            );
+
+            String term = null;
+            if (!sinFiltro) {
+                term = "%" + busqueda.trim().toLowerCase(Locale.ROOT) + "%";
+                sql.append("WHERE LOWER(COALESCE(r.rfc,'')) LIKE ? ")
+                   .append("OR LOWER(COALESCE(r.nombres,'')) LIKE ? ")
+                   .append("OR LOWER(COALESCE(r.paterno,'')) LIKE ? ")
+                   .append("OR LOWER(COALESCE(r.materno,'')) LIKE ? ")
+                   .append("OR LOWER(COALESCE(r.apellidos,'')) LIKE ? ")
+                   .append("OR LOWER(COALESCE(c.clave_ct,'')) LIKE ? ")
+                   .append("OR LOWER(COALESCE(c.nombre_ct,'')) LIKE ? ");
+            }
+            sql.append("ORDER BY prioridad DESC, r.id_responsable ASC LIMIT ?");
+
+            List<Empleado> lista = new ArrayList<>();
+            Set<String> cctsAgregados = new LinkedHashSet<>();
+
+            try (PreparedStatement ps = conn.prepareStatement(sql.toString())) {
+                int paramIdx = 1;
+                if (term != null) {
+                    for (int i = 0; i < 7; i++) {
+                        ps.setString(paramIdx++, term);
+                    }
+                }
+                ps.setInt(paramIdx, lim);
+
+                try (ResultSet rs = ps.executeQuery()) {
+                    while (rs.next()) {
+                        Empleado emp = construirEmpleadoDesdeJoinResultSet(rs);
+                        if (emp.cct != null && !emp.cct.isBlank()) {
+                            cctsAgregados.add(emp.cct.trim().toUpperCase(Locale.ROOT));
                         }
+                        lista.add(emp);
+                    }
+                }
+            }
+
+            if (lista.size() < lim) {
+                int faltantes = lim - lista.size();
+                StringBuilder sqlCct = new StringBuilder(
+                        "SELECT id_cct, clave_ct, nombre_ct, director, status, activo FROM inventario.cct "
+                );
+                if (term != null) {
+                    sqlCct.append("WHERE LOWER(COALESCE(clave_ct,'')) LIKE ? ")
+                          .append("OR LOWER(COALESCE(nombre_ct,'')) LIKE ? ")
+                          .append("OR LOWER(COALESCE(director,'')) LIKE ? ");
+                }
+                sqlCct.append("ORDER BY id_cct ASC LIMIT ?");
+
+                try (PreparedStatement psCct = conn.prepareStatement(sqlCct.toString())) {
+                    int idx = 1;
+                    if (term != null) {
+                        psCct.setString(idx++, term);
+                        psCct.setString(idx++, term);
+                        psCct.setString(idx++, term);
+                    }
+                    psCct.setInt(idx, faltantes);
+                    try (ResultSet rsCct = psCct.executeQuery()) {
+                        while (rsCct.next() && lista.size() < lim) {
+                            String claveCt = rsCct.getString("clave_ct");
+                            if (claveCt == null || claveCt.isBlank()) continue;
+                            String claveUp = claveCt.trim().toUpperCase(Locale.ROOT);
+                            if (!cctsAgregados.add(claveUp)) continue;
+
+                            long idCct = rsCct.getLong("id_cct");
+                            String nombreCt = rsCct.getString("nombre_ct");
+                            String director = rsCct.getString("director");
+                            String status = rsCct.getString("status");
+                            int activo = rsCct.getInt("activo");
+
+                            Empleado empCct = new Empleado();
+                            empCct.idEmpleado = 900_000L + idCct;
+                            empCct.cct = claveUp;
+                            empCct.nombreEscuela = (nombreCt != null && !nombreCt.isBlank()) ? nombreCt.trim() : ("ESCUELA " + claveUp);
+                            empCct.nombre = (director != null && !director.isBlank())
+                                    ? director.trim().toUpperCase(Locale.ROOT)
+                                    : ("TITULAR CCT " + claveUp + " - " + empCct.nombreEscuela);
+                            empCct.rfc = claveUp;
+                            empCct.claveResponsable = claveUp;
+                            empCct.numeroEmpleado = claveUp;
+                            empCct.usuario = claveUp;
+                            empCct.area = "Escuela / CCT";
+                            empCct.cargo = "DIRECTOR DE CENTRO DE TRABAJO (CCT)";
+                            empCct.activo = ("B".equalsIgnoreCase(status) || activo == 0) ? 0 : 1;
+                            lista.add(empCct);
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+
+            if (sinFiltro && lim == 600) {
+                Map<String, Empleado> indice = new HashMap<>(lista.size() * 4);
+                for (Empleado e : lista) {
+                    if (e == null) continue;
+                    if (e.idEmpleado != null) indice.putIfAbsent("ID::" + e.idEmpleado, e);
+                    if (e.rfc != null && !e.rfc.isBlank()) indice.putIfAbsent("KEY::" + e.rfc.trim().toUpperCase(Locale.ROOT), e);
+                    if (e.claveResponsable != null && !e.claveResponsable.isBlank()) indice.putIfAbsent("KEY::" + e.claveResponsable.trim().toUpperCase(Locale.ROOT), e);
+                    if (e.curp != null && !e.curp.isBlank()) indice.putIfAbsent("KEY::" + e.curp.trim().toUpperCase(Locale.ROOT), e);
+                    if (e.nombre != null && !e.nombre.isBlank()) indice.putIfAbsent("KEY::" + e.nombre.trim().toUpperCase(Locale.ROOT), e);
+                    if (e.cct != null && !e.cct.isBlank()) indice.putIfAbsent("CCT::" + e.cct.trim().toUpperCase(Locale.ROOT), e);
+                }
+                cacheIndiceDirectores = new CacheEntry<>(indice, TTL_CACHE_MS);
+                cacheResponsables = new CacheEntry<>(lista, TTL_CACHE_MS);
+            }
+            return lista;
+        }
+    }
+
+    private Empleado construirEmpleadoDesdeJoinResultSet(ResultSet rs) throws SQLException {
+        Empleado emp = new Empleado();
+        emp.idEmpleado = rs.getLong("id_responsable");
+        String rfc = rs.getString("rfc");
+        String rfc2 = rs.getString("rfc2");
+        emp.rfc = rfc != null ? rfc.trim() : null;
+        emp.claveResponsable = (rfc2 != null && !rfc2.isBlank()) ? rfc2.trim() : emp.rfc;
+        emp.numeroEmpleado = emp.claveResponsable;
+        emp.usuario = (emp.rfc != null && !emp.rfc.isBlank()) ? emp.rfc : emp.claveResponsable;
+        String curp = rs.getString("curp");
+        emp.curp = curp != null ? curp.trim() : null;
+        String pat = rs.getString("paterno");
+        String mat = rs.getString("materno");
+        String nombres = rs.getString("nombres");
+        String apellidos = rs.getString("apellidos");
+        emp.apellidoPaterno = pat != null ? pat.trim() : null;
+        emp.apellidoMaterno = mat != null ? mat.trim() : null;
+
+        StringBuilder nomCompleto = new StringBuilder();
+        if (nombres != null && !nombres.isBlank()) nomCompleto.append(nombres.trim());
+        if (emp.apellidoPaterno != null && !emp.apellidoPaterno.isBlank()) {
+            if (nomCompleto.length() > 0) nomCompleto.append(" ");
+            nomCompleto.append(emp.apellidoPaterno);
+        }
+        if (emp.apellidoMaterno != null && !emp.apellidoMaterno.isBlank()) {
+            if (nomCompleto.length() > 0) nomCompleto.append(" ");
+            nomCompleto.append(emp.apellidoMaterno);
+        }
+        if (nomCompleto.length() == 0 && apellidos != null && !apellidos.isBlank()) {
+            nomCompleto.append(apellidos.trim());
+        }
+        emp.nombre = nomCompleto.length() > 0
+                ? nomCompleto.toString().toUpperCase(Locale.ROOT)
+                : (emp.rfc != null ? emp.rfc : "DIRECTOR DE CENTRO DE TRABAJO");
+
+        int act = rs.getInt("activo");
+        emp.activo = rs.wasNull() ? 1 : act;
+
+        String claveCt = rs.getString("clave_ct");
+        String nombreCt = rs.getString("nombre_ct");
+        if (claveCt != null && !claveCt.isBlank()) {
+            String claveUp = claveCt.trim().toUpperCase(Locale.ROOT);
+            emp.cct = claveUp;
+            emp.nombreEscuela = (nombreCt != null && !nombreCt.isBlank())
+                    ? nombreCt.trim()
+                    : ("CENTRO EDUCATIVO " + claveUp);
+            emp.area = "Escuela / CCT";
+            emp.cargo = "DIRECTOR DE CENTRO DE TRABAJO (CCT)";
+        } else {
+            emp.cct = (emp.rfc != null && !emp.rfc.isBlank()) ? emp.rfc : ("RESP-" + emp.idEmpleado);
+            emp.nombreEscuela = "PADRÓN DE RESPONSABLES SETAB";
+            emp.area = "Resguardante Patrimonial";
+            emp.cargo = "RESGUARDANTE PATRIMONIAL SETAB";
+        }
+        return emp;
+    }
+
+    public Empleado buscarResponsablePorIdRelacional(Long idSolicitado) {
+        if (idSolicitado == null) {
+            return null;
+        }
+        MultiDataSourceConfig.OrigenDatos origen = resolverOrigenResponsablesActivo();
+        if (origen == null) {
+            return null;
+        }
+        try (Connection conn = multiDataSourceConfig.obtenerConexion(origen)) {
+            if (idSolicitado >= 900_000L) {
+                long idCct = idSolicitado - 900_000L;
+                try (PreparedStatement ps = conn.prepareStatement(
+                        "SELECT id_cct, clave_ct, nombre_ct, director, status, activo FROM inventario.cct WHERE id_cct = ? LIMIT 1"
+                )) {
+                    ps.setLong(1, idCct);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            String claveCt = rs.getString("clave_ct");
+                            String claveUp = claveCt != null ? claveCt.trim().toUpperCase(Locale.ROOT) : ("CCT-" + idCct);
+                            String nombreCt = rs.getString("nombre_ct");
+                            String director = rs.getString("director");
+                            Empleado empCct = new Empleado();
+                            empCct.idEmpleado = idSolicitado;
+                            empCct.cct = claveUp;
+                            empCct.nombreEscuela = (nombreCt != null && !nombreCt.isBlank()) ? nombreCt.trim() : ("ESCUELA " + claveUp);
+                            empCct.nombre = (director != null && !director.isBlank())
+                                    ? director.trim().toUpperCase(Locale.ROOT)
+                                    : ("TITULAR CCT " + claveUp + " - " + empCct.nombreEscuela);
+                            empCct.rfc = claveUp;
+                            empCct.claveResponsable = claveUp;
+                            empCct.numeroEmpleado = claveUp;
+                            empCct.usuario = claveUp;
+                            empCct.area = "Escuela / CCT";
+                            empCct.cargo = "DIRECTOR DE CENTRO DE TRABAJO (CCT)";
+                            empCct.activo = 1;
+                            return empCct;
+                        }
+                    }
+                }
+                return null;
+            }
+            String sql = "SELECT r.id_responsable, r.rfc, r.rfc2, r.curp, r.nombres, r.paterno, r.materno, r.apellidos, r.activo, "
+                    + "c.clave_ct, c.nombre_ct, 1 AS prioridad "
+                    + "FROM inventario.responsables r "
+                    + "LEFT JOIN ( "
+                    + "    SELECT DISTINCT ON (id_responsable) id_responsable, id_cct "
+                    + "    FROM inventario.inventario "
+                    + "    WHERE id_responsable IS NOT NULL AND id_cct IS NOT NULL "
+                    + ") inv ON inv.id_responsable = r.id_responsable "
+                    + "LEFT JOIN inventario.cct c ON c.id_cct = inv.id_cct "
+                    + "WHERE r.id_responsable = ? LIMIT 1";
+            try (PreparedStatement ps = conn.prepareStatement(sql)) {
+                ps.setLong(1, idSolicitado);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        return construirEmpleadoDesdeJoinResultSet(rs);
                     }
                 }
             }
         } catch (Exception ignored) {
         }
-        cacheMapaCctPorResponsable = new CacheEntry<>(resultado, TTL_CACHE_MS);
-        return resultado;
-    }
-
-    public List<Empleado> listarResponsables() throws SQLException {
-        CacheEntry<List<Empleado>> cached = cacheResponsables;
-        if (cached != null && cached.vigente()) {
-            return cached.valor;
-        }
-        MultiDataSourceConfig.OrigenDatos origen = resolverOrigenResponsablesActivo();
-        if (origen == null) {
-            return Collections.emptyList();
-        }
-        List<CentroTrabajo> listaCcts = listarCentrosTrabajo();
-        Map<String, CentroTrabajo> cctPorClave = new HashMap<>();
-        Map<String, CentroTrabajo> cctPorDirector = new HashMap<>();
-        Map<Integer, String> mapaIdCctAClave = new HashMap<>();
-        for (CentroTrabajo ct : listaCcts) {
-            if (ct == null) continue;
-            if (ct.claveCT != null && !ct.claveCT.isBlank()) {
-                String claveUp = ct.claveCT.trim().toUpperCase(Locale.ROOT);
-                cctPorClave.putIfAbsent(claveUp, ct);
-                if (ct.id != null) {
-                    mapaIdCctAClave.put(ct.id.intValue(), claveUp);
-                }
-            }
-            if (ct.director != null && !ct.director.isBlank()) {
-                cctPorDirector.putIfAbsent(ct.director.trim().toUpperCase(Locale.ROOT), ct);
-            }
-        }
-
-        try (Connection conn = multiDataSourceConfig.obtenerConexion(origen)) {
-            Map<String, String> cctPorRespInv = obtenerMapaCctPorResponsableDesdeInventario(conn, origen, mapaIdCctAClave);
-            List<Empleado> conBienesYEscuela = new ArrayList<>();
-            List<Empleado> conEscuelaActiva = new ArrayList<>();
-            List<Empleado> padronHistorico = new ArrayList<>();
-            Set<String> cctsConDirectorRegistrado = new LinkedHashSet<>();
-
-            String[] colsCarpetas = {"c01", "c05", "c06", "c07", "c11", "c12", "c13", "c14", "c15", "17", "c18", "c19"};
-
-            TablaMeta meta = inspeccionarTabla(conn, origen, "responsables");
-            if (meta != null) {
-                String sql = "SELECT * FROM " + meta.nombreReal + " ORDER BY " + (meta.pkColumna != null ? meta.pkColumna : "1") + " ASC";
-                try (PreparedStatement ps = conn.prepareStatement(sql);
-                     ResultSet rs = ps.executeQuery()) {
-                    long idx = 1L;
-                    while (rs.next()) {
-                        Empleado emp = new Empleado();
-                        Long pkNum = meta.pkColumna != null ? leerLong(rs, meta, meta.pkColumna) : null;
-                        emp.idEmpleado = (pkNum != null && pkNum > 0) ? pkNum : idx++;
-                        emp.rfc = leerString(rs, meta, "rfc");
-                        String rfc2 = leerString(rs, meta, "rfc2");
-                        emp.claveResponsable = (rfc2 != null && !rfc2.isBlank()) ? rfc2 : emp.rfc;
-                        emp.numeroEmpleado = emp.claveResponsable;
-                        emp.usuario = (emp.rfc != null && !emp.rfc.isBlank()) ? emp.rfc : emp.claveResponsable;
-                        emp.curp = leerString(rs, meta, "curp");
-                        emp.apellidoPaterno = leerString(rs, meta, "paterno");
-                        emp.apellidoMaterno = leerString(rs, meta, "materno");
-                        String nombres = leerString(rs, meta, "nombres");
-                        String apellidos = leerString(rs, meta, "apellidos");
-                        StringBuilder nomCompleto = new StringBuilder();
-                        if (nombres != null && !nombres.isBlank()) nomCompleto.append(nombres.trim());
-                        if (emp.apellidoPaterno != null && !emp.apellidoPaterno.isBlank()) {
-                            if (nomCompleto.length() > 0) nomCompleto.append(" ");
-                            nomCompleto.append(emp.apellidoPaterno.trim());
-                        }
-                        if (emp.apellidoMaterno != null && !emp.apellidoMaterno.isBlank()) {
-                            if (nomCompleto.length() > 0) nomCompleto.append(" ");
-                            nomCompleto.append(emp.apellidoMaterno.trim());
-                        }
-                        if (nomCompleto.length() == 0 && apellidos != null && !apellidos.isBlank()) {
-                            nomCompleto.append(apellidos.trim());
-                        }
-                        emp.nombre = nomCompleto.length() > 0 ? nomCompleto.toString().toUpperCase(Locale.ROOT) : (emp.rfc != null ? emp.rfc : "DIRECTOR DE CENTRO DE TRABAJO");
-
-                        String altNombreApellidosPrimero = ((apellidos != null ? apellidos.trim() : "") + " " + (nombres != null ? nombres.trim() : "")).trim().toUpperCase(Locale.ROOT);
-
-                        String cctDirecto = leerPrimerTextoNoVacio(rs, meta, "cct", "clave_ct");
-                        if (cctDirecto == null || cctDirecto.isBlank()) {
-                            Integer fkCct = leerPrimerEnteroNoNulo(rs, meta, "id_cct", "fk_cct");
-                            if (fkCct != null) cctDirecto = mapaIdCctAClave.get(fkCct);
-                        }
-                        if (cctDirecto == null || cctDirecto.isBlank()) {
-                            cctDirecto = cctPorRespInv.get("ID::" + emp.idEmpleado);
-                            if (cctDirecto == null && emp.rfc != null) cctDirecto = cctPorRespInv.get("CV::" + emp.rfc.trim().toUpperCase(Locale.ROOT));
-                            if (cctDirecto == null && emp.claveResponsable != null) cctDirecto = cctPorRespInv.get("CV::" + emp.claveResponsable.trim().toUpperCase(Locale.ROOT));
-                            if (cctDirecto == null && emp.nombre != null) cctDirecto = cctPorRespInv.get("CV::" + emp.nombre.trim().toUpperCase(Locale.ROOT));
-                        }
-                        if (cctDirecto == null || cctDirecto.isBlank()) {
-                            CentroTrabajo ctMatch = cctPorDirector.get(emp.nombre);
-                            if (ctMatch == null && !altNombreApellidosPrimero.isEmpty()) ctMatch = cctPorDirector.get(altNombreApellidosPrimero);
-                            if (ctMatch == null && emp.rfc != null) ctMatch = cctPorDirector.get(emp.rfc.trim().toUpperCase(Locale.ROOT));
-                            if (ctMatch != null) cctDirecto = ctMatch.claveCT;
-                        }
-
-                        boolean tieneBienes = cctPorRespInv.containsKey("TIENE_BIENES_RESP::" + emp.idEmpleado)
-                                || (emp.rfc != null && cctPorRespInv.containsKey("TIENE_BIENES_CV::" + emp.rfc.trim().toUpperCase(Locale.ROOT)));
-
-                        Integer act = leerEntero(rs, meta, "activo");
-                        emp.activo = act != null ? act : 1;
-
-                        if (cctDirecto != null && !cctDirecto.isBlank()) {
-                            String claveUp = cctDirecto.trim().toUpperCase(Locale.ROOT);
-                            emp.cct = claveUp;
-                            CentroTrabajo ctObj = cctPorClave.get(claveUp);
-                            emp.nombreEscuela = (ctObj != null && ctObj.nombreCT != null && !ctObj.nombreCT.isBlank())
-                                    ? ctObj.nombreCT
-                                    : ("CENTRO EDUCATIVO " + claveUp);
-                            emp.area = "Escuela / CCT";
-                            emp.cargo = "DIRECTOR DE CENTRO DE TRABAJO (CCT)";
-                            cctsConDirectorRegistrado.add(claveUp);
-                            if (ctObj != null && (ctObj.director == null || ctObj.director.isBlank())) {
-                                ctObj.director = emp.nombre;
-                            }
-                            if (tieneBienes || cctPorRespInv.containsKey("TIENE_BIENES_CCT::" + claveUp)) {
-                                conBienesYEscuela.add(emp);
-                            } else {
-                                conEscuelaActiva.add(emp);
-                            }
-                        } else {
-                            List<String> carpetas = new ArrayList<>();
-                            for (String colCarp : colsCarpetas) {
-                                String valCarp = leerString(rs, meta, colCarp);
-                                if (valCarp != null && !valCarp.isBlank()) {
-                                    carpetas.add(colCarp.toUpperCase(Locale.ROOT) + ":" + valCarp);
-                                }
-                            }
-                            String etiquetaCarpeta = carpetas.isEmpty() ? "REGISTRO GENERAL" : String.join(", ", carpetas);
-                            emp.cct = (emp.rfc != null && !emp.rfc.isBlank()) ? emp.rfc : ("RESP-" + emp.idEmpleado);
-                            emp.nombreEscuela = "PADRÓN HISTÓRICO SETAB (" + etiquetaCarpeta + ")";
-                            emp.area = "Resguardante (" + etiquetaCarpeta + ")";
-                            emp.cargo = "RESGUARDANTE PATRIMONIAL SETAB";
-                            if (tieneBienes) {
-                                conBienesYEscuela.add(emp);
-                            } else {
-                                padronHistorico.add(emp);
-                            }
-                        }
-                    }
-                }
-            }
-
-            long syntheticIdBase = 900_000L;
-            for (CentroTrabajo ct : listaCcts) {
-                if (ct == null || ct.claveCT == null || ct.claveCT.isBlank()) continue;
-                String claveUp = ct.claveCT.trim().toUpperCase(Locale.ROOT);
-                if (cctsConDirectorRegistrado.contains(claveUp)) continue;
-
-                Empleado empCct = new Empleado();
-                empCct.idEmpleado = ct.id != null ? (syntheticIdBase + ct.id) : (++syntheticIdBase);
-                empCct.cct = claveUp;
-                empCct.nombreEscuela = (ct.nombreCT != null && !ct.nombreCT.isBlank()) ? ct.nombreCT : ("ESCUELA " + claveUp);
-                empCct.nombre = (ct.director != null && !ct.director.isBlank())
-                        ? ct.director.trim().toUpperCase(Locale.ROOT)
-                        : ("TITULAR CCT " + claveUp + " - " + empCct.nombreEscuela);
-                empCct.rfc = claveUp;
-                empCct.claveResponsable = claveUp;
-                empCct.numeroEmpleado = claveUp;
-                empCct.usuario = claveUp;
-                empCct.area = "Escuela / CCT";
-                empCct.cargo = "DIRECTOR DE CENTRO DE TRABAJO (CCT)";
-                empCct.activo = "B".equalsIgnoreCase(ct.estatus) ? 0 : 1;
-                if (cctPorRespInv.containsKey("TIENE_BIENES_CCT::" + claveUp)) {
-                    conBienesYEscuela.add(empCct);
-                } else {
-                    conEscuelaActiva.add(empCct);
-                }
-                cctsConDirectorRegistrado.add(claveUp);
-            }
-
-            List<Empleado> lista = new ArrayList<>(conBienesYEscuela.size() + conEscuelaActiva.size() + padronHistorico.size());
-            lista.addAll(conBienesYEscuela);
-            lista.addAll(conEscuelaActiva);
-            lista.addAll(padronHistorico);
-
-            Map<String, Empleado> indice = new HashMap<>(lista.size() * 4);
-            for (Empleado e : lista) {
-                if (e == null) continue;
-                if (e.idEmpleado != null) indice.putIfAbsent("ID::" + e.idEmpleado, e);
-                if (e.rfc != null && !e.rfc.isBlank()) indice.putIfAbsent("KEY::" + e.rfc.trim().toUpperCase(Locale.ROOT), e);
-                if (e.claveResponsable != null && !e.claveResponsable.isBlank()) indice.putIfAbsent("KEY::" + e.claveResponsable.trim().toUpperCase(Locale.ROOT), e);
-                if (e.curp != null && !e.curp.isBlank()) indice.putIfAbsent("KEY::" + e.curp.trim().toUpperCase(Locale.ROOT), e);
-                if (e.nombre != null && !e.nombre.isBlank()) indice.putIfAbsent("KEY::" + e.nombre.trim().toUpperCase(Locale.ROOT), e);
-                if (e.cct != null && !e.cct.isBlank()) indice.putIfAbsent("CCT::" + e.cct.trim().toUpperCase(Locale.ROOT), e);
-            }
-            cacheIndiceDirectores = new CacheEntry<>(indice, TTL_CACHE_MS);
-            cacheResponsables = new CacheEntry<>(lista, TTL_CACHE_MS);
-            return lista;
-        }
+        return null;
     }
 
     public Empleado crearResponsable(Empleado emp) throws SQLException {
@@ -2014,7 +2259,12 @@ public class PostgresRelacionalCrudService {
         };
         for (String t : tiposDiagrama) {
             if (puedeOperarCatalogo(t)) {
-                acumulado.addAll(listarCatalogoPorTipo(t));
+                List<CatalogoGeneral> porTipo = listarCatalogoPorTipo(t);
+                if (porTipo.size() > 200) {
+                    acumulado.addAll(porTipo.subList(0, 200));
+                } else {
+                    acumulado.addAll(porTipo);
+                }
             }
         }
         cacheTodosCatalogos = new CacheEntry<>(acumulado, TTL_CACHE_MS);
@@ -2042,7 +2292,7 @@ public class PostgresRelacionalCrudService {
             }
             List<CatalogoGeneral> lista = new ArrayList<>();
             String orderByCol = meta.pkColumna != null ? columnaSqlSegura(meta, meta.pkColumna) : "1";
-            String sql = "SELECT * FROM " + meta.nombreReal + " ORDER BY " + orderByCol + " ASC";
+            String sql = "SELECT * FROM " + meta.nombreReal + " ORDER BY " + orderByCol + " ASC LIMIT 10000";
             try (PreparedStatement ps = conn.prepareStatement(sql);
                  ResultSet rs = ps.executeQuery()) {
                 long idx = 1L;
@@ -2169,6 +2419,44 @@ public class PostgresRelacionalCrudService {
             cacheCatalogoPorTipo.put(tipoNorm, new CacheEntry<>(lista, TTL_CACHE_MS));
             return lista;
         }
+    }
+
+    public List<CatalogoGeneral> buscarEnCatalogoPorTipo(String tipoCatalogo, String termino, int limite) throws SQLException {
+        List<CatalogoGeneral> todos = listarCatalogoPorTipo(tipoCatalogo);
+        if (todos == null || todos.isEmpty()) {
+            return Collections.emptyList();
+        }
+        int max = limite > 0 ? Math.min(limite, 500) : 60;
+        String q = termino != null ? termino.trim().toLowerCase(Locale.ROOT) : "";
+        if (q.isEmpty()) {
+            return todos.size() > max ? new ArrayList<>(todos.subList(0, max)) : todos;
+        }
+        List<CatalogoGeneral> exactosOPrefijo = new ArrayList<>();
+        List<CatalogoGeneral> parciales = new ArrayList<>();
+        for (CatalogoGeneral c : todos) {
+            if (c == null) continue;
+            String clave = c.clave != null ? c.clave.toLowerCase(Locale.ROOT) : "";
+            String desc = c.descripcion != null ? c.descripcion.toLowerCase(Locale.ROOT) : "";
+            String nom = c.nombre != null ? c.nombre.toLowerCase(Locale.ROOT) : "";
+            String rfc = c.rfc != null ? c.rfc.toLowerCase(Locale.ROOT) : "";
+            String sub = c.subclave != null ? c.subclave.toLowerCase(Locale.ROOT) : "";
+            String part = c.partidaAsociada != null ? c.partidaAsociada.toLowerCase(Locale.ROOT) : "";
+
+            if (clave.startsWith(q) || rfc.startsWith(q) || desc.startsWith(q) || nom.startsWith(q) || sub.startsWith(q)) {
+                exactosOPrefijo.add(c);
+                if (exactosOPrefijo.size() >= max) break;
+            } else if (clave.contains(q) || desc.contains(q) || nom.contains(q) || rfc.contains(q) || sub.contains(q) || part.contains(q)) {
+                if (exactosOPrefijo.size() + parciales.size() < max * 2) {
+                    parciales.add(c);
+                }
+            }
+        }
+        List<CatalogoGeneral> resultado = new ArrayList<>(exactosOPrefijo);
+        for (CatalogoGeneral p : parciales) {
+            if (resultado.size() >= max) break;
+            resultado.add(p);
+        }
+        return resultado;
     }
 
     public CatalogoGeneral crearItemCatalogo(String tipoCatalogo, CatalogoGeneral item) throws SQLException {

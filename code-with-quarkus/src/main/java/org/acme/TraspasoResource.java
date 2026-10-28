@@ -31,6 +31,9 @@ public class TraspasoResource {
     @Inject
     PostgresRelacionalCrudService relacionalService;
 
+    @Inject
+    UsuarioResource usuarioResource;
+
     private String obtenerNombreAdmin() {
         String adminNombre = "Administrador del Sistema";
         if (jwt != null && jwt.getName() != null) {
@@ -172,6 +175,13 @@ public class TraspasoResource {
                     userEntrante.cct = cctLimpia;
                     userEntrante.nombreEscuela = nombreEscuelaActual;
                     userEntrante.persist();
+                }
+            }
+
+            if (usuarioResource != null) {
+                try {
+                    usuarioResource.sincronizarDirectorConKeycloak(directorEntrante, null, null);
+                } catch (Exception ignored) {
                 }
             }
 

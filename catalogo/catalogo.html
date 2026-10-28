@@ -10,14 +10,14 @@
 </div>
 
 <div x-show="rolUsuario === 'SUPERADMIN' && vistaActiva === 'catalogo'" x-cloak x-transition.opacity>
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">Catálogo General de Activo Fijo</h1>
-            <p class="mt-1.5 text-sm text-gray-500">Gestión integral multi-fondo de bienes, parque vehicular, tecnología e insumos institucionales.</p>
-        </div>
+    <div class="bg-guinda text-white px-5 py-3.5 rounded-xl shadow-sm border-b-4 border-dorado flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <h1 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2.5">
+            <i class="fas fa-boxes-stacked text-dorado"></i>
+            <span>Catálogo General de Activo Fijo</span>
+        </h1>
         <button @click="abrirModalRegistro()"
-            class="inline-flex items-center gap-2 rounded-lg bg-guinda px-5 py-3 text-sm font-semibold text-white transition hover:bg-guinda-dark shadow-sm">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            class="inline-flex items-center gap-2 rounded-lg bg-dorado px-4 py-2.5 text-xs sm:text-sm font-bold text-white transition hover:bg-opacity-90 shadow-sm shrink-0">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
             </svg>
             Registrar Artículo
@@ -26,7 +26,7 @@
 
     <div class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-dorado mt-6 space-y-3">
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-12">
-            <div class="lg:col-span-3">
+            <div :class="baseOperativaActiva === 'TODOS' ? 'lg:col-span-3' : 'lg:col-span-4'">
                 <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Índice de Búsqueda Rápida</label>
                 <select x-model="indiceBusqueda" @change="aplicarFiltros()"
                     class="w-full rounded-md border-gray-200 bg-gray-50 py-2 px-3 shadow-sm sm:text-xs font-semibold text-gray-800 border focus:ring-guinda focus:border-guinda">
@@ -38,20 +38,15 @@
                     <option value="TIPO_PARTIDA">5. Tipo de Artículo / Partida Presupuestal</option>
                 </select>
             </div>
-            <div class="lg:col-span-3">
+            <div :class="baseOperativaActiva === 'TODOS' ? 'lg:col-span-3' : 'lg:col-span-4'">
                 <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Término a Buscar</label>
                 <input type="text" x-model="filtroBusqueda" @input.debounce.350ms="aplicarFiltros()"
                     :placeholder="indiceBusqueda === 'INVENTARIO' ? 'Folio SE-AG-... o Inv. Anterior...' : (indiceBusqueda === 'SERIE' ? 'Número de serie exacto o parcial...' : (indiceBusqueda === 'CCT_RESGUARDANTE' ? 'Clave CCT (ej. 27DPR...) o Resguardante...' : (indiceBusqueda === 'RESGUARDANTE_CCT' ? 'Nombre, RFC o CURP del Resguardante...' : (indiceBusqueda === 'TIPO_PARTIDA' ? 'Clave de Tipo, Subclave o Partida...' : 'Buscar por folio, serie, marca, CCT, partida...'))))"
                     class="w-full rounded-md border-gray-200 bg-white py-2 px-3.5 shadow-sm sm:text-xs border focus:ring-guinda focus:border-guinda" />
             </div>
-            <div class="lg:col-span-2">
+            <div class="lg:col-span-2" x-show="baseOperativaActiva === 'TODOS'" x-cloak>
                 <label class="block text-[10px] font-bold text-guinda uppercase tracking-wider mb-1">Fondo / Origen</label>
-                <div x-show="baseOperativaActiva !== 'TODOS'"
-                    class="w-full rounded-md border border-dorado/50 bg-caqui/60 py-2 px-3 shadow-sm sm:text-xs font-extrabold text-guinda flex items-center justify-between">
-                    <span x-text="baseOperativaActiva"></span>
-                    <span class="text-[9px] bg-guinda text-white px-1.5 py-0.5 rounded uppercase">Base Activa</span>
-                </div>
-                <select x-show="baseOperativaActiva === 'TODOS'" x-model="filtroFondo" @change="aplicarFiltros()"
+                <select x-model="filtroFondo" @change="aplicarFiltros()"
                     class="w-full rounded-md border-gray-200 bg-white py-2 px-3 shadow-sm sm:text-xs font-semibold border focus:ring-guinda focus:border-guinda">
                     <option value="">Todos los Fondos</option>
                     <optgroup label="Fuentes Operativas Activas">
@@ -67,24 +62,25 @@
                 </select>
             </div>
             <div class="lg:col-span-2">
-                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Categoría</label>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Situación / Tipo</label>
                 <select x-model="filtroCategoria" @change="aplicarFiltros()"
                     class="w-full rounded-md border-gray-200 bg-white py-2 px-3 shadow-sm sm:text-xs border focus:ring-guinda focus:border-guinda">
-                    <option value="">Todas las Categorías</option>
-                    <option value="Tecnologia">Tecnología</option>
-                    <option value="Insumos">Insumos</option>
-                    <option value="Mobiliario">Mobiliario</option>
-                    <option value="Vehiculos">Vehículos</option>
+                    <option value="">Todos los Bienes</option>
+                    <option value="EN_RESGUARDO">En Resguardo CCT</option>
+                    <option value="DISPONIBLE">Disponible en Almacén</option>
+                    <option value="BAJA">En Baja (BAJ)</option>
+                    <option value="Mobiliario">Mobiliario y Equipo</option>
+                    <option value="Vehiculos">Parque Vehicular</option>
                 </select>
             </div>
             <div class="lg:col-span-2">
-                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Área / Almacén</label>
+                <label class="block text-[10px] font-bold text-gray-500 uppercase tracking-wider mb-1">Estado Físico</label>
                 <select x-model="filtroArea" @change="aplicarFiltros()"
                     class="w-full rounded-md border-gray-200 bg-white py-2 px-3 shadow-sm sm:text-xs border focus:ring-guinda focus:border-guinda">
-                    <option value="">Todas las Áreas</option>
-                    <option value="TI">Dirección de TI</option>
-                    <option value="RecursosHumanos">Recursos Humanos</option>
-                    <option value="AlmacenGeneral">Almacén General</option>
+                    <option value="">Todos los Estados</option>
+                    <option value="BUENO">BUENO / NUEVO</option>
+                    <option value="REGULAR">REGULAR</option>
+                    <option value="MALO">MALO</option>
                 </select>
             </div>
         </div>
@@ -143,14 +139,18 @@
                             <div x-show="articulo.resguardanteActual || articulo.responsable" class="text-[11px] text-gray-500 truncate max-w-[180px]"
                                 x-text="articulo.resguardanteActual || articulo.responsable"></div>
                         </td>
-                        <td class="whitespace-nowrap px-4 py-3 text-center font-semibold"
-                            :class="articulo.cantidadStock > 0 ? 'text-gray-900' : 'text-guinda'"
-                            x-text="articulo.cantidadStock"></td>
+                        <td class="whitespace-nowrap px-4 py-3 text-center">
+                            <span x-show="articulo.cantidadStock > 0"
+                                class="font-bold text-green-700 text-xs bg-green-50 border border-green-200 px-2 py-1 rounded-md"
+                                x-text="(articulo.cantidadStock || 1) + ' (Libre)'"></span>
+                            <span x-show="!articulo.cantidadStock || articulo.cantidadStock <= 0"
+                                class="font-bold text-gray-600 text-xs bg-gray-100 border border-gray-200 px-2 py-1 rounded-md">0 (Asignado)</span>
+                        </td>
                         <td class="whitespace-nowrap px-4 py-3 text-center">
                             <span
-                                class="inline-flex items-center justify-center rounded-full px-2.5 py-1 text-xs font-medium"
-                                :class="articulo.estado === 'Baja' ? 'bg-red-100 text-red-800 ring-1 ring-inset ring-red-600/30' : (articulo.cantidadStock > 0 ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20' : 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-600/20')"
-                                x-text="articulo.estado === 'Baja' ? 'Baja' : (articulo.cantidadStock > 0 ? (articulo.estado || 'Activo') : 'Asignado / Sin Stock')"></span>
+                                class="inline-flex items-center justify-center rounded-full px-2.5 py-1 text-xs font-bold"
+                                :class="articulo.estado === 'Baja' ? 'bg-red-100 text-red-800 ring-1 ring-inset ring-red-600/30' : (articulo.cantidadStock > 0 ? 'bg-green-50 text-green-700 ring-1 ring-inset ring-green-600/20' : 'bg-blue-50 text-blue-800 ring-1 ring-inset ring-blue-600/20')"
+                                x-text="articulo.estado === 'Baja' ? 'Baja' : (articulo.cantidadStock > 0 ? 'Disponible en Almacén' : 'En Resguardo CCT')"></span>
                         </td>
                         <td class="whitespace-nowrap px-4 py-3 text-center">
                             <div class="flex items-center justify-center gap-2">
@@ -180,18 +180,19 @@
                                         </path>
                                     </svg>
                                 </button>
-                                <div class="w-24 flex justify-center">
-                                    <button x-show="articulo.cantidadStock > 0" @click="abrirModalResguardo(articulo)"
+                                <div class="w-28 flex justify-center">
+                                    <button x-show="articulo.cantidadStock > 0 && articulo.estado !== 'Baja'" @click="abrirModalResguardo(articulo)"
                                         class="w-full bg-guinda text-white hover:bg-guinda-dark px-3 py-1.5 rounded-md text-xs font-semibold transition-colors shadow-sm flex items-center justify-center">Asignar</button>
-                                    <span x-show="articulo.cantidadStock <= 0"
-                                        class="w-full inline-flex items-center justify-center gap-1 text-gray-400 text-xs font-medium px-2 py-1.5"
-                                        title="No hay stock disponible.">
-                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                                            <path fill-rule="evenodd"
-                                                d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
-                                                clip-rule="evenodd"></path>
-                                        </svg>
-                                        Sin Stock
+                                    <button x-show="(!articulo.cantidadStock || articulo.cantidadStock <= 0) && articulo.estado !== 'Baja'"
+                                        @click="imprimirResguardoLoteMNREPINV(articulo)"
+                                        class="w-full bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-700 hover:text-white px-2.5 py-1.5 rounded-md text-[11px] font-bold transition-colors shadow-sm flex items-center justify-center gap-1"
+                                        title="Imprimir Cédula Oficial de Resguardo (Líneas de firma en blanco)">
+                                        <i class="fas fa-file-contract"></i> Ver Resguardo
+                                    </button>
+                                    <span x-show="articulo.estado === 'Baja'"
+                                        class="w-full inline-flex items-center justify-center gap-1 text-red-500 text-xs font-bold px-2 py-1.5"
+                                        title="Bien dado de baja">
+                                        Baja
                                     </span>
                                 </div>
                             </div>
@@ -249,11 +250,11 @@
 </div>
 
 <div x-show="rolUsuario === 'admin' && vistaActiva === 'mi_escuela'" x-cloak x-transition.opacity>
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-200 pb-4">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">Bienes Asignados</h1>
-            <p class="mt-1.5 text-sm text-gray-500">Consulta los equipos bajo resguardo de tu institución educativa.</p>
-        </div>
+    <div class="bg-guinda text-white px-5 py-3.5 rounded-xl shadow-sm border-b-4 border-dorado flex items-center justify-between">
+        <h1 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2.5">
+            <i class="fas fa-school text-dorado"></i>
+            <span>Mi Escuela — Bienes Asignados</span>
+        </h1>
     </div>
 
     <div class="mt-4 rounded-xl bg-amber-50 border-l-4 border-dorado p-4 shadow-sm flex items-start gap-3">
@@ -396,12 +397,11 @@
 </div>
 
 <div x-show="rolUsuario === 'admin' && vistaActiva === 'firmas'" x-cloak x-transition.opacity>
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-gray-200 pb-4">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">Bandeja de Firmas</h1>
-            <p class="mt-1.5 text-sm text-gray-500">Documentos pendientes de tu firma electrónica (Recepciones y Bajas).
-            </p>
-        </div>
+    <div class="bg-guinda text-white px-5 py-3.5 rounded-xl shadow-sm border-b-4 border-dorado flex items-center justify-between">
+        <h1 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2.5">
+            <i class="fas fa-file-signature text-dorado"></i>
+            <span>Bandeja de Firmas</span>
+        </h1>
     </div>
 
     <div class="overflow-x-auto rounded-xl border border-gray-200 shadow-sm bg-white mt-6 border-t-4 border-t-guinda">
@@ -592,11 +592,34 @@
                                                 <option value="Vehiculos">Vehículos</option>
                                             </select>
                                         </div>
-                                        <div>
+                                        <div class="relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Tipo de Material (TIPO) *</label>
-                                            <input type="text" x-model="nuevoArticulo.tipoMaterial" list="dl-tipos-articulos"
+                                            <input type="text" x-model="nuevoArticulo.tipoMaterial" autocomplete="off"
+                                                @focus="abrirAutocompletadoBien('tipoMaterial', nuevoArticulo.tipoMaterial, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('tipoMaterial', nuevoArticulo.tipoMaterial, 'alta')"
+                                                @input="abrirAutocompletadoBien('tipoMaterial', nuevoArticulo.tipoMaterial, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('tipoMaterial', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 placeholder="Ej. 0652 ESCRITORIO..." required
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                            <ul x-show="acCampoActivo === 'tipoMaterial' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-tm-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'tipoMaterial', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'tipoMaterial', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'tipoMaterial')"></span>
+                                                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                            :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                            x-text="etiquetaSecundariaSugerencia(item, 'tipoMaterial')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
                                         <div>
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Sub-Clave (CATTIP)</label>
@@ -604,11 +627,34 @@
                                                 placeholder="Subclave catálogo..."
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
                                         </div>
-                                        <div>
+                                        <div class="relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Partida Presupuestal (PARTIDA)</label>
-                                            <input type="text" x-model="nuevoArticulo.partida" list="dl-partidas"
+                                            <input type="text" x-model="nuevoArticulo.partida" autocomplete="off"
+                                                @focus="abrirAutocompletadoBien('partida', nuevoArticulo.partida, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('partida', nuevoArticulo.partida, 'alta')"
+                                                @input="abrirAutocompletadoBien('partida', nuevoArticulo.partida, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('partida', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 placeholder="Ej. 51101..."
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                            <ul x-show="acCampoActivo === 'partida' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-pa-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'partida', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'partida', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'partida')"></span>
+                                                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                            :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                            x-text="etiquetaSecundariaSugerencia(item, 'partida')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
                                         <div>
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Cuenta Contable</label>
@@ -616,10 +662,33 @@
                                                 placeholder="Ej. 1241-1..."
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm font-mono focus:ring-guinda focus:border-guinda uppercase">
                                         </div>
-                                        <div>
+                                        <div class="relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Naturaleza del Gasto (NATGASTO)</label>
-                                            <input type="text" x-model="nuevoArticulo.naturalezaGasto" list="dl-naturaleza-gasto"
+                                            <input type="text" x-model="nuevoArticulo.naturalezaGasto" autocomplete="off"
+                                                @focus="abrirAutocompletadoBien('naturalezaGasto', nuevoArticulo.naturalezaGasto, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('naturalezaGasto', nuevoArticulo.naturalezaGasto, 'alta')"
+                                                @input="abrirAutocompletadoBien('naturalezaGasto', nuevoArticulo.naturalezaGasto, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('naturalezaGasto', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                            <ul x-show="acCampoActivo === 'naturalezaGasto' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-ng-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'naturalezaGasto', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'naturalezaGasto', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'naturalezaGasto')"></span>
+                                                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                            :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                            x-text="etiquetaSecundariaSugerencia(item, 'naturalezaGasto')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
                                     </div>
                                 </fieldset>
@@ -641,25 +710,88 @@
                                                 placeholder="Especificaciones adicionales, medidas, accesorios..."
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
                                         </div>
-                                        <div>
+                                        <div class="relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Marca *</label>
-                                            <input type="text" x-model="nuevoArticulo.marca" list="dl-marcas" required
+                                            <input type="text" x-model="nuevoArticulo.marca" autocomplete="off" required
+                                                @focus="abrirAutocompletadoBien('marca', nuevoArticulo.marca, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('marca', nuevoArticulo.marca, 'alta')"
+                                                @input="abrirAutocompletadoBien('marca', nuevoArticulo.marca, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('marca', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                            <ul x-show="acCampoActivo === 'marca' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-ma-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'marca', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'marca', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'marca')"></span>
+                                                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                            :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                            x-text="etiquetaSecundariaSugerencia(item, 'marca')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
-                                        <div>
+                                        <div class="relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Modelo</label>
-                                            <input type="text" x-model="nuevoArticulo.modelo"
+                                            <input type="text" x-model="nuevoArticulo.modelo" autocomplete="off"
+                                                @focus="abrirAutocompletadoBien('modelo', nuevoArticulo.modelo, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('modelo', nuevoArticulo.modelo, 'alta')"
+                                                @input="abrirAutocompletadoBien('modelo', nuevoArticulo.modelo, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('modelo', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                            <ul x-show="acCampoActivo === 'modelo' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-mo-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'modelo', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'modelo', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'modelo')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
                                         <div>
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Número de Serie *</label>
                                             <input type="text" x-model="nuevoArticulo.serie" required
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase font-mono">
                                         </div>
-                                        <div>
+                                        <div class="relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Color</label>
-                                            <input type="text" x-model="nuevoArticulo.color"
+                                            <input type="text" x-model="nuevoArticulo.color" autocomplete="off"
+                                                @focus="abrirAutocompletadoBien('color', nuevoArticulo.color, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('color', nuevoArticulo.color, 'alta')"
+                                                @input="abrirAutocompletadoBien('color', nuevoArticulo.color, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('color', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                            <ul x-show="acCampoActivo === 'color' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-co-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'color', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'color', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'color')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
                                         <div>
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Cantidad a Ingresar *</label>
@@ -734,11 +866,34 @@
                                         class="text-xs font-bold text-dorado bg-white px-3 py-1 rounded-md border border-gray-200 shadow-sm absolute -top-3.5 left-4 uppercase tracking-wide">
                                         Adquisición, Facturación CFDI y Almacén</legend>
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2 mb-4">
-                                        <div class="md:col-span-2">
+                                        <div class="md:col-span-2 relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Proveedor (RFCPROV / CATPROV) *</label>
-                                            <input type="text" x-model="nuevoArticulo.proveedor" list="dl-proveedores" required
+                                            <input type="text" x-model="nuevoArticulo.proveedor" autocomplete="off" required
+                                                @focus="abrirAutocompletadoBien('proveedor', nuevoArticulo.proveedor, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('proveedor', nuevoArticulo.proveedor, 'alta')"
+                                                @input="abrirAutocompletadoBien('proveedor', nuevoArticulo.proveedor, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('proveedor', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 placeholder="Razón social o RFC del proveedor..."
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm focus:ring-guinda focus:border-guinda uppercase">
+                                            <ul x-show="acCampoActivo === 'proveedor' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-pr-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'proveedor', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'proveedor', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'proveedor')"></span>
+                                                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                            :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                            x-text="etiquetaSecundariaSugerencia(item, 'proveedor')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
                                         <div>
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Fecha Factura (FECHAFACT)</label>
@@ -828,52 +983,213 @@
                                         class="text-xs font-bold text-guinda bg-white px-3 py-1 rounded-md border border-gray-200 shadow-sm absolute -top-3.5 left-4 uppercase tracking-wide">
                                         Estructura Jerárquica y Datos de Resguardo (CCT / CVERSP_ACT / FOLIO)</legend>
                                     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-2">
-                                        <div>
+                                        <div class="relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Unidad Responsable (UR)</label>
-                                            <input type="text" x-model="nuevoArticulo.unidadResponsable"
+                                            <input type="text" x-model="nuevoArticulo.unidadResponsable" autocomplete="off"
+                                                @focus="abrirAutocompletadoBien('unidadResponsable', nuevoArticulo.unidadResponsable, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('unidadResponsable', nuevoArticulo.unidadResponsable, 'alta')"
+                                                @input="abrirAutocompletadoBien('unidadResponsable', nuevoArticulo.unidadResponsable, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('unidadResponsable', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 placeholder="Ej. SUBSECRETARÍA DE EDUCACIÓN BÁSICA"
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
+                                            <ul x-show="acCampoActivo === 'unidadResponsable' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-ur-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'unidadResponsable', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'unidadResponsable', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'unidadResponsable')"></span>
+                                                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                            :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                            x-text="etiquetaSecundariaSugerencia(item, 'unidadResponsable')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
-                                        <div>
+                                        <div class="relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Subdirección / Dirección</label>
-                                            <input type="text" x-model="nuevoArticulo.subdireccion"
+                                            <input type="text" x-model="nuevoArticulo.subdireccion" autocomplete="off"
+                                                @focus="abrirAutocompletadoBien('subdireccion', nuevoArticulo.subdireccion, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('subdireccion', nuevoArticulo.subdireccion, 'alta')"
+                                                @input="abrirAutocompletadoBien('subdireccion', nuevoArticulo.subdireccion, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('subdireccion', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 placeholder="Ej. DIRECCIÓN DE EDUCACIÓN PRIMARIA"
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
+                                            <ul x-show="acCampoActivo === 'subdireccion' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-sb-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'subdireccion', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'subdireccion', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'subdireccion')"></span>
+                                                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                            :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                            x-text="etiquetaSecundariaSugerencia(item, 'subdireccion')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
-                                        <div>
+                                        <div class="relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Departamento (DEPTO)</label>
-                                            <input type="text" x-model="nuevoArticulo.departamento" list="dl-departamentos"
+                                            <input type="text" x-model="nuevoArticulo.departamento" autocomplete="off"
+                                                @focus="abrirAutocompletadoBien('departamento', nuevoArticulo.departamento, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('departamento', nuevoArticulo.departamento, 'alta')"
+                                                @input="abrirAutocompletadoBien('departamento', nuevoArticulo.departamento, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('departamento', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 placeholder="Departamento adscrito..."
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
+                                            <ul x-show="acCampoActivo === 'departamento' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-dp-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'departamento', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'departamento', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'departamento')"></span>
+                                                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                            :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                            x-text="etiquetaSecundariaSugerencia(item, 'departamento')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
-                                        <div>
+                                        <div class="relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Centro de Trabajo (Clave CCT)</label>
-                                            <input type="text" x-model="nuevoArticulo.centroTrabajo" list="dl-cct-catalogo"
+                                            <input type="text" x-model="nuevoArticulo.centroTrabajo" autocomplete="off"
+                                                @focus="abrirAutocompletadoBien('centroTrabajo', nuevoArticulo.centroTrabajo, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('centroTrabajo', nuevoArticulo.centroTrabajo, 'alta')"
+                                                @input="abrirAutocompletadoBien('centroTrabajo', nuevoArticulo.centroTrabajo, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('centroTrabajo', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 placeholder="Ej. 27DPR0001X"
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm font-mono uppercase focus:ring-guinda focus:border-guinda">
+                                            <ul x-show="acCampoActivo === 'centroTrabajo' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-ct-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'centroTrabajo', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'centroTrabajo', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'centroTrabajo')"></span>
+                                                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                            :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                            x-text="etiquetaSecundariaSugerencia(item, 'centroTrabajo')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
-                                        <div>
+                                        <div class="relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Resguardante Actual (CVERSP_ACT)</label>
-                                            <input type="text" x-model="nuevoArticulo.resguardanteActual"
+                                            <input type="text" x-model="nuevoArticulo.resguardanteActual" autocomplete="off"
+                                                @focus="abrirAutocompletadoBien('resguardanteActual', nuevoArticulo.resguardanteActual, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('resguardanteActual', nuevoArticulo.resguardanteActual, 'alta')"
+                                                @input="abrirAutocompletadoBien('resguardanteActual', nuevoArticulo.resguardanteActual, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('resguardanteActual', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 placeholder="Nombre, RFC o CURP del custodio actual..."
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
+                                            <ul x-show="acCampoActivo === 'resguardanteActual' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-ra-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'resguardanteActual', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'resguardanteActual', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'resguardanteActual')"></span>
+                                                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                            :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                            x-text="etiquetaSecundariaSugerencia(item, 'resguardanteActual')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
-                                        <div>
+                                        <div class="relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Resguardante Histórico (CVERSP)</label>
-                                            <input type="text" x-model="nuevoArticulo.resguardanteHistorico"
+                                            <input type="text" x-model="nuevoArticulo.resguardanteHistorico" autocomplete="off"
+                                                @focus="abrirAutocompletadoBien('resguardanteHistorico', nuevoArticulo.resguardanteHistorico, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('resguardanteHistorico', nuevoArticulo.resguardanteHistorico, 'alta')"
+                                                @input="abrirAutocompletadoBien('resguardanteHistorico', nuevoArticulo.resguardanteHistorico, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('resguardanteHistorico', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 placeholder="Custodio original (si aplica)..."
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
+                                            <ul x-show="acCampoActivo === 'resguardanteHistorico' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-rh-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'resguardanteHistorico', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'resguardanteHistorico', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'resguardanteHistorico')"></span>
+                                                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                            :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                            x-text="etiquetaSecundariaSugerencia(item, 'resguardanteHistorico')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
                                         <div>
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Folio de Resguardo (FOLIO)</label>
                                             <input type="text" x-model="nuevoArticulo.folioResguardo"
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm font-mono uppercase focus:ring-guinda focus:border-guinda">
                                         </div>
-                                        <div>
+                                        <div class="relative">
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Tipo de Folio (TIPOFOL)</label>
-                                            <input type="text" x-model="nuevoArticulo.tipoFolioResguardo" list="dl-tipos-folios"
+                                            <input type="text" x-model="nuevoArticulo.tipoFolioResguardo" autocomplete="off"
+                                                @focus="abrirAutocompletadoBien('tipoFolioResguardo', nuevoArticulo.tipoFolioResguardo, 'alta')"
+                                                @dblclick="abrirAutocompletadoBien('tipoFolioResguardo', nuevoArticulo.tipoFolioResguardo, 'alta')"
+                                                @input="abrirAutocompletadoBien('tipoFolioResguardo', nuevoArticulo.tipoFolioResguardo, 'alta')"
+                                                @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                                @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                                @keydown.enter.prevent="confirmarEnterAutocompletadoBien('tipoFolioResguardo', 'alta')"
+                                                @keydown.escape="cerrarAutocompletadoBien()"
+                                                @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                                 placeholder="OFICIAL / INTERNO"
                                                 class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
+                                            <ul x-show="acCampoActivo === 'tipoFolioResguardo' && acModoActivo === 'alta' && acSugerencias.length > 0" x-cloak
+                                                class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                                <template x-for="(item, idx) in acSugerencias" :key="'ac-tf-a-' + idx">
+                                                    <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'tipoFolioResguardo', 'alta')"
+                                                        @dblclick.prevent="seleccionarSugerenciaBien(item, 'tipoFolioResguardo', 'alta')"
+                                                        @mouseenter="acIndiceActivo = idx"
+                                                        :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                                        class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                                        <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'tipoFolioResguardo')"></span>
+                                                        <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                            :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                            x-text="etiquetaSecundariaSugerencia(item, 'tipoFolioResguardo')"></span>
+                                                    </li>
+                                                </template>
+                                            </ul>
                                         </div>
                                         <div>
                                             <label class="block text-xs font-bold text-gray-700 mb-1">Documento / Oficio (DOCTO)</label>
@@ -1009,30 +1325,99 @@
                                     <option value="Vehiculos">Vehículos</option>
                                 </select>
                             </div>
-                            <div>
+                            <div class="relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Tipo de Material (TIPO)</label>
-                                <input type="text" x-model="articuloSeleccionado.tipoMaterial" list="dl-tipos-articulos"
+                                <input type="text" x-model="articuloSeleccionado.tipoMaterial" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('tipoMaterial', articuloSeleccionado.tipoMaterial, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('tipoMaterial', articuloSeleccionado.tipoMaterial, 'edicion')"
+                                    @input="abrirAutocompletadoBien('tipoMaterial', articuloSeleccionado.tipoMaterial, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('tipoMaterial', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'tipoMaterial' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-tm-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'tipoMaterial', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'tipoMaterial', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'tipoMaterial')"></span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                x-text="etiquetaSecundariaSugerencia(item, 'tipoMaterial')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Sub-Clave (CATTIP)</label>
                                 <input type="text" x-model="articuloSeleccionado.subClave"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
                             </div>
-                            <div>
+                            <div class="relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Partida Presupuestal</label>
-                                <input type="text" x-model="articuloSeleccionado.partida" list="dl-partidas"
+                                <input type="text" x-model="articuloSeleccionado.partida" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('partida', articuloSeleccionado.partida, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('partida', articuloSeleccionado.partida, 'edicion')"
+                                    @input="abrirAutocompletadoBien('partida', articuloSeleccionado.partida, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('partida', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'partida' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-pa-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'partida', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'partida', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'partida')"></span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                x-text="etiquetaSecundariaSugerencia(item, 'partida')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Cuenta Contable</label>
                                 <input type="text" x-model="articuloSeleccionado.cuentaContable"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 font-mono uppercase focus:ring-guinda focus:border-guinda">
                             </div>
-                            <div>
+                            <div class="relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Naturaleza del Gasto</label>
-                                <input type="text" x-model="articuloSeleccionado.naturalezaGasto" list="dl-naturaleza-gasto"
+                                <input type="text" x-model="articuloSeleccionado.naturalezaGasto" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('naturalezaGasto', articuloSeleccionado.naturalezaGasto, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('naturalezaGasto', articuloSeleccionado.naturalezaGasto, 'edicion')"
+                                    @input="abrirAutocompletadoBien('naturalezaGasto', articuloSeleccionado.naturalezaGasto, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('naturalezaGasto', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'naturalezaGasto' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-ng-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'naturalezaGasto', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'naturalezaGasto', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'naturalezaGasto')"></span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                x-text="etiquetaSecundariaSugerencia(item, 'naturalezaGasto')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
                             <div class="md:col-span-2">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Descripción Principal (DESCRIP)</label>
@@ -1044,25 +1429,88 @@
                                 <input type="text" x-model="articuloSeleccionado.descripcionSecundaria"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
                             </div>
-                            <div>
+                            <div class="relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Marca</label>
-                                <input type="text" x-model="articuloSeleccionado.marca" list="dl-marcas"
+                                <input type="text" x-model="articuloSeleccionado.marca" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('marca', articuloSeleccionado.marca, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('marca', articuloSeleccionado.marca, 'edicion')"
+                                    @input="abrirAutocompletadoBien('marca', articuloSeleccionado.marca, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('marca', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'marca' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-ma-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'marca', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'marca', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'marca')"></span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                x-text="etiquetaSecundariaSugerencia(item, 'marca')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
-                            <div>
+                            <div class="relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Modelo</label>
-                                <input type="text" x-model="articuloSeleccionado.modelo"
+                                <input type="text" x-model="articuloSeleccionado.modelo" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('modelo', articuloSeleccionado.modelo, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('modelo', articuloSeleccionado.modelo, 'edicion')"
+                                    @input="abrirAutocompletadoBien('modelo', articuloSeleccionado.modelo, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('modelo', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'modelo' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-mo-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'modelo', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'modelo', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'modelo')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Número de Serie</label>
                                 <input type="text" x-model="articuloSeleccionado.numeroSerie"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 font-mono uppercase focus:ring-guinda focus:border-guinda">
                             </div>
-                            <div>
+                            <div class="relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Color</label>
-                                <input type="text" x-model="articuloSeleccionado.color"
+                                <input type="text" x-model="articuloSeleccionado.color" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('color', articuloSeleccionado.color, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('color', articuloSeleccionado.color, 'edicion')"
+                                    @input="abrirAutocompletadoBien('color', articuloSeleccionado.color, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('color', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'color' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-co-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'color', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'color', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'color')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Stock Libre Actual</label>
@@ -1155,10 +1603,33 @@
 
                     <div x-show="tabModalEdicion === 'adquisicion'" class="space-y-4" x-cloak>
                         <div class="bg-white p-4 rounded-lg border border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div class="md:col-span-2">
+                            <div class="md:col-span-2 relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Proveedor (RFCPROV / CATPROV)</label>
-                                <input type="text" x-model="articuloSeleccionado.proveedor" list="dl-proveedores"
+                                <input type="text" x-model="articuloSeleccionado.proveedor" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('proveedor', articuloSeleccionado.proveedor, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('proveedor', articuloSeleccionado.proveedor, 'edicion')"
+                                    @input="abrirAutocompletadoBien('proveedor', articuloSeleccionado.proveedor, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('proveedor', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'proveedor' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-pr-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'proveedor', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'proveedor', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'proveedor')"></span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                x-text="etiquetaSecundariaSugerencia(item, 'proveedor')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Fecha Factura (FECHAFACT)</label>
@@ -1227,45 +1698,206 @@
 
                     <div x-show="tabModalEdicion === 'ubicacion'" class="space-y-4" x-cloak>
                         <div class="bg-white p-4 rounded-lg border border-gray-200 grid grid-cols-1 md:grid-cols-3 gap-4">
-                            <div>
+                            <div class="relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Unidad Responsable</label>
-                                <input type="text" x-model="articuloSeleccionado.unidadResponsable"
+                                <input type="text" x-model="articuloSeleccionado.unidadResponsable" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('unidadResponsable', articuloSeleccionado.unidadResponsable, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('unidadResponsable', articuloSeleccionado.unidadResponsable, 'edicion')"
+                                    @input="abrirAutocompletadoBien('unidadResponsable', articuloSeleccionado.unidadResponsable, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('unidadResponsable', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'unidadResponsable' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-ur-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'unidadResponsable', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'unidadResponsable', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'unidadResponsable')"></span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                x-text="etiquetaSecundariaSugerencia(item, 'unidadResponsable')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
-                            <div>
+                            <div class="relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Subdirección / Dirección</label>
-                                <input type="text" x-model="articuloSeleccionado.subdireccion"
+                                <input type="text" x-model="articuloSeleccionado.subdireccion" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('subdireccion', articuloSeleccionado.subdireccion, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('subdireccion', articuloSeleccionado.subdireccion, 'edicion')"
+                                    @input="abrirAutocompletadoBien('subdireccion', articuloSeleccionado.subdireccion, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('subdireccion', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'subdireccion' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-sb-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'subdireccion', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'subdireccion', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'subdireccion')"></span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                x-text="etiquetaSecundariaSugerencia(item, 'subdireccion')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
-                            <div>
+                            <div class="relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Departamento (DEPTO)</label>
-                                <input type="text" x-model="articuloSeleccionado.departamento" list="dl-departamentos"
+                                <input type="text" x-model="articuloSeleccionado.departamento" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('departamento', articuloSeleccionado.departamento, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('departamento', articuloSeleccionado.departamento, 'edicion')"
+                                    @input="abrirAutocompletadoBien('departamento', articuloSeleccionado.departamento, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('departamento', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'departamento' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-dp-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'departamento', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'departamento', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'departamento')"></span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                x-text="etiquetaSecundariaSugerencia(item, 'departamento')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
-                            <div>
+                            <div class="relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Centro de Trabajo (CCT)</label>
-                                <input type="text" x-model="articuloSeleccionado.centroTrabajo" list="dl-cct-catalogo"
+                                <input type="text" x-model="articuloSeleccionado.centroTrabajo" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('centroTrabajo', articuloSeleccionado.centroTrabajo, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('centroTrabajo', articuloSeleccionado.centroTrabajo, 'edicion')"
+                                    @input="abrirAutocompletadoBien('centroTrabajo', articuloSeleccionado.centroTrabajo, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('centroTrabajo', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 font-mono uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'centroTrabajo' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-ct-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'centroTrabajo', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'centroTrabajo', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'centroTrabajo')"></span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                x-text="etiquetaSecundariaSugerencia(item, 'centroTrabajo')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
-                            <div>
+                            <div class="relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Resguardante Actual (CVERSP_ACT)</label>
-                                <input type="text" x-model="articuloSeleccionado.resguardanteActual"
+                                <input type="text" x-model="articuloSeleccionado.resguardanteActual" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('resguardanteActual', articuloSeleccionado.resguardanteActual, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('resguardanteActual', articuloSeleccionado.resguardanteActual, 'edicion')"
+                                    @input="abrirAutocompletadoBien('resguardanteActual', articuloSeleccionado.resguardanteActual, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('resguardanteActual', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'resguardanteActual' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-ra-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'resguardanteActual', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'resguardanteActual', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'resguardanteActual')"></span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                x-text="etiquetaSecundariaSugerencia(item, 'resguardanteActual')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
-                            <div>
+                            <div class="relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Resguardante Histórico (CVERSP)</label>
-                                <input type="text" x-model="articuloSeleccionado.resguardanteHistorico"
+                                <input type="text" x-model="articuloSeleccionado.resguardanteHistorico" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('resguardanteHistorico', articuloSeleccionado.resguardanteHistorico, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('resguardanteHistorico', articuloSeleccionado.resguardanteHistorico, 'edicion')"
+                                    @input="abrirAutocompletadoBien('resguardanteHistorico', articuloSeleccionado.resguardanteHistorico, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('resguardanteHistorico', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'resguardanteHistorico' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-rh-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'resguardanteHistorico', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'resguardanteHistorico', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'resguardanteHistorico')"></span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                x-text="etiquetaSecundariaSugerencia(item, 'resguardanteHistorico')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Folio Resguardo (FOLIO)</label>
                                 <input type="text" x-model="articuloSeleccionado.folioResguardo"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 font-mono uppercase focus:ring-guinda focus:border-guinda">
                             </div>
-                            <div>
+                            <div class="relative">
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Tipo Folio (TIPOFOL)</label>
-                                <input type="text" x-model="articuloSeleccionado.tipoFolioResguardo" list="dl-tipos-folios"
+                                <input type="text" x-model="articuloSeleccionado.tipoFolioResguardo" autocomplete="off"
+                                    @focus="abrirAutocompletadoBien('tipoFolioResguardo', articuloSeleccionado.tipoFolioResguardo, 'edicion')"
+                                    @dblclick="abrirAutocompletadoBien('tipoFolioResguardo', articuloSeleccionado.tipoFolioResguardo, 'edicion')"
+                                    @input="abrirAutocompletadoBien('tipoFolioResguardo', articuloSeleccionado.tipoFolioResguardo, 'edicion')"
+                                    @keydown.arrow-down.prevent="moverAutocompletadoBien(1)"
+                                    @keydown.arrow-up.prevent="moverAutocompletadoBien(-1)"
+                                    @keydown.enter.prevent="confirmarEnterAutocompletadoBien('tipoFolioResguardo', 'edicion')"
+                                    @keydown.escape="cerrarAutocompletadoBien()"
+                                    @blur="setTimeout(() => cerrarAutocompletadoBien(), 180)"
                                     class="block w-full bg-white rounded-md border-gray-300 shadow-sm sm:text-sm border py-2 px-3 uppercase focus:ring-guinda focus:border-guinda">
+                                <ul x-show="acCampoActivo === 'tipoFolioResguardo' && acModoActivo === 'edicion' && acSugerencias.length > 0" x-cloak
+                                    class="absolute z-50 left-0 right-0 mt-1 max-h-56 overflow-y-auto bg-white border border-dorado/60 rounded-lg shadow-xl divide-y divide-gray-100 text-xs">
+                                    <template x-for="(item, idx) in acSugerencias" :key="'ac-tf-e-' + idx">
+                                        <li @mousedown.prevent="seleccionarSugerenciaBien(item, 'tipoFolioResguardo', 'edicion')"
+                                            @dblclick.prevent="seleccionarSugerenciaBien(item, 'tipoFolioResguardo', 'edicion')"
+                                            @mouseenter="acIndiceActivo = idx"
+                                            :class="acIndiceActivo === idx ? 'bg-guinda text-white' : 'text-gray-800 hover:bg-caqui'"
+                                            class="px-3 py-2 cursor-pointer flex items-center justify-between gap-2 transition-colors">
+                                            <span class="font-bold truncate" x-text="etiquetaPrincipalSugerencia(item, 'tipoFolioResguardo')"></span>
+                                            <span class="text-[10px] font-mono px-1.5 py-0.5 rounded shrink-0"
+                                                :class="acIndiceActivo === idx ? 'bg-white/20 text-white' : 'bg-dorado/15 text-guinda'"
+                                                x-text="etiquetaSecundariaSugerencia(item, 'tipoFolioResguardo')"></span>
+                                        </li>
+                                    </template>
+                                </ul>
                             </div>
                             <div>
                                 <label class="block text-xs font-bold text-gray-700 mb-1">Documento (DOCTO)</label>

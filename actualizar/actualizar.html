@@ -5,31 +5,66 @@
 </div>
 
 <div x-show="rolUsuario === 'SUPERADMIN' && vistaActiva === 'centros_trabajo'" x-cloak x-transition.opacity>
-    <div class="flex flex-wrap gap-2 mb-6 border-b border-gray-200 pb-3">
-        <button type="button" @click="tabActualizarActivo = 'verificacion_anual'"
-            class="px-5 py-2.5 rounded-lg text-xs sm:text-sm font-bold uppercase tracking-wide transition-all flex items-center gap-2"
-            :class="tabActualizarActivo === 'verificacion_anual' ? 'bg-guinda text-white shadow-md' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'">
-            <i class="fas fa-clipboard-check"></i>
-            <span>1. Actualización Anual de Inventario y Datos (Verificación Física)</span>
-        </button>
-        <button type="button" @click="tabActualizarActivo = 'catalogo_cct'"
-            class="px-5 py-2.5 rounded-lg text-xs sm:text-sm font-bold uppercase tracking-wide transition-all flex items-center gap-2"
-            :class="tabActualizarActivo === 'catalogo_cct' ? 'bg-guinda text-white shadow-md' : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'">
-            <i class="fas fa-school"></i>
-            <span>2. Catálogo de Centros de Trabajo (CCT)</span>
-        </button>
-    </div>
-
-    <div x-show="tabActualizarActivo === 'verificacion_anual'" x-transition.opacity class="space-y-6">
-        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white p-5 rounded-xl border border-gray-200 border-t-4 border-t-guinda shadow-sm">
-            <div>
-                <h1 class="text-2xl font-bold text-gray-900">Actualización Anual de Inventario y Datos</h1>
-                <p class="mt-1 text-sm text-gray-600">Comparecencia anual del Director/Resguardante: validación de datos personales, CCT, fotografías de bienes, asignación de nuevo folio <span class="font-mono font-bold text-guinda">-CRE</span> y emisión de Actas Oficiales.</p>
-            </div>
+    <div x-show="tabActualizarActivo === 'verificacion_anual'" x-transition.opacity class="space-y-5">
+        <div class="bg-guinda text-white px-5 py-3.5 rounded-xl shadow-sm border-b-4 border-dorado flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <h1 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2.5">
+                <i class="fas fa-clipboard-check text-dorado"></i>
+                <span>Actualización Anual de Inventario y Datos</span>
+            </h1>
             <button type="button" @click="enviarRecordatorioAnualDirectores()"
-                class="inline-flex items-center justify-center gap-2 rounded-lg bg-dorado px-4 py-3 text-xs sm:text-sm font-bold text-white shadow-sm hover:bg-opacity-90 transition shrink-0">
+                class="inline-flex items-center justify-center gap-2 rounded-lg bg-dorado px-4 py-2.5 text-xs sm:text-sm font-bold text-white shadow-sm hover:bg-opacity-90 transition shrink-0">
                 <i class="fas fa-bell"></i>
                 <span>Enviar Recordatorio Anual a Todos los Directores</span>
+            </button>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <button type="button" @click="filtroEstatusAnual = 'PENDIENTES'"
+                class="p-3.5 rounded-xl border text-left transition-all flex items-center justify-between shadow-sm"
+                :class="filtroEstatusAnual === 'PENDIENTES' ? 'bg-amber-50 border-2 border-red-600 ring-2 ring-red-500/20' : 'bg-white border-gray-200 hover:bg-amber-50/40'">
+                <div class="flex items-center gap-3">
+                    <span class="w-9 h-9 rounded-lg bg-red-100 text-red-700 flex items-center justify-center font-bold">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </span>
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-red-800">Pendientes de Actualizar</p>
+                        <p class="text-[11px] text-gray-600 font-medium">Faltan por comparecer en 2026</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 rounded-full text-sm font-extrabold bg-red-600 text-white font-mono"
+                    x-text="resumenActualizacionAnual.pendientes"></span>
+            </button>
+
+            <button type="button" @click="filtroEstatusAnual = 'ACTUALIZADOS'"
+                class="p-3.5 rounded-xl border text-left transition-all flex items-center justify-between shadow-sm"
+                :class="filtroEstatusAnual === 'ACTUALIZADOS' ? 'bg-green-50 border-2 border-green-600 ring-2 ring-green-500/20' : 'bg-white border-gray-200 hover:bg-green-50/40'">
+                <div class="flex items-center gap-3">
+                    <span class="w-9 h-9 rounded-lg bg-green-100 text-green-700 flex items-center justify-center font-bold">
+                        <i class="fas fa-check-circle"></i>
+                    </span>
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-green-800">Actualizados 2026</p>
+                        <p class="text-[11px] text-gray-600 font-medium">Datos y resguardos verificados</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 rounded-full text-sm font-extrabold bg-green-600 text-white font-mono"
+                    x-text="resumenActualizacionAnual.actualizados"></span>
+            </button>
+
+            <button type="button" @click="filtroEstatusAnual = 'TODOS'"
+                class="p-3.5 rounded-xl border text-left transition-all flex items-center justify-between shadow-sm"
+                :class="filtroEstatusAnual === 'TODOS' ? 'bg-caqui border-2 border-guinda ring-2 ring-guinda/20' : 'bg-white border-gray-200 hover:bg-gray-50'">
+                <div class="flex items-center gap-3">
+                    <span class="w-9 h-9 rounded-lg bg-guinda/10 text-guinda flex items-center justify-center font-bold">
+                        <i class="fas fa-users"></i>
+                    </span>
+                    <div>
+                        <p class="text-[11px] font-bold uppercase tracking-wider text-guinda">Todo el Padrón</p>
+                        <p class="text-[11px] text-gray-600 font-medium">Total Directores / Escuelas</p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 rounded-full text-sm font-extrabold bg-guinda text-white font-mono"
+                    x-text="resumenActualizacionAnual.total"></span>
             </button>
         </div>
 
@@ -44,17 +79,27 @@
                         class="w-full rounded-lg border-gray-300 bg-gray-50 py-2.5 px-4 text-sm border focus:ring-guinda focus:border-guinda" />
                 </div>
                 <div class="lg:col-span-7">
-                    <div class="max-h-44 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100 bg-gray-50/50 custom-scrollbar">
+                    <div class="max-h-48 overflow-y-auto rounded-lg border border-gray-200 divide-y divide-gray-100 bg-gray-50/50 custom-scrollbar">
                         <template x-for="emp in directoresActualizacionFiltrados" :key="emp.id_empleado">
                             <button type="button" @click="seleccionarDirectorActualizacion(emp)"
                                 class="w-full px-4 py-2.5 text-left hover:bg-guinda/5 transition flex items-center justify-between gap-2"
                                 :class="directorActualizacionSeleccionado && directorActualizacionSeleccionado.id_empleado === emp.id_empleado ? 'bg-guinda/10 border-l-4 border-guinda' : ''">
-                                <div>
-                                    <span class="font-bold text-gray-900 text-xs sm:text-sm" x-text="emp.nombre"></span>
-                                    <span class="text-xs text-gray-500 block font-mono"
+                                <div class="min-w-0">
+                                    <span class="font-bold text-gray-900 text-xs sm:text-sm block truncate" x-text="emp.nombre"></span>
+                                    <span class="text-xs text-gray-500 block font-mono truncate"
                                         x-text="`CCT: ${emp.cct || 'S/N'} | RFC: ${emp.rfc || 'S/N'} | Escuela: ${emp.nombreEscuela || emp.area || 'S/N'}`"></span>
                                 </div>
-                                <span class="px-2.5 py-1 rounded bg-guinda text-white text-[11px] font-bold shrink-0">Seleccionar</span>
+                                <div class="flex items-center gap-2 shrink-0">
+                                    <span x-show="!estaActualizadoAnual(emp)"
+                                        class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-amber-100 text-red-700 border border-red-300">
+                                        PENDIENTE ACTUALIZAR
+                                    </span>
+                                    <span x-show="estaActualizadoAnual(emp)"
+                                        class="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase bg-green-100 text-green-800 border border-green-300">
+                                        ACTUALIZADO 2026
+                                    </span>
+                                    <span class="px-2.5 py-1 rounded bg-guinda text-white text-[11px] font-bold">Seleccionar</span>
+                                </div>
                             </button>
                         </template>
                         <div x-show="directoresActualizacionFiltrados.length === 0" class="p-4 text-center text-xs text-gray-500">
@@ -144,12 +189,9 @@
 
             <div class="bg-white p-5 rounded-xl border border-gray-200 shadow-sm">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 border-b border-gray-100 pb-3">
-                    <div>
-                        <h3 class="text-base font-bold text-gray-900 uppercase tracking-wide">
-                            C) Bienes en Custodia del Resguardante (<span x-text="bienesActualizacionAnual.length"></span> activos)
-                        </h3>
-                        <p class="text-xs text-gray-500">Verifique la fotografía cargada por el director y el estado físico de cada bien mueble.</p>
-                    </div>
+                    <h3 class="text-base font-bold text-gray-900 uppercase tracking-wide">
+                        C) Bienes en Custodia del Resguardante (<span x-text="bienesActualizacionAnual.length"></span> activos)
+                    </h3>
                     <div class="flex flex-wrap gap-2">
                         <button type="button" @click="imprimirResguardoAnualActual()"
                             class="px-3.5 py-2 rounded-lg bg-dorado/15 text-guinda border border-dorado/40 hover:bg-dorado hover:text-white text-xs font-bold transition flex items-center gap-1.5">
@@ -232,10 +274,7 @@
                     </table>
                 </div>
 
-                <div class="mt-5 pt-4 border-t border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div class="text-xs text-gray-600">
-                        Al confirmar, se actualizarán los datos del Director y del CCT, se asignará el nuevo folio anual <strong class="text-guinda font-mono">AAAA NNNNN-CRE</strong> y se registrará el hito <strong class="text-guinda font-mono">ACTUALIZACION_ANUAL_VERIFICADA</strong> en la línea de vida de cada bien.
-                    </div>
+                <div class="mt-5 pt-4 border-t border-gray-200 flex justify-end">
                     <button type="button" @click="confirmarActualizacionAnualYGenerarActas()"
                         :disabled="guardando"
                         class="inline-flex items-center justify-center gap-2 rounded-xl bg-guinda px-6 py-3.5 text-sm font-bold text-white shadow-lg hover:bg-guinda-dark transition active:scale-95 shrink-0">
@@ -248,30 +287,21 @@
     </div>
 
     <div x-show="tabActualizarActivo === 'catalogo_cct'" x-transition.opacity>
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div>
-                <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">Catálogo de Centros de Trabajo</h1>
-                <p class="mt-1.5 text-sm text-gray-500">Gestión de escuelas, áreas y direcciones físicas institucionales.
-                </p>
-            </div>
-            <button @click="abrirModalCT()"
-                class="inline-flex items-center gap-2 rounded-lg bg-guinda px-5 py-3 text-sm font-semibold text-white transition hover:bg-guinda-dark shadow-sm">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4">
-                    </path>
-                </svg>
-                Nuevo Centro de Trabajo
-            </button>
+        <div class="bg-guinda text-white px-5 py-3.5 rounded-xl shadow-sm border-b-4 border-dorado flex items-center justify-between mb-5">
+            <h1 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2.5">
+                <i class="fas fa-school text-dorado"></i>
+                <span>Catálogo de Centros de Trabajo (CCT)</span>
+            </h1>
         </div>
 
         <div class="mb-6 bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-dorado flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div class="relative w-full md:w-1/2">
-                <input type="text" x-model="busquedaCT" placeholder="Buscar por Clave CCT, Nombre, Director o Municipio..."
+                <input type="text" x-model="busquedaCT" @input="paginaCTActual = 0" placeholder="Buscar por Clave CCT, Nombre, Director o Municipio..."
                     class="w-full rounded-md border-gray-200 bg-white py-2.5 px-4 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda" />
             </div>
-            <div class="text-xs font-semibold text-gray-500">
-                Mostrando <span class="font-bold text-guinda" x-text="centrosFiltrados.length"></span> de <span class="font-bold text-gray-800" x-text="(centrosTrabajo || []).length"></span> Escuelas / CCTs
+            <div class="text-xs font-semibold text-gray-600">
+                Mostrando página <span class="font-bold text-guinda" x-text="paginaCTActual + 1"></span> de <span class="font-bold text-guinda" x-text="totalPaginasCT"></span>
+                (Total: <span class="font-bold text-gray-900" x-text="totalCTFiltrados"></span> Escuelas / CCTs)
             </div>
         </div>
 
@@ -283,244 +313,45 @@
                         <th class="px-4 py-4 text-left font-semibold text-gray-900">Nombre del Centro de Trabajo</th>
                         <th class="px-4 py-4 text-left font-semibold text-gray-900">Municipio / Localidad</th>
                         <th class="px-4 py-4 text-left font-semibold text-gray-900">Director Encargado</th>
-                        <th class="px-4 py-4 text-center font-semibold text-gray-900">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     <tr x-show="cargandoAuxiliar" x-cloak>
-                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">Cargando catálogo...</td>
+                        <td colspan="4" class="px-4 py-8 text-center text-gray-500">Cargando catálogo...</td>
                     </tr>
                     <template x-for="ct in centrosFiltrados" :key="ct.id">
                         <tr class="hover:bg-gray-50 transition-colors group">
                             <td class="px-4 py-3 font-mono font-bold text-guinda" x-text="ct.claveCT"></td>
                             <td class="px-4 py-3 font-semibold text-gray-900 uppercase" x-text="ct.nombreCT"></td>
-                            <td class="px-4 py-3 text-gray-700 uppercase" x-text="ct.municipio + ' - ' + ct.localidad"></td>
-                            <td class="px-4 py-3 text-gray-700 uppercase" x-text="ct.director"></td>
-                            <td class="px-4 py-3 text-center">
-                                <button @click="abrirModalCT(ct)"
-                                    class="p-2 text-gray-400 hover:text-dorado hover:bg-dorado/10 rounded-lg transition-colors"
-                                    title="Editar CT">
-                                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                                            d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z">
-                                        </path>
-                                    </svg>
-                                </button>
-                            </td>
+                            <td class="px-4 py-3 text-gray-700 uppercase" x-text="(ct.municipio || 'CENTRO') + (ct.localidad ? ' - ' + ct.localidad : '')"></td>
+                            <td class="px-4 py-3 text-gray-700 uppercase" x-text="ct.director || 'SIN ASIGNAR'"></td>
                         </tr>
                     </template>
                     <tr x-show="!cargandoAuxiliar && centrosFiltrados.length === 0" x-cloak>
-                        <td colspan="5" class="px-4 py-8 text-center text-gray-500">No se encontraron Centros de Trabajo.
+                        <td colspan="4" class="px-4 py-8 text-center text-gray-500">No se encontraron Centros de Trabajo.
                         </td>
                     </tr>
                 </tbody>
             </table>
-        </div>
-    </div>
-</div>
-
-<div x-show="modalCTAbierto" x-cloak class="relative z-50" aria-labelledby="modal-title" role="dialog"
-    aria-modal="true">
-    <div x-show="modalCTAbierto" x-transition.opacity
-        class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity"></div>
-    <div class="fixed inset-0 z-10 w-screen overflow-y-auto">
-        <div class="flex min-h-full items-end justify-center p-4 text-center sm:items-center sm:p-0">
-            <div x-show="modalCTAbierto" x-transition:enter="ease-out duration-300"
-                x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
-                class="relative transform overflow-hidden rounded-xl bg-caqui text-left shadow-xl transition-all sm:my-8 sm:w-full sm:max-w-5xl border-t-4 border-guinda">
-                <form @submit.prevent="guardarCT()">
-                    <div class="bg-caqui px-6 pb-4 pt-5 sm:p-8 sm:pb-6">
-                        <div class="flex justify-between items-center mb-6 border-b border-dorado/40 pb-4">
-                            <div>
-                                <h3 class="text-2xl font-bold text-gray-900">Ficha del Centro de Trabajo</h3>
-                                <p class="text-sm text-gray-600 font-medium mt-1">Actualización de datos geográficos y
-                                    administrativos.</p>
-                            </div>
-                        </div>
-
-                        <div class="space-y-6 max-h-[65vh] overflow-y-auto custom-scrollbar pt-5 pl-1 pr-4 pb-4">
-                            <fieldset class="bg-white p-5 rounded-lg border border-gray-200 shadow-sm relative">
-                                <legend
-                                    class="text-sm font-bold text-guinda bg-white px-3 py-1 rounded-md border border-gray-200 shadow-sm absolute -top-4 left-4 uppercase tracking-wide">
-                                    Identificación Institucional</legend>
-                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-3">
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Clave CT *</label>
-                                        <input type="text" x-model="nuevoCT.claveCT" required
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm font-mono uppercase focus:ring-guinda focus:border-guinda"
-                                            autocomplete="off">
-                                    </div>
-                                    <div class="md:col-span-3">
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Nombre C.T. *</label>
-                                        <input type="text" x-model="nuevoCT.nombreCT" required
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda"
-                                            autocomplete="off">
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Unidad Resp.</label>
-                                        <input type="text" x-model="nuevoCT.unidadResp"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda"
-                                            autocomplete="off">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">SubDirección</label>
-                                        <input type="text" x-model="nuevoCT.subDireccion"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda"
-                                            autocomplete="off">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Departamento</label>
-                                        <input type="text" x-model="nuevoCT.departamento"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda"
-                                            autocomplete="off">
-                                    </div>
-                                    <div class="md:col-span-4">
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Director / Responsable
-                                            *</label>
-                                        <input type="text" x-model="nuevoCT.director" required
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda"
-                                            autocomplete="off">
-                                    </div>
-                                </div>
-                            </fieldset>
-
-                            <fieldset class="bg-white p-5 rounded-lg border border-gray-200 shadow-sm relative">
-                                <legend
-                                    class="text-sm font-bold text-dorado bg-white px-3 py-1 rounded-md border border-gray-200 shadow-sm absolute -top-4 left-4 uppercase tracking-wide">
-                                    Ubicación y Domicilio</legend>
-                                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mt-3">
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Tipo de Vial</label>
-                                        <input type="text" x-model="nuevoCT.tipoVial"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Nombre Vial</label>
-                                        <input type="text" x-model="nuevoCT.nombreVial"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
-                                    </div>
-                                    <div class="flex gap-2">
-                                        <div class="w-1/2">
-                                            <label class="block text-xs font-bold text-gray-700 mb-1">Num. Ext.</label>
-                                            <input type="text" x-model="nuevoCT.numExt"
-                                                class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
-                                        </div>
-                                        <div class="w-1/2">
-                                            <label class="block text-xs font-bold text-gray-700 mb-1">Num. Int.</label>
-                                            <input type="text" x-model="nuevoCT.numInt"
-                                                class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Tip de Asent</label>
-                                        <input type="text" x-model="nuevoCT.tipoAsent"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
-                                    </div>
-                                    <div class="md:col-span-3">
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Nom de Asent</label>
-                                        <input type="text" x-model="nuevoCT.nomAsent"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Cod Postal</label>
-                                        <input type="text" x-model="nuevoCT.codPostal"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm font-mono focus:ring-guinda focus:border-guinda">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Municipio</label>
-                                        <input type="text" x-model="nuevoCT.municipio"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
-                                    </div>
-                                    <div class="md:col-span-2">
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Localidad</label>
-                                        <input type="text" x-model="nuevoCT.localidad"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
-                                    </div>
-                                </div>
-                            </fieldset>
-
-                            <fieldset class="bg-gray-50 p-5 rounded-lg border border-gray-200 border-dashed relative">
-                                <legend
-                                    class="text-xs font-bold text-gray-500 bg-gray-50 px-3 py-1 rounded-md border border-gray-200 border-dashed absolute -top-4 left-4 uppercase tracking-wide">
-                                    Referencias y Colindancias</legend>
-                                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-3">
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Vialid Izq.</label>
-                                        <input type="text" x-model="nuevoCT.vialidIzq"
-                                            class="w-full bg-white rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-gray-400 focus:border-gray-400">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Vialid Der.</label>
-                                        <input type="text" x-model="nuevoCT.vialidDer"
-                                            class="w-full bg-white rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-gray-400 focus:border-gray-400">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Vialid Post.</label>
-                                        <input type="text" x-model="nuevoCT.vialidPost"
-                                            class="w-full bg-white rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-gray-400 focus:border-gray-400">
-                                    </div>
-                                    <div class="md:col-span-3">
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Ref. Vialid.</label>
-                                        <input type="text" x-model="nuevoCT.refVialid"
-                                            class="w-full bg-white rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-gray-400 focus:border-gray-400">
-                                    </div>
-                                </div>
-                            </fieldset>
-
-                            <fieldset class="bg-white p-5 rounded-lg border border-gray-200 shadow-sm relative">
-                                <legend
-                                    class="text-sm font-bold text-gray-700 bg-white px-3 py-1 rounded-md border border-gray-200 shadow-sm absolute -top-4 left-4 uppercase tracking-wide">
-                                    Zonificación</legend>
-                                <div class="grid grid-cols-1 md:grid-cols-5 gap-4 mt-3">
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Zona Escolar</label>
-                                        <input type="text" x-model="nuevoCT.zonaEscolar"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Sector</label>
-                                        <input type="text" x-model="nuevoCT.sector"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Turno</label>
-                                        <select x-model="nuevoCT.turno"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm uppercase focus:ring-guinda focus:border-guinda">
-                                            <option value="">SIN ESPECIFICAR</option>
-                                            <option value="MATUTINO">MATUTINO</option>
-                                            <option value="VESPERTINO">VESPERTINO</option>
-                                            <option value="CONTINUO">CONTINUO</option>
-                                        </select>
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Teléfono</label>
-                                        <input type="text" x-model="nuevoCT.telefono" placeholder="Ej. 9933100000"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm font-mono focus:ring-guinda focus:border-guinda">
-                                    </div>
-                                    <div>
-                                        <label class="block text-xs font-bold text-gray-700 mb-1">Estatus</label>
-                                        <select x-model="nuevoCT.estatus"
-                                            class="w-full bg-gray-50 rounded border-gray-300 py-2 px-3 text-sm font-semibold focus:ring-guinda focus:border-guinda">
-                                            <option value="A">A = Activo</option>
-                                            <option value="C">C = Clausurado</option>
-                                            <option value="B">B = Baja</option>
-                                        </select>
-                                    </div>
-                                </div>
-                            </fieldset>
-                        </div>
-                    </div>
-                    <div
-                        class="bg-caqui-dark/30 px-4 py-3 sm:flex sm:flex-row-reverse sm:px-6 border-t border-dorado/30">
-                        <button type="submit"
-                            class="inline-flex w-full justify-center rounded-md bg-guinda px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-guinda-dark sm:ml-3 sm:w-auto transition-colors"
-                            :disabled="guardando">
-                            <span x-text="guardando ? 'Guardando...' : 'Guardar Ficha Técnica'"></span>
-                        </button>
-                        <button @click="cerrarModalCT()" type="button"
-                            class="mt-3 inline-flex w-full justify-center rounded-md bg-white px-4 py-2 text-sm font-semibold text-guinda shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50 sm:mt-0 sm:w-auto transition-colors">Cancelar</button>
-                    </div>
-                </form>
+            <div x-show="totalCTFiltrados > 0"
+                class="bg-gray-50 px-6 py-4 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <span class="text-xs font-medium text-gray-600">
+                    Página <strong class="text-guinda" x-text="paginaCTActual + 1"></strong> de <strong
+                        class="text-guinda" x-text="totalPaginasCT"></strong>
+                    (<span x-text="totalCTFiltrados"></span> Escuelas / CCTs encontradas)
+                </span>
+                <div class="inline-flex gap-2">
+                    <button type="button" @click="cambiarPaginaCT(paginaCTActual - 1)"
+                        :disabled="paginaCTActual === 0"
+                        class="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                        <i class="fas fa-chevron-left mr-1"></i> Anterior
+                    </button>
+                    <button type="button" @click="cambiarPaginaCT(paginaCTActual + 1)"
+                        :disabled="paginaCTActual + 1 >= totalPaginasCT"
+                        class="px-3 py-1.5 text-xs font-semibold rounded-md border border-gray-300 bg-white text-gray-700 hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                        Siguiente <i class="fas fa-chevron-right ml-1"></i>
+                    </button>
+                </div>
             </div>
         </div>
     </div>

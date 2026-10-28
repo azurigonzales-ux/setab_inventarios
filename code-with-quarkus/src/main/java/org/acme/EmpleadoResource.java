@@ -1,6 +1,7 @@
 package org.acme;
 
 import java.util.List;
+import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -11,6 +12,7 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -24,10 +26,11 @@ public class EmpleadoResource {
     PostgresRelacionalCrudService relacionalService;
 
     @GET
-    public List<Empleado> listarEmpleados() {
+    @RolesAllowed({"SUPERADMIN", "admin", "Admin"})
+    public List<Empleado> listarEmpleados(@QueryParam("busqueda") String busqueda, @QueryParam("limit") Integer limit) {
         if (relacionalService != null && relacionalService.puedeOperarResponsables()) {
             try {
-                return relacionalService.listarResponsables();
+                return relacionalService.listarResponsables(busqueda, limit != null ? limit : 600);
             } catch (Exception ignored) {
             }
         }

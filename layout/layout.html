@@ -90,6 +90,40 @@
         label {
             font-family: 'Montserrat', sans-serif;
         }
+
+        main table {
+            border-collapse: collapse !important;
+            width: 100%;
+        }
+
+        main table thead tr,
+        main table thead th {
+            background-color: #691C32 !important;
+            color: #FFFFFF !important;
+            font-size: 11px !important;
+            letter-spacing: 0.04em !important;
+            font-weight: 700 !important;
+            text-transform: uppercase !important;
+            border-bottom: 3px solid #BC955C !important;
+        }
+
+        main table th,
+        main table td {
+            border: 1px solid #DDD6C5 !important;
+            padding: 10px 12px !important;
+        }
+
+        main table tbody tr:nth-child(odd) {
+            background-color: #FFFFFF;
+        }
+
+        main table tbody tr:nth-child(even) {
+            background-color: #F8F6EE;
+        }
+
+        main table tbody tr:hover {
+            background-color: #EFE9D8 !important;
+        }
     </style>
 </head>
 
@@ -143,6 +177,11 @@
                                         <span x-show="solicitudesBaja.length > 0"
                                             class="bg-red-500 text-white text-[10px] px-2 rounded-full font-bold flex items-center"
                                             x-text="solicitudesBaja.length"></span></a></li>
+                                <li><a href="#"
+                                        @click.prevent="cambiarVista('catalogos_lista', '../catalogo/catalogos_lista.html')"
+                                        class="block p-2 rounded transition-colors"
+                                        :class="vistaActiva === 'catalogos_lista' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Catálogos
+                                        Sistema</a></li>
                             </ul>
                         </li>
 
@@ -161,12 +200,6 @@
                             </button>
                             <ul x-show="menuAbierto === 'actualizar'" x-collapse
                                 class="bg-white/50 px-2 py-2 space-y-1 text-sm border-t border-gray-100">
-                                <li><a href="#"
-                                        @click.prevent="cambiarVista('catalogos_lista', '../catalogo/catalogos_lista.html')"
-                                        class="block p-2 rounded transition-colors"
-                                        :class="vistaActiva === 'catalogos_lista' ? 'bg-guinda text-white shadow-sm' : 'hover:bg-guinda hover:text-white'">Catálogos
-                                        Sistema</a>
-                                </li>
                                 <li><a href="#"
                                         @click.prevent="tabActualizarActivo = 'verificacion_anual'; cambiarVista('centros_trabajo', '../actualizar/actualizar.html')"
                                         class="block p-2 rounded transition-colors"
@@ -276,15 +309,12 @@
                 <span class="font-bold text-guinda"
                     x-text="rolUsuario === 'SUPERADMIN' ? 'INVENTARIO CENTRAL' : 'SISTEMA DIRECTORES'"></span>
             </header>
-            <main class="p-6 md:p-8 w-full h-full relative overflow-y-auto">
+            <main class="p-6 md:p-8 w-full h-full relative overflow-y-auto bg-[#ECE7D9]">
                 <div x-show="rolUsuario === 'SUPERADMIN'" x-cloak
-                    class="mb-6 bg-white rounded-xl border border-dorado/40 shadow-sm px-4 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    class="mb-5 bg-white rounded-xl border border-dorado/40 shadow-sm px-4 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div class="flex items-center gap-2.5">
                         <span class="w-2.5 h-2.5 rounded-full bg-guinda animate-pulse"></span>
-                        <div>
-                            <p class="text-[11px] font-bold text-guinda uppercase tracking-wider">Base Operativa de Trabajo Activa</p>
-                            <p class="text-xs text-gray-500">Aísla las consultas, reportes y altas diarias según el origen presupuestal activo.</p>
-                        </div>
+                        <p class="text-[11px] font-bold text-guinda uppercase tracking-wider">Base Operativa de Trabajo Activa</p>
                     </div>
                     <div class="flex flex-wrap items-center gap-1.5">
                         <button type="button" @click="seleccionarBaseOperativa('INTERNO')"
@@ -310,7 +340,7 @@
                     </div>
                 </div>
                 <div x-show="cargandoVista" x-cloak
-                    class="absolute inset-0 bg-gray-50 flex flex-col items-center justify-center z-10">
+                    class="absolute inset-0 bg-[#ECE7D9] flex flex-col items-center justify-center z-10">
                     <svg class="animate-spin h-10 w-10 text-guinda mb-4" fill="none" viewBox="0 0 24 24">
                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4">
                         </circle>
@@ -413,6 +443,9 @@
                 modalImagenAbierto: false, imagenAmpliadaUrl: '', imagenAmpliadaFolio: '',
                 tabActualizarActivo: 'verificacion_anual',
                 busquedaActualizacionAnual: '',
+                filtroEstatusAnual: 'PENDIENTES',
+                cctsVerificadosAnual: JSON.parse(localStorage.getItem('setab_ccts_verificados_2026') || '{}'),
+                alertaAnualActiva: localStorage.getItem('setab_alerta_anual_2026') === 'true',
                 directorActualizacionSeleccionado: null,
                 formDirectorAnual: { id_empleado: null, nombre: '', rfc: '', curp: '', correo: '', telefono: '', cct: '', nombreEscuela: '' },
                 formCTAnual: { id: null, claveCT: '', nombreCT: '', municipio: '', localidad: '', nombreVial: '', georeferencia: '17.989456, -92.947506' },
@@ -478,10 +511,13 @@
                 equipoADevolver: {}, firmaBase64: null, liberando: false, vinoDesdeBandeja: false,
 
                 usuarios: [], busquedaUsuario: '', filtroNivelUsuario: '', filtroRol: '', modalResetAbierto: false,
+                paginaResponsablesActual: 0, tamanoPaginaResponsables: 50,
                 usuarioSeleccionado: {}, nuevaPassword: '',
                 nuevoUsuario: { nombre: '', apellidos: '', email: '', username: '', password: '', cct: '', nivelEducativo: 'Primaria', nombreEscuela: '', rol: 'Admin', curp: '', claveResponsable: '' },
                 centrosTrabajo: [],
                 busquedaCT: '',
+                paginaCTActual: 0, tamanoPaginaCT: 50,
+                paginaCatalogoActual: 0, tamanoPaginaCatalogo: 50,
                 modalCTAbierto: false,
                 cargandoAuxiliar: false,
                 nuevoCT: {
@@ -522,9 +558,40 @@
                 get articulosReporteFiltrados() {
                     return this.articulos.filter(a => {
                         const matchFondo = !this.filtroFondoReporte || (a.fondoOrigen || 'OFICIAL').toUpperCase() === this.filtroFondoReporte.toUpperCase();
-                        const matchCat = !this.filtroCategoriaReporte || a.categoria === this.filtroCategoriaReporte;
-                        const matchArea = !this.filtroAreaReporte || a.areaUbicacion === this.filtroAreaReporte;
-                        const matchEst = !this.filtroEstadoReporte || (a.estadoFisico || 'BUENO') === this.filtroEstadoReporte;
+                        let matchCat = true;
+                        if (this.filtroCategoriaReporte) {
+                            const fCat = this.filtroCategoriaReporte;
+                            const estOp = (a.estadoOperativo || '').toUpperCase();
+                            const catBien = (a.categoria || '');
+                            const tipoBien = (a.tipoArticulo || '').toUpperCase();
+                            if (fCat === 'EN_RESGUARDO') {
+                                matchCat = estOp === 'EN_RESGUARDO' || (a.centroTrabajo && a.centroTrabajo.trim() !== '') || (a.resguardanteActual && a.resguardanteActual.trim() !== '');
+                            } else if (fCat === 'DISPONIBLE') {
+                                matchCat = estOp === 'DISPONIBLE' && (!a.centroTrabajo || a.centroTrabajo.trim() === '') && (!a.resguardanteActual || a.resguardanteActual.trim() === '');
+                            } else if (fCat === 'BAJA') {
+                                matchCat = estOp.includes('BAJA') || (a.tipoFolio || '').toUpperCase() === 'BAJ';
+                            } else if (fCat === 'Mobiliario') {
+                                matchCat = catBien === 'Mobiliario' || tipoBien === '1' || tipoBien === '2';
+                            } else if (fCat === 'Vehiculos') {
+                                matchCat = catBien === 'Vehiculos' || tipoBien === '3';
+                            } else {
+                                matchCat = catBien === fCat;
+                            }
+                        }
+                        let matchArea = true;
+                        if (this.filtroAreaReporte) {
+                            const areaUbi = (a.areaUbicacion || '').toUpperCase();
+                            const cctBien = (a.centroTrabajo || '').trim();
+                            const respBien = (a.resguardanteActual || '').trim();
+                            if (this.filtroAreaReporte === 'CCT') {
+                                matchArea = cctBien !== '' || respBien !== '' || (areaUbi !== '' && areaUbi !== 'ALMACENGENERAL' && !areaUbi.includes('ALMACÉN'));
+                            } else if (this.filtroAreaReporte === 'AlmacenGeneral') {
+                                matchArea = (cctBien === '' && respBien === '') || areaUbi === 'ALMACENGENERAL' || areaUbi.includes('ALMACÉN');
+                            } else {
+                                matchArea = a.areaUbicacion === this.filtroAreaReporte;
+                            }
+                        }
+                        const matchEst = !this.filtroEstadoReporte || (a.estadoFisico || 'BUENO').toUpperCase() === this.filtroEstadoReporte.toUpperCase();
                         return matchFondo && matchCat && matchArea && matchEst;
                     });
                 },
@@ -822,13 +889,59 @@
                     }
                 },
 
+                estaActualizadoAnual(emp) {
+                    if (!emp) return false;
+                    const verificados = this.cctsVerificadosAnual || {};
+                    const idKey = emp.id_empleado ? String(emp.id_empleado) : '';
+                    const cctKey = (emp.cct || '').trim().toUpperCase();
+                    if ((idKey && verificados[idKey]) || (cctKey && verificados[cctKey])) {
+                        return true;
+                    }
+                    const nomKey = (emp.nombre || '').trim().toUpperCase();
+                    if (Array.isArray(this.articulos) && this.articulos.length > 0) {
+                        return this.articulos.some(a => {
+                            if (!a) return false;
+                            const coincideCct = cctKey && a.centroTrabajo && a.centroTrabajo.trim().toUpperCase() === cctKey;
+                            const coincideResp = nomKey && a.resguardanteActual && a.resguardanteActual.trim().toUpperCase() === nomKey;
+                            if (!coincideCct && !coincideResp) return false;
+                            const verif = (a.estadoVerificacionAnual || '').toUpperCase() === 'VERIFICADO';
+                            const folioCre = (a.folioResguardo || '').toUpperCase();
+                            const tieneCre2026 = folioCre.endsWith('-CRE') && (folioCre.includes('2026') || folioCre.includes('26'));
+                            return verif || tieneCre2026;
+                        });
+                    }
+                    return false;
+                },
+
+                get resumenActualizacionAnual() {
+                    const lista = Array.isArray(this.empleados) && this.empleados.length > 0 ? this.empleados : (this.empleadosGeneral || []);
+                    const total = lista.length;
+                    let actualizados = 0;
+                    for (const emp of lista) {
+                        if (this.estaActualizadoAnual(emp)) {
+                            actualizados++;
+                        }
+                    }
+                    return {
+                        total,
+                        actualizados,
+                        pendientes: Math.max(0, total - actualizados)
+                    };
+                },
+
                 get directoresActualizacionFiltrados() {
-                    const lista = Array.isArray(this.empleados) && this.empleados.length > 0 ? this.empleados : this.empleadosGeneral;
+                    const lista = Array.isArray(this.empleados) && this.empleados.length > 0 ? this.empleados : (this.empleadosGeneral || []);
+                    const estatus = (this.filtroEstatusAnual || 'TODOS').toUpperCase();
+                    const filtradosPorEstatus = lista.filter(e => {
+                        if (estatus === 'PENDIENTES') return !this.estaActualizadoAnual(e);
+                        if (estatus === 'ACTUALIZADOS') return this.estaActualizadoAnual(e);
+                        return true;
+                    });
                     if (!this.busquedaActualizacionAnual || !this.busquedaActualizacionAnual.trim()) {
-                        return (lista || []).slice(0, 80);
+                        return filtradosPorEstatus.slice(0, 80);
                     }
                     const term = this.busquedaActualizacionAnual.trim().toLowerCase();
-                    return (lista || []).filter(e => {
+                    return filtradosPorEstatus.filter(e => {
                         const matchEmp = (e.nombre && e.nombre.toLowerCase().includes(term)) ||
                             (e.cct && e.cct.toLowerCase().includes(term)) ||
                             (e.rfc && e.rfc.toLowerCase().includes(term)) ||
@@ -901,8 +1014,11 @@
                 },
 
                 enviarRecordatorioAnualDirectores() {
-                    const totalDirectores = (this.empleados || []).length;
-                    this.notificar(`Aviso Normativo Anual activado y enviado a los ${totalDirectores} Directores / Responsables en su panel 'Mi Escuela'.`, "exito");
+                    this.alertaAnualActiva = true;
+                    localStorage.setItem('setab_alerta_anual_2026', 'true');
+                    this.filtroEstatusAnual = 'PENDIENTES';
+                    const faltantes = this.resumenActualizacionAnual.pendientes;
+                    this.notificar(`Recordatorio anual activado. Faltan ${faltantes} Directores / Escuelas por actualizar datos en 2026.`, "exito");
                 },
 
                 async confirmarActualizacionAnualYGenerarActas() {
@@ -954,6 +1070,20 @@
 
                         if (resp.ok) {
                             const resultado = await resp.json();
+                            const registroVerif = {
+                                fecha: new Date().toISOString().split('T')[0],
+                                folio: resultado.folioGenerado || '2026-CRE'
+                            };
+                            const copiaMapa = { ...(this.cctsVerificadosAnual || {}) };
+                            if (this.formDirectorAnual.id_empleado) {
+                                copiaMapa[String(this.formDirectorAnual.id_empleado)] = registroVerif;
+                            }
+                            if (this.formCTAnual.claveCT) {
+                                copiaMapa[this.formCTAnual.claveCT.trim().toUpperCase()] = registroVerif;
+                            }
+                            this.cctsVerificadosAnual = copiaMapa;
+                            localStorage.setItem('setab_ccts_verificados_2026', JSON.stringify(copiaMapa));
+
                             await this.seleccionarDirectorActualizacion(this.directorActualizacionSeleccionado);
                             this.cargarArticulos();
                             this.notificar(`Verificación anual confirmada. Nuevo folio: ${resultado.folioGenerado}`, "exito");
@@ -997,6 +1127,48 @@
                     this.imprimirResguardoLoteMNREPINV(adaptados, {
                         director: this.formDirectorAnual,
                         ctInfo: this.formCTAnual
+                    });
+                },
+
+                imprimirResguardoOficialesDeEscuela(empleado, equipos = []) {
+                    const lista = Array.isArray(equipos) ? equipos : [];
+                    if (lista.length === 0) {
+                        this.notificar("La escuela seleccionada no tiene bienes en custodia para imprimir.", "error");
+                        return;
+                    }
+                    const emp = empleado || this.empleadoSeleccionado || {};
+                    const cctClave = emp.cct || (lista[0] && lista[0].cct) || '27DPR0001X';
+                    const ctCatalogo = (this.centrosTrabajo || []).find(c => c.claveCT && c.claveCT.trim().toUpperCase() === cctClave.trim().toUpperCase()) || {};
+                    const adaptados = lista.map(b => ({
+                        id: b.idArticulo || b.idResguardo,
+                        numeroInventario: b.numeroInventario || b.equipoSerie || ('RESG-' + b.idResguardo),
+                        fechaResguardo: b.fechaAsignacion,
+                        factura: b.facturaBien || 'S/F',
+                        fechaFactura: b.fechaFacturaBien || '',
+                        folioFiscalUuid: b.folioFiscalBien || 'S/F',
+                        descripcion: b.descripcionBien || b.equipoMarca || 'BIEN MUEBLE INSTITUCIONAL',
+                        numeroSerie: b.equipoSerie || 'S/N',
+                        marca: b.equipoMarca || 'S/M',
+                        valorInicial: b.valorBien || 0,
+                        fondoOrigen: b.fondoOrigen || 'OFICIAL',
+                        folioResguardo: b.folioResguardoOficial || ('RESG-' + b.idResguardo),
+                        boletaSalida: b.boletaSalidaBien || '',
+                        centroTrabajo: cctClave,
+                        resguardanteActual: emp.nombre || b.nombreEmpleado || 'DIRECTOR EN CUSTODIA'
+                    }));
+                    this.imprimirResguardoLoteMNREPINV(adaptados, {
+                        director: {
+                            nombre: emp.nombre || 'DIRECTOR EN CUSTODIA',
+                            rfc: emp.rfc || 'S/RFC',
+                            curp: emp.curp || ''
+                        },
+                        ctInfo: {
+                            claveCT: cctClave,
+                            nombreCT: ctCatalogo.nombreCT || emp.nombreEscuela || emp.area || 'CENTRO EDUCATIVO SETAB',
+                            nombreVial: ctCatalogo.nombreVial || 'DOMICILIO CONOCIDO S/N',
+                            localidad: ctCatalogo.localidad || 'VILLAHERMOSA',
+                            municipio: ctCatalogo.municipio || 'CENTRO'
+                        }
                     });
                 },
 
@@ -1577,15 +1749,40 @@
                     setTimeout(() => { ventana.print(); }, 400);
                 },
 
-                get centrosFiltrados() {
-                    if (!this.busquedaCT) return (this.centrosTrabajo || []).slice(0, 80);
-                    const b = this.busquedaCT.toLowerCase();
-                    return (this.centrosTrabajo || []).filter(c =>
+                get centrosFiltradosBase() {
+                    const lista = this.centrosTrabajo || [];
+                    if (!this.busquedaCT || !this.busquedaCT.trim()) return lista;
+                    const b = this.busquedaCT.trim().toLowerCase();
+                    return lista.filter(c =>
                         (c.claveCT && c.claveCT.toLowerCase().includes(b)) ||
                         (c.nombreCT && c.nombreCT.toLowerCase().includes(b)) ||
                         (c.municipio && c.municipio.toLowerCase().includes(b)) ||
                         (c.director && c.director.toLowerCase().includes(b))
-                    ).slice(0, 80);
+                    );
+                },
+
+                get totalCTFiltrados() {
+                    return this.centrosFiltradosBase.length;
+                },
+
+                get totalPaginasCT() {
+                    const size = this.tamanoPaginaCT || 50;
+                    return Math.max(1, Math.ceil(this.centrosFiltradosBase.length / size));
+                },
+
+                get centrosFiltrados() {
+                    const base = this.centrosFiltradosBase;
+                    const size = this.tamanoPaginaCT || 50;
+                    const maxPag = Math.max(1, Math.ceil(base.length / size));
+                    const pag = (this.paginaCTActual >= maxPag) ? 0 : this.paginaCTActual;
+                    const start = pag * size;
+                    return base.slice(start, start + size);
+                },
+
+                cambiarPaginaCT(nuevaPag) {
+                    if (nuevaPag >= 0 && nuevaPag < this.totalPaginasCT) {
+                        this.paginaCTActual = nuevaPag;
+                    }
                 },
 
                 async cargarCentrosTrabajo(forzar = false) {
@@ -1595,37 +1792,6 @@
                         const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/centros-trabajo`, { method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` } });
                         if (respuesta.ok) this.centrosTrabajo = await respuesta.json();
                     } catch (error) { console.error("Error al cargar CT"); } finally { this.cargandoAuxiliar = false; }
-                },
-
-                abrirModalCT(ct = null) {
-                    if (ct) {
-                        this.nuevoCT = { turno: '', telefono: '', estatus: 'A', ...JSON.parse(JSON.stringify(ct)) };
-                        if (!this.nuevoCT.estatus) this.nuevoCT.estatus = 'A';
-                    } else {
-                        this.nuevoCT = { id: null, claveCT: '', unidadResp: '', subDireccion: '', departamento: '', nombreCT: '', tipoVial: '', nombreVial: '', numExt: '', numInt: '', tipoAsent: '', nomAsent: '', codPostal: '', municipio: '', localidad: '', vialidIzq: '', vialidDer: '', vialidPost: '', refVialid: '', zonaEscolar: '', sector: '', director: '', turno: '', telefono: '', estatus: 'A' };
-                    }
-                    this.modalCTAbierto = true;
-                },
-
-                cerrarModalCT() { this.modalCTAbierto = false; },
-
-                async guardarCT() {
-                    this.guardando = true;
-                    try {
-                        const esEdicion = this.nuevoCT.id !== null;
-                        const url = esEdicion ? `${SETAB_CONFIG.backendUrl}/api/centros-trabajo/${this.nuevoCT.id}` : `${SETAB_CONFIG.backendUrl}/api/centros-trabajo`;
-                        const metodo = esEdicion ? 'PUT' : 'POST';
-
-                        const respuesta = await fetch(url, { method: metodo, mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(this.nuevoCT) });
-                        if (respuesta.ok) {
-                            this.cerrarModalCT();
-                            this.cargarCentrosTrabajo(true);
-                            this.notificar("Centro de Trabajo guardado.", "exito");
-                        } else {
-                            const err = await respuesta.json().catch(() => ({}));
-                            this.notificar(err.error || "Error al guardar CT", "error");
-                        }
-                    } catch (error) { this.notificar("Error de red", "error"); } finally { this.guardando = false; }
                 },
                 tabCatalogoActivo: 'proveedores',
                 nombreCatalogoActivo: 'Proveedores',
@@ -1699,29 +1865,362 @@
                     }
                 },
 
+                acCampoActivo: '',
+                acModoActivo: 'alta',
+                acSugerencias: [],
+                acIndiceActivo: 0,
+                acCargando: false,
+                _acDebounceTimer: null,
+
+                cerrarAutocompletadoBien() {
+                    this.acCampoActivo = '';
+                    this.acSugerencias = [];
+                    this.acIndiceActivo = 0;
+                    this.acCargando = false;
+                },
+
+                moverAutocompletadoBien(delta) {
+                    if (!Array.isArray(this.acSugerencias) || this.acSugerencias.length === 0) return;
+                    const total = this.acSugerencias.length;
+                    this.acIndiceActivo = (this.acIndiceActivo + delta + total) % total;
+                },
+
+                confirmarEnterAutocompletadoBien(campo, modo = 'alta') {
+                    if (this.acCampoActivo === campo && Array.isArray(this.acSugerencias) && this.acSugerencias.length > 0) {
+                        const elegido = this.acSugerencias[this.acIndiceActivo] || this.acSugerencias[0];
+                        if (elegido) {
+                            this.seleccionarSugerenciaBien(elegido, campo, modo);
+                        }
+                    }
+                },
+
+                etiquetaPrincipalSugerencia(item, campo) {
+                    if (!item) return '';
+                    if (campo === 'centroTrabajo') {
+                        return `${item.claveCT || ''} — ${item.nombreCT || ''}`.trim();
+                    }
+                    if (campo === 'resguardanteActual' || campo === 'resguardanteHistorico') {
+                        return item.nombre || item.descripcion || '';
+                    }
+                    if (campo === 'proveedor') {
+                        return item.nombre || item.descripcion || item.clave || '';
+                    }
+                    if (campo === 'marca' || campo === 'unidadResponsable' || campo === 'subdireccion' || campo === 'departamento' || campo === 'color' || campo === 'modelo') {
+                        return item.descripcion || item.nombre || item.clave || '';
+                    }
+                    if (campo === 'tipoFolioResguardo') {
+                        return item.clave || item.descripcion || '';
+                    }
+                    if (item.clave && item.descripcion && item.clave !== item.descripcion) {
+                        return `${item.clave} — ${item.descripcion}`;
+                    }
+                    return item.descripcion || item.clave || item.nombre || '';
+                },
+
+                etiquetaSecundariaSugerencia(item, campo) {
+                    if (!item) return '';
+                    if (campo === 'tipoMaterial') {
+                        const partes = [];
+                        if (item.subclave) partes.push(`Sub: ${item.subclave}`);
+                        if (item.partidaAsociada) partes.push(`Partida: ${item.partidaAsociada}`);
+                        return partes.join(' | ') || 'TIPO';
+                    }
+                    if (campo === 'partida') {
+                        return item.cuentaContable ? `Cta: ${item.cuentaContable}` : 'PARTIDA';
+                    }
+                    if (campo === 'proveedor') {
+                        return item.rfc ? `RFC: ${item.rfc}` : (item.clave ? `Cve: ${item.clave}` : 'PROV');
+                    }
+                    if (campo === 'centroTrabajo') {
+                        return item.director ? `Dir: ${item.director}` : (item.municipio || 'CCT');
+                    }
+                    if (campo === 'resguardanteActual' || campo === 'resguardanteHistorico') {
+                        const partes = [];
+                        if (item.rfc) partes.push(`RFC: ${item.rfc}`);
+                        if (item.cct) partes.push(`CCT: ${item.cct}`);
+                        return partes.join(' | ') || 'RESP';
+                    }
+                    if (campo === 'tipoFolioResguardo') {
+                        return (item.descripcion && item.clave && item.descripcion !== item.clave) ? item.descripcion : 'FOLIO';
+                    }
+                    if (item.clave && campo !== 'color' && campo !== 'modelo') {
+                        return `Cve: ${item.clave}`;
+                    }
+                    return '';
+                },
+
+                async abrirAutocompletadoBien(campo, valorActual = '', modo = 'alta') {
+                    this.acCampoActivo = campo;
+                    this.acModoActivo = modo;
+                    this.acIndiceActivo = 0;
+                    const q = String(valorActual || '').trim();
+                    const qLower = q.toLowerCase();
+
+                    const mapaCatalogoEndpoint = {
+                        tipoMaterial: { tipo: 'tipos_articulos', limit: 50 },
+                        partida: { tipo: 'partidas', limit: 50 },
+                        naturalezaGasto: { tipo: 'naturaleza_gasto', limit: 50 },
+                        marca: { tipo: 'marcas', limit: 50 },
+                        proveedor: { tipo: 'proveedores', limit: 50 },
+                        unidadResponsable: { tipo: 'unidades', limit: 50 },
+                        subdireccion: { tipo: 'subdirecciones', limit: 50 },
+                        departamento: { tipo: 'departamentos', limit: 50 },
+                        tipoFolioResguardo: { tipo: 'tipos_folios', limit: 20 }
+                    };
+
+                    if (campo === 'centroTrabajo') {
+                        const lista = Array.isArray(this.centrosTrabajo) ? this.centrosTrabajo : [];
+                        if (!qLower) {
+                            this.acSugerencias = lista.slice(0, 50);
+                        } else {
+                            const exactos = [];
+                            const parciales = [];
+                            for (const c of lista) {
+                                if (!c) continue;
+                                const cve = (c.claveCT || '').toLowerCase();
+                                const nom = (c.nombreCT || '').toLowerCase();
+                                const dir = (c.director || '').toLowerCase();
+                                const mun = (c.municipio || '').toLowerCase();
+                                if (cve.startsWith(qLower) || nom.startsWith(qLower)) {
+                                    exactos.push(c);
+                                    if (exactos.length >= 50) break;
+                                } else if (cve.includes(qLower) || nom.includes(qLower) || dir.includes(qLower) || mun.includes(qLower)) {
+                                    if (exactos.length + parciales.length < 50) parciales.push(c);
+                                }
+                            }
+                            this.acSugerencias = exactos.concat(parciales).slice(0, 50);
+                        }
+                        return;
+                    }
+
+                    if (campo === 'color' || campo === 'modelo') {
+                        const baseColores = campo === 'color'
+                            ? ['BLANCO', 'NEGRO', 'GRIS', 'CAQUI', 'CAFE', 'PLATA', 'AZUL', 'GUINDA', 'BEIGE', 'VERDE', 'ROJO', 'AMARILLO', 'MADERA', 'CROMADO']
+                            : ['S/M', 'ESTANDAR', 'EJECUTIVO', 'SECRETARIAL', 'INDUSTRIAL', 'LASERJET', 'THINKPAD', 'OPTIPLEX', 'LATITUDE', 'PROBOOK'];
+                        const unicos = new Set(baseColores);
+                        for (const a of (this.articulos || [])) {
+                            const val = campo === 'color' ? a?.color : a?.modelo;
+                            if (val && String(val).trim() !== '') {
+                                unicos.add(String(val).trim().toUpperCase());
+                            }
+                            if (unicos.size >= 150) break;
+                        }
+                        const filtrados = Array.from(unicos)
+                            .filter(v => !qLower || v.toLowerCase().includes(qLower))
+                            .slice(0, 40)
+                            .map(v => ({ clave: v, descripcion: v }));
+                        this.acSugerencias = filtrados;
+                        return;
+                    }
+
+                    if (campo === 'resguardanteActual' || campo === 'resguardanteHistorico') {
+                        const locales = (this.empleados || []).filter(e => {
+                            if (!e) return false;
+                            if (!qLower) return true;
+                            return (e.nombre && e.nombre.toLowerCase().includes(qLower)) ||
+                                   (e.rfc && e.rfc.toLowerCase().includes(qLower)) ||
+                                   (e.cct && e.cct.toLowerCase().includes(qLower));
+                        }).slice(0, 50);
+                        this.acSugerencias = locales;
+
+                        if (q.length >= 2) {
+                            if (this._acDebounceTimer) clearTimeout(this._acDebounceTimer);
+                            this._acDebounceTimer = setTimeout(async () => {
+                                if (this.acCampoActivo !== campo) return;
+                                this.acCargando = true;
+                                try {
+                                    const resp = await fetch(`${SETAB_CONFIG.backendUrl}/api/empleados?busqueda=${encodeURIComponent(q)}&limit=50`, {
+                                        method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` }
+                                    });
+                                    if (resp.ok && this.acCampoActivo === campo) {
+                                        const remotos = await resp.json();
+                                        if (Array.isArray(remotos) && remotos.length > 0) {
+                                            this.acSugerencias = remotos.slice(0, 50);
+                                            this.acIndiceActivo = 0;
+                                        }
+                                    }
+                                } catch (e) {
+                                    console.error("Error autocompletando empleados:", e);
+                                } finally {
+                                    this.acCargando = false;
+                                }
+                            }, 160);
+                        }
+                        return;
+                    }
+
+                    const cfg = mapaCatalogoEndpoint[campo];
+                    if (cfg) {
+                        const cacheLocal = this.catalogoPorTipo(cfg.tipo) || [];
+                        if (cacheLocal.length > 0) {
+                            this.acSugerencias = cacheLocal.filter(i => {
+                                if (!i) return false;
+                                if (!qLower) return true;
+                                return (i.clave && i.clave.toLowerCase().includes(qLower)) ||
+                                       (i.descripcion && i.descripcion.toLowerCase().includes(qLower)) ||
+                                       (i.nombre && i.nombre.toLowerCase().includes(qLower)) ||
+                                       (i.rfc && i.rfc.toLowerCase().includes(qLower)) ||
+                                       (i.subclave && i.subclave.toLowerCase().includes(qLower));
+                            }).slice(0, cfg.limit);
+                        }
+
+                        if (this._acDebounceTimer) clearTimeout(this._acDebounceTimer);
+                        this._acDebounceTimer = setTimeout(async () => {
+                            if (this.acCampoActivo !== campo) return;
+                            this.acCargando = true;
+                            try {
+                                const url = `${SETAB_CONFIG.backendUrl}/api/catalogos/${cfg.tipo}?q=${encodeURIComponent(q)}&limit=${cfg.limit}`;
+                                const resp = await fetch(url, {
+                                    method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` }
+                                });
+                                if (resp.ok && this.acCampoActivo === campo) {
+                                    const lista = await resp.json();
+                                    if (Array.isArray(lista)) {
+                                        this.acSugerencias = lista;
+                                        this.acIndiceActivo = 0;
+                                    }
+                                }
+                            } catch (e) {
+                                console.error("Error en autocompletado de catálogo:", e);
+                            } finally {
+                                this.acCargando = false;
+                            }
+                        }, 140);
+                    }
+                },
+
+                seleccionarSugerenciaBien(item, campo, modo = 'alta') {
+                    if (!item) return;
+                    const target = modo === 'edicion' ? this.articuloSeleccionado : this.nuevoArticulo;
+                    if (!target) return;
+
+                    if (campo === 'tipoMaterial') {
+                        target.tipoMaterial = `${item.clave || ''} ${item.descripcion || ''}`.trim();
+                        if (item.subclave && String(item.subclave).trim() !== '') {
+                            target.subClave = String(item.subclave).trim();
+                        }
+                        if (item.partidaAsociada && String(item.partidaAsociada).trim() !== '') {
+                            target.partida = String(item.partidaAsociada).trim();
+                            const partCat = (this.catalogoPorTipo('partidas') || []).find(p =>
+                                p && p.clave && p.clave.trim().toUpperCase() === target.partida.toUpperCase()
+                            );
+                            if (partCat && partCat.cuentaContable) {
+                                target.cuentaContable = partCat.cuentaContable;
+                            }
+                        }
+                        if (!target.descripcion || String(target.descripcion).trim() === '') {
+                            target.descripcion = item.descripcion || '';
+                        }
+                    } else if (campo === 'partida') {
+                        target.partida = item.clave || item.descripcion || '';
+                        if (item.cuentaContable && String(item.cuentaContable).trim() !== '') {
+                            target.cuentaContable = String(item.cuentaContable).trim();
+                        }
+                    } else if (campo === 'centroTrabajo') {
+                        target.centroTrabajo = item.claveCT || item.clave || '';
+                        if (item.unidadResponsable) target.unidadResponsable = item.unidadResponsable;
+                        if (item.subdireccion) target.subdireccion = item.subdireccion;
+                        if (item.departamento || item.zonaEscolar) {
+                            target.departamento = item.departamento || item.zonaEscolar;
+                        }
+                        if (item.director && String(item.director).trim() !== '' && item.director !== 'SIN DIRECTOR ASIGNADO') {
+                            target.resguardanteActual = String(item.director).trim();
+                        }
+                    } else if (campo === 'resguardanteActual') {
+                        target.resguardanteActual = item.rfc ? `${item.nombre} (${item.rfc})` : (item.nombre || item.descripcion || '');
+                        if (item.cct && item.cct !== 'SIN-CCT' && (!target.centroTrabajo || String(target.centroTrabajo).trim() === '')) {
+                            target.centroTrabajo = item.cct;
+                            const ctObj = (this.centrosTrabajo || []).find(c =>
+                                c && c.claveCT && c.claveCT.trim().toUpperCase() === String(item.cct).trim().toUpperCase()
+                            );
+                            if (ctObj) {
+                                if (ctObj.unidadResponsable && !target.unidadResponsable) target.unidadResponsable = ctObj.unidadResponsable;
+                                if (ctObj.subdireccion && !target.subdireccion) target.subdireccion = ctObj.subdireccion;
+                                if ((ctObj.departamento || ctObj.zonaEscolar) && !target.departamento) {
+                                    target.departamento = ctObj.departamento || ctObj.zonaEscolar;
+                                }
+                            }
+                        }
+                    } else if (campo === 'resguardanteHistorico') {
+                        target.resguardanteHistorico = item.rfc ? `${item.nombre} (${item.rfc})` : (item.nombre || item.descripcion || '');
+                    } else if (campo === 'proveedor') {
+                        target.proveedor = item.nombre || item.descripcion || item.clave || '';
+                    } else if (campo === 'naturalezaGasto') {
+                        target.naturalezaGasto = (item.clave && item.descripcion && item.clave !== item.descripcion)
+                            ? `${item.clave} ${item.descripcion}`.trim()
+                            : (item.descripcion || item.clave || '');
+                    } else if (campo === 'marca') {
+                        target.marca = item.descripcion || item.nombre || item.clave || '';
+                    } else if (campo === 'tipoFolioResguardo') {
+                        target.tipoFolioResguardo = item.clave || item.descripcion || '';
+                    } else if (campo === 'unidadResponsable' || campo === 'subdireccion' || campo === 'departamento' || campo === 'color' || campo === 'modelo') {
+                        target[campo] = item.descripcion || item.nombre || item.clave || '';
+                    }
+
+                    this.cerrarAutocompletadoBien();
+                },
+
                 autocompletarEscuelaPorCCT() {
                     if (!this.nuevoUsuario || !this.nuevoUsuario.cct) return;
                     const clave = this.nuevoUsuario.cct.trim().toUpperCase();
+                    if (!this.nuevoUsuario.username || this.nuevoUsuario.username.trim() === '' || this.nuevoUsuario.username.trim().toUpperCase() === clave.slice(0, -1)) {
+                        this.nuevoUsuario.username = clave;
+                    }
+                    if (!this.nuevoUsuario.password || this.nuevoUsuario.password.trim() === '') {
+                        this.nuevoUsuario.password = (this.nuevoUsuario.claveResponsable && this.nuevoUsuario.claveResponsable.trim() !== '')
+                            ? this.nuevoUsuario.claveResponsable.trim().toUpperCase()
+                            : clave;
+                    }
+                    if (!this.nuevoUsuario.email || this.nuevoUsuario.email.endsWith('@setab.gob.mx')) {
+                        this.nuevoUsuario.email = `${clave.toLowerCase().replace(/[^a-z0-9]/g, '')}@setab.gob.mx`;
+                    }
                     const ct = (this.centrosTrabajo || []).find(c => c && c.claveCT && c.claveCT.trim().toUpperCase() === clave);
                     if (ct && ct.nombreCT) {
                         this.nuevoUsuario.nombreEscuela = ct.nombreCT;
                     }
                 },
 
-                get datosCatalogoFiltrados() {
-                    if (!this.busquedaCatalogo) return (this.datosCatalogo || []).slice(0, 80);
-                    const b = this.busquedaCatalogo.toLowerCase();
-                    return (this.datosCatalogo || []).filter(i =>
+                get datosCatalogoFiltradosBase() {
+                    const lista = this.datosCatalogo || [];
+                    if (!this.busquedaCatalogo || !this.busquedaCatalogo.trim()) return lista;
+                    const b = this.busquedaCatalogo.trim().toLowerCase();
+                    return lista.filter(i =>
                         (i.clave && i.clave.toLowerCase().includes(b)) ||
                         (i.descripcion && i.descripcion.toLowerCase().includes(b)) ||
-                        (i.nombre && i.nombre.toLowerCase().includes(b))
-                    ).slice(0, 80);
+                        (i.nombre && i.nombre.toLowerCase().includes(b)) ||
+                        (i.rfc && i.rfc.toLowerCase().includes(b))
+                    );
+                },
+
+                get totalCatalogoFiltrados() {
+                    return this.datosCatalogoFiltradosBase.length;
+                },
+
+                get totalPaginasCatalogo() {
+                    const size = this.tamanoPaginaCatalogo || 50;
+                    return Math.max(1, Math.ceil(this.datosCatalogoFiltradosBase.length / size));
+                },
+
+                get datosCatalogoFiltrados() {
+                    const base = this.datosCatalogoFiltradosBase;
+                    const size = this.tamanoPaginaCatalogo || 50;
+                    const maxPag = Math.max(1, Math.ceil(base.length / size));
+                    const pag = (this.paginaCatalogoActual >= maxPag) ? 0 : this.paginaCatalogoActual;
+                    const start = pag * size;
+                    return base.slice(start, start + size);
+                },
+
+                cambiarPaginaCatalogo(nuevaPag) {
+                    if (nuevaPag >= 0 && nuevaPag < this.totalPaginasCatalogo) {
+                        this.paginaCatalogoActual = nuevaPag;
+                    }
                 },
 
                 cambiarTabCatalogo(idTab, nombreTab) {
                     this.tabCatalogoActivo = idTab;
                     this.nombreCatalogoActivo = nombreTab;
                     this.busquedaCatalogo = '';
+                    this.paginaCatalogoActual = 0;
                     this.cargarDatosCatalogoSelectivo();
                 },
 
@@ -1826,6 +2325,11 @@
                         (a.marca && a.marca.toLowerCase().includes(b)) ||
                         (a.numeroSerie && a.numeroSerie.toLowerCase().includes(b))
                     );
+                },
+
+                async buscarArticulosQRRemoto() {
+                    this.filtroBusqueda = (this.busquedaQR || '').trim();
+                    await this.cargarArticulos(100);
                 },
 
                 cambiarTabQR(tab) {
@@ -2041,6 +2545,22 @@
                         }
 
                         if (!equipo) {
+                            const respS = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes?busqueda=${encodeURIComponent(folio)}&size=5`, {
+                                method: 'GET', mode: 'cors', headers: { 'Authorization': `Bearer ${this.token}` }
+                            });
+                            if (respS.ok) {
+                                const lista = await respS.json();
+                                if (Array.isArray(lista) && lista.length > 0) {
+                                    equipo = lista.find(a =>
+                                        (a.numeroInventario && a.numeroInventario.toUpperCase() === folio) ||
+                                        (a.numeroSerie && a.numeroSerie.toUpperCase() === folio) ||
+                                        (a.serie && a.serie.toUpperCase() === folio)
+                                    ) || lista[0];
+                                }
+                            }
+                        }
+
+                        if (!equipo) {
                             this.notificar("Equipo no encontrado. Verifica el folio.", "error");
                             this.cargandoHistorial = false;
                             return;
@@ -2201,7 +2721,7 @@
                 },
 
                 async cambiarVista(nombreVista, rutaArchivo = null) {
-                    if (this.vistaActiva === nombreVista && this.contenidoVista !== '') return;
+                    if (this.vistaActiva === nombreVista && this.contenidoVista !== '' && nombreVista !== 'centros_trabajo') return;
 
                     if (this.vistaActiva === 'qr' && nombreVista !== 'qr') {
                         this.detenerEscaner();
@@ -2247,13 +2767,18 @@
                     if (nombreVista === 'catalogo') { this.cargarArticulos(50); setTimeout(() => { this.cargarCatalogosAuxiliares(); this.cargarCentrosTrabajo(); }, 600); }
                     if (nombreVista === 'mi_escuela') { this.cargarMisEquipos(); this.cargarPendientes(); }
                     if (nombreVista === 'firmas') this.cargarPendientes();
-                    if (nombreVista === 'usuarios') { this.cargarUsuarios(); this.cargarCentrosTrabajo(); }
+                    if (nombreVista === 'usuarios') { this.cargarUsuarios(); if (this.empleados.length === 0) this.cargarEmpleados(); this.cargarCentrosTrabajo(); }
                     if (nombreVista === 'resguardos') { if (this.empleados.length === 0) { await this.cargarEmpleados(); } this.filtrarLocal(); }
                     if (nombreVista === 'solicitudes') { this.cargarSolicitudesBaja(); }
-                    if (nombreVista === 'centros_trabajo') { this.cargarCentrosTrabajo(); this.cargarEmpleados(); this.cargarArticulos(100); }
+                    if (nombreVista === 'centros_trabajo') {
+                        this.cargarCentrosTrabajo();
+                        if (this.tabActualizarActivo === 'verificacion_anual') {
+                            if (this.empleados.length === 0) this.cargarEmpleados();
+                        }
+                    }
                     if (nombreVista === 'catalogos_lista') this.cargarDatosCatalogoSelectivo();
                     if (nombreVista === 'qr') { this.cargarArticulos(100); this.cambiarTabQR('generar'); }
-                    if (nombreVista === 'reportes') { this.cargarArticulos(100); this.cargarSolicitudesBaja(); this.cargarCentrosTrabajo(); if (this.empleados.length === 0) this.cargarEmpleados(); }
+                    if (nombreVista === 'reportes') { this.cargarArticulos(5000); this.cargarSolicitudesBaja(); this.cargarCentrosTrabajo(); if (this.empleados.length === 0) this.cargarEmpleados(); }
                     if (nombreVista === 'historial') { this.busquedaFolioHistorial = ''; this.equipoAuditado = null; }
                 },
 
@@ -2263,22 +2788,233 @@
                     setTimeout(() => { this.toasts = this.toasts.filter(t => t.id !== id); }, 4000);
                 },
 
-                get usuariosFiltrados() {
-                    let filtrados = this.usuarios;
-                    if (this.filtroNivelUsuario !== '') filtrados = filtrados.filter(u => u.nivelEducativo === this.filtroNivelUsuario);
-                    if (this.filtroRol !== '') filtrados = filtrados.filter(u => u.rol === this.filtroRol);
-                    if (this.busquedaUsuario !== '') {
-                        const term = this.busquedaUsuario.toLowerCase();
-                        filtrados = filtrados.filter(u => {
-                            const nombre = u.nombreCompleto ? u.nombreCompleto.toLowerCase() : '';
-                            const usuario = u.username ? u.username.toLowerCase() : '';
-                            const cct = u.cct ? u.cct.toLowerCase() : '';
-                            const curp = u.curp ? u.curp.toLowerCase() : '';
-                            const claveResp = u.claveResponsable ? u.claveResponsable.toLowerCase() : '';
-                            return nombre.includes(term) || usuario.includes(term) || cct.includes(term) || curp.includes(term) || claveResp.includes(term);
+                get responsablesConAccesoBase() {
+                    const usuariosList = Array.isArray(this.usuarios) ? this.usuarios : [];
+                    const empleadosList = Array.isArray(this.empleados) ? this.empleados : [];
+                    const mapPorCct = new Map();
+                    const mapPorRfc = new Map();
+                    const mapEmpPorCct = new Map();
+                    const mapEmpPorId = new Map();
+
+                    for (const emp of empleadosList) {
+                        if (!emp) continue;
+                        if (emp.id_empleado) mapEmpPorId.set(emp.id_empleado, emp);
+                        if (emp.cct) {
+                            const cUp = String(emp.cct).trim().toUpperCase();
+                            if (cUp && cUp !== 'CENTRAL' && cUp !== 'SIN-CCT' && cUp !== 'S/C') {
+                                mapEmpPorCct.set(cUp, emp);
+                            }
+                        }
+                    }
+
+                    for (const u of usuariosList) {
+                        if (!u) continue;
+                        if (u.cct) mapPorCct.set(String(u.cct).trim().toUpperCase(), u);
+                        if (u.claveResponsable) mapPorRfc.set(String(u.claveResponsable).trim().toUpperCase(), u);
+                        if (u.username) mapPorRfc.set(String(u.username).trim().toUpperCase(), u);
+                    }
+
+                    const combinados = [];
+                    const idsUsuariosYaIncluidos = new Set();
+
+                    for (const u of usuariosList) {
+                        if (!u) continue;
+                        idsUsuariosYaIncluidos.add(u.id);
+                        const cctRaw = u.cct ? String(u.cct).trim().toUpperCase() : '';
+                        const empVinc = (u.idEmpleado && mapEmpPorId.get(u.idEmpleado)) || (cctRaw && mapEmpPorCct.get(cctRaw)) || null;
+                        const rfcLimpio = (empVinc && empVinc.rfc ? String(empVinc.rfc).trim().toUpperCase() : '')
+                            || (u.claveResponsable ? String(u.claveResponsable).trim().toUpperCase() : '');
+                        const usarCct = cctRaw && !cctRaw.startsWith('RESP-') && cctRaw !== 'CENTRAL' && cctRaw !== 'SIN-CCT' && cctRaw !== 'S/C';
+                        const usernameEstandar = (u.username ? String(u.username).trim().toUpperCase() : '')
+                            || (usarCct ? cctRaw : (rfcLimpio || 'CENTRAL'));
+                        const passwordEstandar = (u.password && String(u.password).trim() !== '')
+                            ? String(u.password).trim()
+                            : (rfcLimpio || usernameEstandar);
+                        const nombreFull = u.nombreCompleto || (empVinc && empVinc.nombre) || ((u.nombre || '') + ' ' + (u.apellidos || '')).trim() || usernameEstandar;
+
+                        combinados.push({
+                            uidKey: 'USR_' + u.id,
+                            keyId: 'USR_' + u.id,
+                            idUsuario: u.id,
+                            idEmpleado: u.idEmpleado || (empVinc ? empVinc.id_empleado : null),
+                            nombreCompleto: nombreFull,
+                            nombre: nombreFull,
+                            apellidos: u.apellidos || '',
+                            username: usernameEstandar,
+                            usernameWeb: usernameEstandar,
+                            passwordAsignada: passwordEstandar,
+                            email: u.email || '',
+                            cct: cctRaw || 'CENTRAL',
+                            nombreEscuela: u.nombreEscuela || (empVinc ? empVinc.nombreEscuela : '') || 'Oficinas Centrales SETAB',
+                            nivelEducativo: u.nivelEducativo || (empVinc ? empVinc.area : '') || 'Educación Básica',
+                            rol: u.rol || 'Admin',
+                            activo: u.estado ? u.estado === 'Activo' : (u.activo !== false),
+                            rfc: rfcLimpio || usernameEstandar,
+                            curp: u.curp || (empVinc ? empVinc.curp : '') || '',
+                            claveResponsable: rfcLimpio || usernameEstandar,
+                            tieneCuentaWeb: true,
+                            usuarioWeb: u,
+                            usuarioWebObj: u
                         });
                     }
-                    return filtrados.slice(0, 80);
+
+                    for (const emp of empleadosList) {
+                        if (!emp) continue;
+                        const cctUp = emp.cct ? String(emp.cct).trim().toUpperCase() : '';
+                        const rfcUp = emp.rfc ? String(emp.rfc).trim().toUpperCase() : (emp.usuario ? String(emp.usuario).trim().toUpperCase() : '');
+                        const usrMatch = (cctUp && mapPorCct.get(cctUp)) || (rfcUp && mapPorRfc.get(rfcUp));
+                        if (usrMatch && idsUsuariosYaIncluidos.has(usrMatch.id)) {
+                            continue;
+                        }
+                        const usarCct = cctUp && !cctUp.startsWith('RESP-') && cctUp !== 'CENTRAL' && cctUp !== 'SIN-CCT' && cctUp !== 'S/C';
+                        const usernameEstandar = usrMatch && usrMatch.username
+                            ? String(usrMatch.username).trim().toUpperCase()
+                            : (usarCct ? cctUp : (rfcUp || ('DIR' + (emp.id_empleado || '1'))));
+                        const passwordEstandar = (usrMatch && usrMatch.password)
+                            ? String(usrMatch.password).trim()
+                            : (rfcUp || usernameEstandar);
+                        const nombreFull = emp.nombre || 'SIN NOMBRE';
+
+                        combinados.push({
+                            uidKey: 'EMP_' + emp.id_empleado,
+                            keyId: 'EMP_' + emp.id_empleado,
+                            idUsuario: usrMatch ? usrMatch.id : null,
+                            idEmpleado: emp.id_empleado,
+                            nombreCompleto: nombreFull,
+                            nombre: nombreFull,
+                            apellidos: '',
+                            username: usernameEstandar,
+                            usernameWeb: usernameEstandar,
+                            passwordAsignada: passwordEstandar,
+                            email: usrMatch ? usrMatch.email : '',
+                            cct: cctUp || 'CENTRAL',
+                            nombreEscuela: emp.nombreEscuela || 'Escuela / Unidad SETAB',
+                            nivelEducativo: emp.area || 'Educación Básica',
+                            rol: usrMatch ? usrMatch.rol : 'Admin',
+                            activo: usrMatch ? (usrMatch.estado === 'Activo') : false,
+                            rfc: rfcUp,
+                            curp: emp.curp || '',
+                            claveResponsable: rfcUp,
+                            tieneCuentaWeb: !!usrMatch,
+                            usuarioWeb: usrMatch || null,
+                            usuarioWebObj: usrMatch || null
+                        });
+                    }
+
+                    let filtrados = combinados;
+                    if (this.filtroNivelUsuario !== '') {
+                        filtrados = filtrados.filter(item => item.nivelEducativo === this.filtroNivelUsuario || (item.nivelEducativo && item.nivelEducativo.includes(this.filtroNivelUsuario)));
+                    }
+                    if (this.filtroRol === 'CON_ACCESO') {
+                        filtrados = filtrados.filter(item => item.tieneCuentaWeb);
+                    } else if (this.filtroRol === 'SIN_ACCESO') {
+                        filtrados = filtrados.filter(item => !item.tieneCuentaWeb);
+                    } else if (this.filtroRol !== '') {
+                        filtrados = filtrados.filter(item => item.rol === this.filtroRol);
+                    }
+                    if (this.busquedaUsuario && this.busquedaUsuario.trim() !== '') {
+                        const term = this.busquedaUsuario.trim().toLowerCase();
+                        filtrados = filtrados.filter(item =>
+                            (item.nombreCompleto && item.nombreCompleto.toLowerCase().includes(term)) ||
+                            (item.usernameWeb && item.usernameWeb.toLowerCase().includes(term)) ||
+                            (item.cct && item.cct.toLowerCase().includes(term)) ||
+                            (item.nombreEscuela && item.nombreEscuela.toLowerCase().includes(term)) ||
+                            (item.rfc && item.rfc.toLowerCase().includes(term)) ||
+                            (item.curp && item.curp.toLowerCase().includes(term)) ||
+                            (item.claveResponsable && item.claveResponsable.toLowerCase().includes(term))
+                        );
+                    }
+                    return filtrados;
+                },
+
+                get totalResponsablesFiltrados() {
+                    return this.responsablesConAccesoBase.length;
+                },
+
+                get totalPaginasResponsables() {
+                    return Math.max(1, Math.ceil(this.responsablesConAccesoBase.length / 50));
+                },
+
+                get responsablesConAccesoFiltrados() {
+                    const lista = this.responsablesConAccesoBase;
+                    const maxPag = Math.max(1, Math.ceil(lista.length / 50));
+                    if (this.paginaResponsablesActual >= maxPag) {
+                        this.paginaResponsablesActual = 0;
+                    }
+                    const start = this.paginaResponsablesActual * 50;
+                    return lista.slice(start, start + 50);
+                },
+
+                cambiarPaginaResponsables(nuevaPag) {
+                    if (nuevaPag >= 0 && nuevaPag < this.totalPaginasResponsables) {
+                        this.paginaResponsablesActual = nuevaPag;
+                    }
+                },
+
+                habilitarAccesoDirectorDesdeResponsable(item) {
+                    this.cargarCentrosTrabajo();
+                    const partes = (item.nombreCompleto || item.nombre || '').trim().split(/\s+/);
+                    const nombre = partes.slice(0, Math.max(1, Math.ceil(partes.length / 2))).join(' ');
+                    const apellidos = partes.slice(Math.max(1, Math.ceil(partes.length / 2))).join(' ') || 'SETAB';
+                    const cctLimpio = (item.cct && item.cct !== 'S/C') ? item.cct.trim().toUpperCase() : '';
+                    const userStd = item.usernameWeb || ((cctLimpio && cctLimpio !== 'CENTRAL') ? cctLimpio : (item.rfc || ''));
+                    const passStd = item.passwordAsignada || item.rfc || userStd;
+                    this.nuevoUsuario = {
+                        nombre: nombre,
+                        apellidos: apellidos,
+                        email: item.email || (userStd ? `${userStd.toLowerCase().replace(/[^a-z0-9]/g, '')}@setab.gob.mx` : ''),
+                        username: userStd,
+                        password: passStd,
+                        cct: cctLimpio || userStd,
+                        nivelEducativo: item.nivelEducativo || 'Primaria',
+                        nombreEscuela: item.nombreEscuela || '',
+                        rol: 'Admin',
+                        curp: item.curp || '',
+                        claveResponsable: item.rfc || item.claveResponsable || ''
+                    };
+                    this.modalRegistroUsuarioAbierto = true;
+                },
+
+                async activarDirectorRapidoKeycloak(item) {
+                    if (!item) return;
+                    this.guardando = true;
+                    try {
+                        const userStd = (item.usernameWeb || item.cct || item.rfc || '').trim().toUpperCase();
+                        const passStd = (item.passwordAsignada || item.rfc || userStd).trim().toUpperCase();
+                        const nombreFull = (item.nombre || item.nombreCompleto || userStd).trim().toUpperCase();
+                        const payload = {
+                            nombre: nombreFull,
+                            apellidos: 'SETAB',
+                            email: `${userStd.toLowerCase().replace(/[^a-z0-9]/g, '')}@setab.gob.mx`,
+                            username: userStd,
+                            password: passStd,
+                            cct: (item.cct && item.cct !== 'S/C') ? item.cct.trim().toUpperCase() : userStd,
+                            nivelEducativo: item.nivelEducativo || 'Educación Básica',
+                            nombreEscuela: item.nombreEscuela || 'Centro Educativo SETAB',
+                            rol: 'Admin',
+                            curp: item.curp || '',
+                            claveResponsable: item.rfc || item.claveResponsable || '',
+                            keycloakUrl: SETAB_CONFIG.keycloakUrl,
+                            realm: SETAB_CONFIG.realm
+                        };
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/usuarios`, {
+                            method: 'POST',
+                            mode: 'cors',
+                            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` },
+                            body: JSON.stringify(payload)
+                        });
+                        if (respuesta.ok) {
+                            await this.cargarUsuarios();
+                            this.notificar(`¡Acceso activado en Keycloak! Usuario: ${userStd} | Contraseña: ${passStd}`, "exito");
+                        } else {
+                            const err = await respuesta.json().catch(() => ({}));
+                            this.notificar(err.error || "No fue posible sincronizar en Keycloak.", "error");
+                        }
+                    } catch (error) {
+                        this.notificar("Error de conexión al activar acceso.", "error");
+                    } finally {
+                        this.guardando = false;
+                    }
                 },
 
                 async cargarUsuarios() {
@@ -2342,7 +3078,7 @@
                     } catch (error) { this.notificar("Fallo de conexión.", "error"); }
                 },
 
-                filtrarLocal(resetPagina = true) {
+                filtrarLocal(resetPagina = true, desdeRemoto = false) {
                     if (resetPagina) {
                         this.paginaEmpleadosActual = 0;
                     }
@@ -2360,6 +3096,31 @@
                     }
                     const start = this.paginaEmpleadosActual * pageSize;
                     this.empleadosFiltrados = filtrados.slice(start, start + pageSize);
+
+                    if (!desdeRemoto && this.filtroEmpleado && this.filtroEmpleado.trim().length >= 2 && filtrados.length < 15) {
+                        clearTimeout(this._timerBusqEmp);
+                        const termBusq = this.filtroEmpleado.trim();
+                        this._timerBusqEmp = setTimeout(async () => {
+                            try {
+                                const resp = await fetch(`${SETAB_CONFIG.backendUrl}/api/empleados?busqueda=${encodeURIComponent(termBusq)}&limit=300`, {
+                                    headers: { 'Authorization': `Bearer ${this.token}` }
+                                });
+                                if (resp.ok) {
+                                    const remotos = await resp.json();
+                                    if (Array.isArray(remotos) && remotos.length > 0) {
+                                        const idsExistentes = new Set((this.empleados || []).map(x => x.id_empleado));
+                                        for (const r of remotos) {
+                                            if (r && !idsExistentes.has(r.id_empleado)) {
+                                                this.empleados.push(r);
+                                                idsExistentes.add(r.id_empleado);
+                                            }
+                                        }
+                                        this.filtrarLocal(false, true);
+                                    }
+                                }
+                            } catch (e) { }
+                        }, 250);
+                    }
                 },
 
                 cambiarPaginaEmpleados(nuevaPagina) {
@@ -2700,8 +3461,17 @@
                         if (payload.valorInicial === '' || isNaN(parseFloat(payload.valorInicial))) payload.valorInicial = null;
                         if (payload.precio === '' || isNaN(parseFloat(payload.precio))) payload.precio = null;
 
-                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes/${this.articuloSeleccionado.id}`, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
-                        if (respuesta.ok) { this.cerrarModal(); this.cargarArticulos(); this.notificar("Cambios guardados", "exito"); }
+                        const idEditado = this.articuloSeleccionado.id;
+                        const folioEditado = this.articuloSeleccionado.numeroInventario || this.articuloSeleccionado.tokenQR;
+                        const respuesta = await fetch(`${SETAB_CONFIG.backendUrl}/api/bienes/${idEditado}`, { method: 'PUT', mode: 'cors', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${this.token}` }, body: JSON.stringify(payload) });
+                        if (respuesta.ok) {
+                            this.cerrarModal();
+                            this.cargarArticulos();
+                            if (this.resultadoEscaneo && (this.resultadoEscaneo.id === idEditado || this.resultadoEscaneo.numeroInventario === folioEditado)) {
+                                this.buscarItemPorFolio(folioEditado || String(idEditado));
+                            }
+                            this.notificar("Cambios guardados", "exito");
+                        }
                         else {
                             const err = await respuesta.json().catch(() => ({}));
                             this.notificar(err.error || "Error al guardar cambios", "error");

@@ -40,6 +40,9 @@ public class ResguardoResource {
     @Inject
     PostgresRelacionalCrudService relacionalService;
 
+    @Inject
+    UsuarioResource usuarioResource;
+
     private Empleado buscarEmpleadoIntegral(Long idEmpleado) {
         if (idEmpleado == null) {
             return null;
@@ -268,6 +271,36 @@ public class ResguardoResource {
             }
         }
 
+        if (relacionalService != null && relacionalService.puedeOperarResponsables()) {
+            java.util.Set<String> terminosRelacionales = new java.util.LinkedHashSet<>();
+            for (String c : clavesUsuario) {
+                if (c != null && !c.isBlank() && !c.contains("@") && !"SUPERADMIN".equalsIgnoreCase(c)) {
+                    terminosRelacionales.add(c.trim().toUpperCase(Locale.ROOT));
+                }
+            }
+            terminosRelacionales.addAll(cctsBuscados);
+            for (String term : terminosRelacionales) {
+                try {
+                    List<Empleado> encontradosExt = relacionalService.listarResponsables(term, 15);
+                    for (Empleado ext : encontradosExt) {
+                        if (ext == null || ext.idEmpleado == null) continue;
+                        boolean matchExacto = (ext.cct != null && term.equalsIgnoreCase(ext.cct.trim()))
+                                || (ext.rfc != null && term.equalsIgnoreCase(ext.rfc.trim()))
+                                || (ext.claveResponsable != null && term.equalsIgnoreCase(ext.claveResponsable.trim()))
+                                || (ext.usuario != null && term.equalsIgnoreCase(ext.usuario.trim()));
+                        if (matchExacto) {
+                            Empleado sincronizado = relacionalService.sincronizarEmpleadoEnPanache(ext.idEmpleado);
+                            Empleado usar = sincronizado != null ? sincronizado : ext;
+                            if (usar.idEmpleado != null && idsAgregados.add(usar.idEmpleado)) {
+                                resultado.add(usar);
+                            }
+                        }
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+
         return resultado;
     }
 
@@ -369,7 +402,7 @@ public class ResguardoResource {
             nuevo.fechaAsignacion = art.fechaResguardo != null ? art.fechaResguardo : LocalDate.now();
             nuevo.cantidadAsignada = 1.0;
             nuevo.nombreAdminAsignador = "Almacén Central";
-            nuevo.estadoResguardo = "PENDIENTE_FIRMA";
+            nuevo.estadoResguardo = "ACTIVO";
             nuevo.fondoOrigen = fondo;
             nuevo.folioResguardoOficial = folioOficialNvo;
             nuevo.persist();
@@ -521,6 +554,13 @@ public class ResguardoResource {
         historial.fechaMovimiento = java.time.LocalDateTime.now();
         historial.username = obtenerNombreAdmin(); 
         historial.persist();
+
+        if (usuarioResource != null) {
+            try {
+                usuarioResource.sincronizarDirectorConKeycloak(empleado, null, null);
+            } catch (Exception ignored) {
+            }
+        }
 
         return Response.status(Response.Status.CREATED).entity(resguardo).build();
     }
@@ -725,9 +765,7 @@ public class ResguardoResource {
             dto.fechaAsignacion = r.fechaAsignacion;
             dto.cantidadAsignada = r.cantidadAsignada;
             if (r.estadoResguardo == null || r.estadoResguardo.trim().isEmpty()) {
-                dto.estadoResguardo = (r.firmaEmpleadoBase64 == null || r.firmaEmpleadoBase64.trim().isEmpty()) ? "PENDIENTE_FIRMA" : "ACTIVO";
-            } else if ("ACTIVO".equalsIgnoreCase(r.estadoResguardo) && (r.firmaEmpleadoBase64 == null || r.firmaEmpleadoBase64.trim().isEmpty())) {
-                dto.estadoResguardo = "PENDIENTE_FIRMA";
+                dto.estadoResguardo = "ACTIVO";
             } else {
                 dto.estadoResguardo = r.estadoResguardo;
             }
@@ -759,7 +797,7 @@ public class ResguardoResource {
                 dto.nombreEmpleado = nombre != null ? nombre : a.resguardanteActual;
                 dto.areaDestino = a.areaUbicacion;
                 dto.fechaAsignacion = a.fechaResguardo != null ? a.fechaResguardo : a.fechaAdquisicion;
-                dto.cantidadAsignada = a.cantidadStock != null ? a.cantidadStock : 1.0;
+                dto.cantidadAsignada = (a.cantidadStock != null && a.cantidadStock > 0) ? a.cantidadStock : 1.0;
                 dto.estadoResguardo = "Baja".equalsIgnoreCase(a.estado) ? "DEVUELTO" : "ACTIVO";
                 dto.numeroInventario = a.numeroInventario;
                 dto.folioResguardoOficial = a.folioResguardo;
@@ -806,10 +844,11 @@ public class ResguardoResource {
         }
 
         List<Resguardo> resguardos = Resguardo.find(
-                "empleado.idEmpleado in ?1 and firmaEmpleadoBase64 is not null and firmaEmpleadoBase64 <> ''",
+                "empleado.idEmpleado in ?1 and (estadoResguardo = 'ACTIVO' or estadoResguardo = 'SOLICITUD_BAJA' or estadoResguardo = 'BAJA_EN_PROCESO' or estadoResguardo = 'DEVUELTO' or (firmaEmpleadoBase64 is not null and firmaEmpleadoBase64 <> '' and estadoResguardo <> 'PENDIENTE_FIRMA' and estadoResguardo <> 'TRASPASADO'))",
                 idsEmpleados
         ).list();
         List<ResguardoExtendidoDTO> lista = new ArrayList<>();
+        java.util.Set<String> inventariosAgregados = new java.util.HashSet<>();
 
         for (Resguardo r : resguardos) {
             if (r == null) continue;
@@ -819,7 +858,63 @@ public class ResguardoResource {
             dto.fechaAsignacion = r.fechaAsignacion;
             dto.cantidadAsignada = r.cantidadAsignada;
             dto.estadoResguardo = r.estadoResguardo != null ? r.estadoResguardo : "ACTIVO";
+            if (dto.numeroInventario != null && !dto.numeroInventario.isBlank()) {
+                inventariosAgregados.add(dto.numeroInventario.trim().toUpperCase(Locale.ROOT));
+            }
             lista.add(dto);
+        }
+
+        if (relacionalService != null && relacionalService.puedeOperarInventario(null)) {
+            List<Resguardo> pendientesOTraspasados = Resguardo.find(
+                    "empleado.idEmpleado in ?1 and (estadoResguardo = 'PENDIENTE_FIRMA' or estadoResguardo = 'TRASPASADO')",
+                    idsEmpleados
+            ).list();
+            for (Resguardo p : pendientesOTraspasados) {
+                if (p != null && p.articulo != null && p.articulo.numeroInventario != null && !p.articulo.numeroInventario.isBlank()) {
+                    inventariosAgregados.add(p.articulo.numeroInventario.trim().toUpperCase(Locale.ROOT));
+                }
+            }
+            long synthId = 800_000L;
+            for (Empleado emp : empleados) {
+                if (emp == null) continue;
+                List<Articulo> bienesRel = relacionalService.listarBienesPorResponsableOCct(
+                        emp.idEmpleado, emp.rfc, emp.cct, emp.nombre
+                );
+                for (Articulo a : bienesRel) {
+                    if (a == null) continue;
+                    String numInvKey = a.numeroInventario != null ? a.numeroInventario.trim().toUpperCase(Locale.ROOT) : "";
+                    if (!numInvKey.isEmpty() && !inventariosAgregados.add(numInvKey)) {
+                        continue;
+                    }
+                    ResguardoExtendidoDTO dto = new ResguardoExtendidoDTO();
+                    dto.idResguardo = a.id != null ? a.id : (++synthId);
+                    dto.idArticulo = a.id;
+                    dto.equipoSerie = a.numeroSerie;
+                    dto.equipoMarca = (a.marca != null && !a.marca.isBlank()) ? a.marca : a.descripcion;
+                    dto.idEmpleado = emp.idEmpleado;
+                    dto.nombreEmpleado = emp.nombre != null ? emp.nombre : a.resguardanteActual;
+                    dto.areaDestino = a.areaUbicacion;
+                    dto.fechaAsignacion = a.fechaResguardo != null ? a.fechaResguardo : a.fechaAdquisicion;
+                    dto.cantidadAsignada = (a.cantidadStock != null && a.cantidadStock > 0) ? a.cantidadStock : 1.0;
+                    dto.estadoResguardo = "Baja".equalsIgnoreCase(a.estado) ? "DEVUELTO" : "ACTIVO";
+                    dto.numeroInventario = a.numeroInventario;
+                    dto.folioResguardoOficial = a.folioResguardo;
+                    dto.fondoOrigen = a.fondoOrigen != null ? a.fondoOrigen : "OFICIAL";
+                    dto.imagenBienBase64 = a.imagenBienBase64;
+                    dto.descripcionBien = (a.descripcion != null && !a.descripcion.isBlank()) ? a.descripcion : a.marca;
+                    dto.partidaBien = a.partida;
+                    dto.valorBien = a.valorInicial != null ? a.valorInicial : a.precioSinIva;
+                    dto.estadoFisicoBien = a.estadoFisico != null ? a.estadoFisico : "BUENO";
+                    dto.facturaBien = a.factura;
+                    dto.fechaFacturaBien = a.fechaFactura;
+                    dto.folioFiscalBien = a.folioFiscalUuid;
+                    dto.boletaSalidaBien = a.boletaSalida;
+                    dto.fechaUltimaActualizacionAnual = a.fechaUltimaActualizacionAnual;
+                    dto.estadoVerificacionAnual = a.estadoVerificacionAnual != null ? a.estadoVerificacionAnual : "VERIFICADO";
+                    dto.cct = (a.centroTrabajo != null && !a.centroTrabajo.isBlank()) ? a.centroTrabajo : emp.cct;
+                    lista.add(dto);
+                }
+            }
         }
         return Response.ok(lista).build();
     }
@@ -848,7 +943,7 @@ public class ResguardoResource {
         }
 
         List<Resguardo> pendientes = Resguardo.find(
-                "empleado.idEmpleado in ?1 and (( (firmaEmpleadoBase64 is null or firmaEmpleadoBase64 = '') and (estadoResguardo is null or estadoResguardo = 'ACTIVO' or estadoResguardo = 'PENDIENTE_FIRMA') ) or estadoResguardo = 'BAJA_EN_PROCESO')",
+                "empleado.idEmpleado in ?1 and (estadoResguardo = 'PENDIENTE_FIRMA' or estadoResguardo = 'BAJA_EN_PROCESO')",
                 idsEmpleados
         ).list();
         List<PendienteDTO> lista = new ArrayList<>();
@@ -877,6 +972,73 @@ public class ResguardoResource {
             lista.add(dto);
         }
         return Response.ok(lista).build();
+    }
+
+    private Resguardo obtenerOCrearResguardoIntegral(Long idResguardoOArticulo) {
+        if (idResguardoOArticulo == null) {
+            return null;
+        }
+        Resguardo existente = Resguardo.findById(idResguardoOArticulo);
+        if (existente != null) {
+            return existente;
+        }
+        if (relacionalService == null) {
+            return null;
+        }
+        Long idArt = idResguardoOArticulo >= 800_000L ? (idResguardoOArticulo - 800_000L) : idResguardoOArticulo;
+        Articulo art = relacionalService.sincronizarArticuloEnPanache(idArt, null);
+        if (art == null && !idArt.equals(idResguardoOArticulo)) {
+            art = relacionalService.sincronizarArticuloEnPanache(idResguardoOArticulo, null);
+        }
+        if (art == null) {
+            return null;
+        }
+        Resguardo porArticulo = Resguardo.find(
+                "articulo.id = ?1 and estadoResguardo <> 'DEVUELTO' and estadoResguardo <> 'TRASPASADO'",
+                art.id
+        ).firstResult();
+        if (porArticulo != null) {
+            return porArticulo;
+        }
+
+        Empleado emp = null;
+        List<Empleado> vinculados = obtenerEmpleadosVinculadosAlDirector();
+        if (!vinculados.isEmpty()) {
+            emp = vinculados.get(0);
+        }
+        if (emp == null && art.centroTrabajo != null && !art.centroTrabajo.isBlank()) {
+            emp = Empleado.find("upper(cct) = ?1", art.centroTrabajo.trim().toUpperCase(Locale.ROOT)).firstResult();
+            if (emp == null && relacionalService.puedeOperarResponsables()) {
+                try {
+                    List<Empleado> porCct = relacionalService.listarResponsables(art.centroTrabajo.trim(), 5);
+                    if (!porCct.isEmpty() && porCct.get(0).idEmpleado != null) {
+                        emp = relacionalService.sincronizarEmpleadoEnPanache(porCct.get(0).idEmpleado);
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        if (emp == null && art.resguardanteActual != null && !art.resguardanteActual.isBlank() && relacionalService.puedeOperarResponsables()) {
+            try {
+                List<Empleado> porNom = relacionalService.listarResponsables(art.resguardanteActual.trim(), 5);
+                if (!porNom.isEmpty() && porNom.get(0).idEmpleado != null) {
+                    emp = relacionalService.sincronizarEmpleadoEnPanache(porNom.get(0).idEmpleado);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        Resguardo nuevo = new Resguardo();
+        nuevo.articulo = art;
+        nuevo.empleado = emp;
+        nuevo.fechaAsignacion = art.fechaResguardo != null ? art.fechaResguardo : LocalDate.now();
+        nuevo.cantidadAsignada = 1.0;
+        nuevo.nombreAdminAsignador = "Almacén Central";
+        nuevo.estadoResguardo = "ACTIVO";
+        nuevo.fondoOrigen = art.fondoOrigen != null ? art.fondoOrigen : "OFICIAL";
+        nuevo.folioResguardoOficial = art.folioResguardo;
+        nuevo.persistAndFlush();
+        return nuevo;
     }
 
     @GET
@@ -915,7 +1077,7 @@ public class ResguardoResource {
         if (empleadosVinculados.isEmpty()) return Response.status(Response.Status.NOT_FOUND).build();
         Empleado empleado = empleadosVinculados.get(0);
 
-        Resguardo resguardo = Resguardo.findById(idResguardo);
+        Resguardo resguardo = obtenerOCrearResguardoIntegral(idResguardo);
         if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).entity("{\"error\": \"Resguardo no encontrado\"}").build();
 
         boolean autorizado = false;
@@ -979,7 +1141,7 @@ public class ResguardoResource {
     @Transactional
     @RolesAllowed({"admin", "Admin", "SUPERADMIN"})
     public Response solicitarBaja(@PathParam("idResguardo") Long idResguardo) {
-        Resguardo resguardo = Resguardo.findById(idResguardo);
+        Resguardo resguardo = obtenerOCrearResguardoIntegral(idResguardo);
         if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
 
         List<Empleado> empleadosVinculados = obtenerEmpleadosVinculadosAlDirector();
@@ -990,7 +1152,7 @@ public class ResguardoResource {
                     (resguardo.empleado != null && e.cct != null && resguardo.empleado.cct != null && e.cct.trim().equalsIgnoreCase(resguardo.empleado.cct.trim())) ||
                     (resguardo.articulo != null && e.cct != null && resguardo.articulo.centroTrabajo != null && e.cct.trim().equalsIgnoreCase(resguardo.articulo.centroTrabajo.trim()))
             );
-            if (pertenece) {
+            if (pertenece || resguardo.empleado == null) {
                 resguardo.empleado = principal;
             }
         }
@@ -1014,7 +1176,7 @@ public class ResguardoResource {
     @Transactional
     @RolesAllowed("SUPERADMIN")
     public Response aprobarBaja(@PathParam("idResguardo") Long idResguardo, AprobarBajaRequest request) {
-        Resguardo resguardo = Resguardo.findById(idResguardo);
+        Resguardo resguardo = obtenerOCrearResguardoIntegral(idResguardo);
         if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
 
         if (request == null || request.firmaSuperAdminBase64 == null || request.firmaSuperAdminBase64.isEmpty()) {
@@ -1041,7 +1203,7 @@ public class ResguardoResource {
     @Transactional
     @RolesAllowed({"SUPERADMIN", "admin", "Admin"}) 
     public Response liberar(@PathParam("idResguardo") Long idResguardo, LiberarRequest request) {
-        Resguardo resguardo = Resguardo.findById(idResguardo);
+        Resguardo resguardo = obtenerOCrearResguardoIntegral(idResguardo);
         if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
 
         Articulo articulo = resguardo.articulo;
@@ -1064,10 +1226,15 @@ public class ResguardoResource {
         if (articulo != null) {
             double stockActual = articulo.cantidadStock != null ? articulo.cantidadStock : 0.0;
             articulo.cantidadStock = stockActual + request.cantidad;
-            if ("Agotado".equalsIgnoreCase(articulo.estado) && articulo.cantidadStock > 0) {
-                articulo.estado = "Activo";
-            }
+            articulo.estado = "Disponible en Almacén";
+            articulo.resguardanteActual = null;
+            articulo.centroTrabajo = "CENTRAL";
+            articulo.fechaBaja = LocalDate.now();
             articulo.persist();
+
+            if (relacionalService != null && relacionalService.puedeOperarInventario(null)) {
+                relacionalService.registrarBajaOLiberacionEnInventarioRelacional(articulo.numeroInventario, articulo.id);
+            }
         }
 
         resguardo.cantidadAsignada -= request.cantidad;
@@ -1089,39 +1256,63 @@ public class ResguardoResource {
     @GET
     @Path("/pdf-asignacion/{idResguardo}")
     @Produces("application/pdf")
+    @Transactional
     @RolesAllowed({"SUPERADMIN", "admin", "Admin"})
     public Response generarPdfAsignacion(@PathParam("idResguardo") Long idResguardo) {
-        Resguardo resguardo = Resguardo.findById(idResguardo);
-
-        if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
-
-        String adminNombre = resguardo.nombreAdminAsignador != null ? resguardo.nombreAdminAsignador : "Almacen Central";
-
-        if ("superadmin".equalsIgnoreCase(adminNombre) || "admin".equalsIgnoreCase(adminNombre)) {
-            Usuario userDb = Usuario.find("upper(username) = ?1", adminNombre.trim().toUpperCase()).firstResult();
-            if (userDb != null && userDb.nombreCompleto != null) {
-                adminNombre = userDb.nombreCompleto;
+        Resguardo resguardo = idResguardo != null ? Resguardo.findById(idResguardo) : null;
+        Articulo art = resguardo != null ? resguardo.articulo : null;
+        if (art == null && relacionalService != null && idResguardo != null) {
+            Long idBuscar = idResguardo >= 800_000L ? (idResguardo - 800_000L) : idResguardo;
+            art = relacionalService.buscarPorIdRelacional(idBuscar);
+            if (art == null && !idBuscar.equals(idResguardo)) {
+                art = relacionalService.buscarPorIdRelacional(idResguardo);
+            }
+            if (art == null) {
+                art = relacionalService.sincronizarArticuloEnPanache(idBuscar, null);
             }
         }
+        if (resguardo == null && art == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
 
-        String nombreEmpleado = (resguardo.empleado != null && resguardo.empleado.nombre != null)
-                ? resguardo.empleado.nombre : "Servidor Publico SETAB";
-        String areaEmpleado = (resguardo.empleado != null && resguardo.empleado.area != null)
-                ? resguardo.empleado.area : "Centro Educativo";
-        String marcaArticulo = (resguardo.articulo != null && resguardo.articulo.marca != null)
-                ? resguardo.articulo.marca : "N/A";
-        String serieArticulo = (resguardo.articulo != null && resguardo.articulo.numeroSerie != null)
-                ? resguardo.articulo.numeroSerie : "N/A";
+        String cctClave = (art != null && art.centroTrabajo != null && !art.centroTrabajo.isBlank())
+                ? art.centroTrabajo
+                : ((resguardo != null && resguardo.empleado != null && resguardo.empleado.cct != null) ? resguardo.empleado.cct : "SIN-CCT");
+        String nombreEscuela = (art != null && art.areaUbicacion != null && !art.areaUbicacion.isBlank())
+                ? art.areaUbicacion
+                : ((resguardo != null && resguardo.empleado != null && resguardo.empleado.nombreEscuela != null)
+                ? resguardo.empleado.nombreEscuela
+                : ((resguardo != null && resguardo.empleado != null && resguardo.empleado.area != null) ? resguardo.empleado.area : "CENTRO DE TRABAJO SETAB"));
+        String nombreEmpleado = (resguardo != null && resguardo.empleado != null && resguardo.empleado.nombre != null && !resguardo.empleado.nombre.isBlank())
+                ? resguardo.empleado.nombre
+                : ((art != null && art.resguardanteActual != null && !art.resguardanteActual.isBlank()) ? art.resguardanteActual : "DIRECTOR / RESPONSABLE EN CUSTODIA");
 
-        long consecutivoActa = Math.max(1L, Resguardo.count("id <= ?1", resguardo.id));
-        String folioActa = (resguardo.folioResguardoOficial != null && !resguardo.folioResguardoOficial.isBlank())
+        String numInv = (art != null && art.numeroInventario != null && !art.numeroInventario.isBlank())
+                ? art.numeroInventario : String.valueOf(idResguardo);
+        String descArticulo = (art != null && art.descripcion != null && !art.descripcion.isBlank())
+                ? art.descripcion : ((art != null && art.marca != null) ? art.marca : "BIEN MUEBLE INSTITUCIONAL");
+        String marcaArticulo = (art != null && art.marca != null && !art.marca.isBlank()) ? art.marca : "S/M";
+        String modeloArticulo = (art != null && art.modelo != null && !art.modelo.isBlank()) ? art.modelo : "S/M";
+        String serieArticulo = (art != null && art.numeroSerie != null && !art.numeroSerie.isBlank()) ? art.numeroSerie : "S/N";
+        String facturaArticulo = (art != null && art.factura != null && !art.factura.isBlank()) ? art.factura : "S/F";
+        double valorUnitario = (art != null && art.valorInicial != null)
+                ? art.valorInicial
+                : ((art != null && art.precioSinIva != null) ? art.precioSinIva : 0.0);
+        String fondo = (art != null && art.fondoOrigen != null && !art.fondoOrigen.isBlank())
+                ? art.fondoOrigen
+                : ((resguardo != null && resguardo.fondoOrigen != null) ? resguardo.fondoOrigen : "OFICIAL");
+
+        String folioActa = (resguardo != null && resguardo.folioResguardoOficial != null && !resguardo.folioResguardoOficial.isBlank())
                 ? resguardo.folioResguardoOficial
-                : String.format("%05d", consecutivoActa);
+                : ((art != null && art.folioResguardo != null && !art.folioResguardo.isBlank()) ? art.folioResguardo : ("RESG-" + idResguardo));
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", Locale.forLanguageTag("es-MX"));
-        String fechaActa = (resguardo.fechaAsignacion != null) ? resguardo.fechaAsignacion.format(formatter) : LocalDate.now().format(formatter);
+        LocalDate fechaRef = (resguardo != null && resguardo.fechaAsignacion != null)
+                ? resguardo.fechaAsignacion
+                : ((art != null && art.fechaResguardo != null) ? art.fechaResguardo : LocalDate.now());
+        String fechaActa = fechaRef.format(formatter);
 
-        try (PDDocument document = new PDDocument(); 
+        try (PDDocument document = new PDDocument();
              ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
             PDPage page = new PDPage();
@@ -1130,118 +1321,173 @@ public class ResguardoResource {
             try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
 
                 contentStream.beginText();
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 16);
-                contentStream.newLineAtOffset(150, 720);
-                contentStream.showText("ACTA OFICIAL DE ASIGNACION DE EQUIPO");
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
+                contentStream.setLeading(14f);
+                contentStream.newLineAtOffset(145, 750);
+                contentStream.showText("GOBIERNO DEL ESTADO DE TABASCO - SECRETARIA DE EDUCACION");
+                contentStream.newLine();
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 10);
+                contentStream.showText("DEPARTAMENTO DE ALMACEN GENERAL E INVENTARIO DE BIENES MUEBLES");
+                contentStream.newLine();
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 13);
+                contentStream.showText("ACTA Y CEDULA OFICIAL DE RESGUARDO DE ACTIVO FIJO (" + sanitizarTextoPdf(fondo) + ")");
                 contentStream.endText();
 
                 contentStream.beginText();
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.newLineAtOffset(400, 680);
-                contentStream.showText("Folio: " + sanitizarTextoPdf(folioActa));
-                contentStream.newLineAtOffset(0, -15);
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 10);
+                contentStream.newLineAtOffset(390, 695);
+                contentStream.showText("Folio Resguardo: " + sanitizarTextoPdf(folioActa));
+                contentStream.newLineAtOffset(0, -14);
                 contentStream.showText("Fecha: " + sanitizarTextoPdf(fechaActa));
                 contentStream.endText();
 
                 contentStream.beginText();
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.setLeading(18f); 
-                contentStream.newLineAtOffset(50, 610);
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
+                contentStream.setLeading(16f);
+                contentStream.newLineAtOffset(45, 650);
 
-                contentStream.showText("A quien corresponda:");
-                contentStream.newLine();
-                contentStream.newLine();
-                contentStream.showText("Por medio de la presente, se hace constar oficialmente que el servidor publico");
-                contentStream.newLine();
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
-                contentStream.showText(sanitizarTextoPdf(nombreEmpleado) + ",");
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.showText(" adscrito al area de " + sanitizarTextoPdf(areaEmpleado) + ", recibe de ");
-                contentStream.newLine();
-                contentStream.showText("conformidad y asume el resguardo del siguiente material/equipo institucional:");
-                contentStream.newLine();
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
+                contentStream.showText("CENTRO DE TRABAJO (CCT): ");
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
+                contentStream.showText(sanitizarTextoPdf(cctClave + " - " + nombreEscuela));
                 contentStream.newLine();
 
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
-                contentStream.showText("     - Descripcion / Marca: ");
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.showText(sanitizarTextoPdf(marcaArticulo));
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
+                contentStream.showText("DIRECTOR / RESPONSABLE EN CUSTODIA: ");
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
+                contentStream.showText(sanitizarTextoPdf(nombreEmpleado));
                 contentStream.newLine();
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
-                contentStream.showText("     - Numero de Serie: ");
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
+                contentStream.newLine();
+
+                contentStream.showText("Por medio de la presente se hace constar el resguardo institucional del siguiente bien mueble");
+                contentStream.newLine();
+                contentStream.showText("propiedad de la Secretaria de Educacion del Estado de Tabasco (SETAB):");
+                contentStream.newLine();
+                contentStream.newLine();
+
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
+                contentStream.showText("   - No. Inventario Oficial: ");
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
+                contentStream.showText(sanitizarTextoPdf(numInv));
+                contentStream.newLine();
+
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
+                contentStream.showText("   - Descripcion del Bien: ");
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
+                contentStream.showText(sanitizarTextoPdf(descArticulo));
+                contentStream.newLine();
+
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
+                contentStream.showText("   - Marca / Modelo: ");
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
+                contentStream.showText(sanitizarTextoPdf(marcaArticulo + " / " + modeloArticulo));
+                contentStream.newLine();
+
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
+                contentStream.showText("   - Numero de Serie: ");
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
                 contentStream.showText(sanitizarTextoPdf(serieArticulo));
                 contentStream.newLine();
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
-                contentStream.showText("     - Cantidad Asignada: ");
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.showText(sanitizarTextoPdf(String.valueOf(resguardo.cantidadAsignada)));
+
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
+                contentStream.showText("   - Factura / Valor de Adquisicion: ");
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
+                contentStream.showText(sanitizarTextoPdf(facturaArticulo + "   |   $ " + String.format(Locale.US, "%,.2f", valorUnitario) + " MXN"));
                 contentStream.newLine();
                 contentStream.newLine();
 
-                contentStream.showText("El servidor publico se compromete a salvaguardar y utilizar el equipo descrito");
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 9.5f);
+                contentStream.showText("RECIBI DE LA SECRETARIA DE EDUCACION EL MOBILIARIO Y/O EQUIPO QUE SE DESCRIBE EN EL PRESENTE");
                 contentStream.newLine();
-                contentStream.showText("estrictamente para el cumplimiento de sus labores oficiales. El administrador ");
+                contentStream.showText("RESGUARDO, QUEDANDO BAJO MI ENTERA RESPONSABILIDAD Y COMPROMETIENDOME A SU DEBIDO CUIDADO Y");
                 contentStream.newLine();
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
-                contentStream.showText(sanitizarTextoPdf(adminNombre));
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.showText(" certifica la entrega del mismo.");
+                contentStream.showText("CONSERVACION CONFORME AL ARTICULO 45 FRACC. III DE LA LEY DE LOS TRABAJADORES AL SERVICIO DEL");
+                contentStream.newLine();
+                contentStream.showText("ESTADO DE TABASCO Y ARTICULO 7 FRACC. VI DE LA LEY GENERAL DE RESPONSABILIDADES ADMINISTRATIVAS.");
                 contentStream.endText();
 
-                int firmaY = 250; 
+                int firmaY = 215;
 
-                if (resguardo.firmaAdminBase64 != null && resguardo.firmaAdminBase64.contains(",")) {
+                if (resguardo != null && resguardo.firmaAdminBase64 != null && resguardo.firmaAdminBase64.contains(",")) {
                     try {
                         String base64Image = resguardo.firmaAdminBase64.split(",")[1];
                         byte[] imageBytes = Base64.getDecoder().decode(base64Image);
                         PDImageXObject pdImage = PDImageXObject.createFromByteArray(document, imageBytes, "firmaAdmin");
-                        contentStream.drawImage(pdImage, 80, firmaY + 5, 120, 60); 
-                    } catch (Exception e) { }
+                        contentStream.drawImage(pdImage, 230, firmaY + 18, 110, 50);
+                    } catch (Exception ignored) { }
                 }
 
-                if (resguardo.firmaEmpleadoBase64 != null && resguardo.firmaEmpleadoBase64.contains(",")) {
+                if (resguardo != null && resguardo.firmaEmpleadoBase64 != null && resguardo.firmaEmpleadoBase64.contains(",")) {
                     try {
                         String base64Image = resguardo.firmaEmpleadoBase64.split(",")[1];
                         byte[] imageBytes = Base64.getDecoder().decode(base64Image);
                         PDImageXObject pdImage = PDImageXObject.createFromByteArray(document, imageBytes, "firmaDirector");
-                        contentStream.drawImage(pdImage, 340, firmaY + 5, 120, 60); 
-                    } catch (Exception e) { }
+                        contentStream.drawImage(pdImage, 415, firmaY + 18, 110, 50);
+                    } catch (Exception ignored) { }
                 }
 
+                // Columna 1: Vo.Bo.
                 contentStream.beginText();
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
-                contentStream.newLineAtOffset(70, firmaY);
-                contentStream.showText("___________________________________");
-                contentStream.newLineAtOffset(10, -15);
-                contentStream.showText("Entrego (Administrador)");
-                contentStream.newLineAtOffset(-10, -15);
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
-                contentStream.showText(sanitizarTextoPdf(adminNombre));
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 9);
+                contentStream.newLineAtOffset(42, firmaY + 68);
+                contentStream.showText("Vo.Bo.");
+                contentStream.newLineAtOffset(0, -68);
+                contentStream.showText("_____________________________");
+                contentStream.newLineAtOffset(0, -13);
+                contentStream.showText("LIC. JORGE VALENCIA GARCIA");
+                contentStream.newLineAtOffset(0, -11);
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 7.5f);
+                contentStream.showText("JEFE DEL DEPTO. DE ALMACEN GRAL.");
+                contentStream.newLineAtOffset(0, -10);
+                contentStream.showText("E INVENTARIOS DE BIENES MUEB.");
                 contentStream.endText();
 
+                // Columna 2: FORMULO
                 contentStream.beginText();
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
-                contentStream.newLineAtOffset(330, firmaY);
-                contentStream.showText("___________________________________");
-                contentStream.newLineAtOffset(10, -15);
-                contentStream.showText("Recibio (Servidor Publico)");
-                contentStream.newLineAtOffset(-10, -15);
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
-                contentStream.showText(sanitizarTextoPdf(nombreEmpleado));
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 9);
+                contentStream.newLineAtOffset(225, firmaY + 68);
+                contentStream.showText("FORMULO");
+                contentStream.newLineAtOffset(0, -68);
+                contentStream.showText("_____________________________");
+                contentStream.newLineAtOffset(0, -13);
+                contentStream.showText("BISMARCK CASTILLO ESPINOZA");
+                contentStream.newLineAtOffset(0, -11);
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 7.5f);
+                contentStream.showText("JEFE DEL AREA DE INVENTARIOS");
                 contentStream.endText();
 
-                if (resguardo.latitudGPS != null && resguardo.longitudGPS != null) {
+                // Columna 3: RECIBI FIRMA Y SELLO
+                String nombreReceptorCorto = nombreEmpleado.length() > 32 ? nombreEmpleado.substring(0, 32) : nombreEmpleado;
+                contentStream.beginText();
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 9);
+                contentStream.newLineAtOffset(405, firmaY + 68);
+                contentStream.showText("RECIBI FIRMA Y SELLO");
+                contentStream.newLineAtOffset(0, -68);
+                contentStream.showText("_____________________________");
+                contentStream.newLineAtOffset(0, -13);
+                contentStream.showText(sanitizarTextoPdf(nombreReceptorCorto));
+                contentStream.newLineAtOffset(0, -11);
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 7.5f);
+                contentStream.showText(sanitizarTextoPdf("CCT: " + cctClave));
+                contentStream.endText();
+
+                if (resguardo != null && resguardo.latitudGPS != null && resguardo.longitudGPS != null) {
                     contentStream.beginText();
-                    contentStream.setFont(PDType1Font.TIMES_ROMAN, 9);
-                    contentStream.newLineAtOffset(50, 100);
-                    contentStream.showText(sanitizarTextoPdf("Ubicacion de firma del Servidor Publico (GPS): Latitud " + resguardo.latitudGPS + ", Longitud " + resguardo.longitudGPS));
+                    contentStream.setFont(PDType1Font.TIMES_ROMAN, 8.5f);
+                    contentStream.newLineAtOffset(45, 95);
+                    contentStream.showText(sanitizarTextoPdf("Ubicacion GPS de firma electronica: Latitud " + resguardo.latitudGPS + ", Longitud " + resguardo.longitudGPS));
                     contentStream.endText();
                 }
+
+                contentStream.beginText();
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 8.5f);
+                contentStream.newLineAtOffset(45, 75);
+                contentStream.showText("ESTE DOCUMENTO NO DEBE LLEVAR TACHADURAS O ENMENDADURAS");
+                contentStream.endText();
             }
 
             document.save(baos);
-            return Response.ok(baos.toByteArray()).header("Content-Disposition", "attachment; filename=\"Acta_Asignacion_" + folioActa.replace(" ", "_") + ".pdf\"").build();
+            return Response.ok(baos.toByteArray()).header("Content-Disposition", "attachment; filename=\"Acta_Asignacion_" + sanitizarTextoPdf(folioActa).replace(" ", "_") + ".pdf\"").build();
 
         } catch (Exception e) {
             return Response.serverError().entity("Error al generar PDF: " + e.getMessage()).build();
@@ -1251,37 +1497,51 @@ public class ResguardoResource {
     @GET
     @Path("/pdf-baja/{idResguardo}")
     @Produces("application/pdf")
+    @Transactional
     @RolesAllowed({"SUPERADMIN", "admin", "Admin"})
     public Response generarPdfBaja(@PathParam("idResguardo") Long idResguardo) {
-        Resguardo resguardo = Resguardo.findById(idResguardo);
-
-        if (resguardo == null) return Response.status(Response.Status.NOT_FOUND).build();
-
-        String adminNombre = resguardo.nombreAdminAsignador != null ? resguardo.nombreAdminAsignador : "Almacen Central";
-
-        if ("superadmin".equalsIgnoreCase(adminNombre) || "admin".equalsIgnoreCase(adminNombre)) {
-            Usuario userDb = Usuario.find("upper(username) = ?1", adminNombre.trim().toUpperCase()).firstResult();
-            if (userDb != null && userDb.nombreCompleto != null) {
-                adminNombre = userDb.nombreCompleto;
+        Resguardo resguardo = idResguardo != null ? Resguardo.findById(idResguardo) : null;
+        Articulo art = resguardo != null ? resguardo.articulo : null;
+        if (art == null && relacionalService != null && idResguardo != null) {
+            Long idBuscar = idResguardo >= 800_000L ? (idResguardo - 800_000L) : idResguardo;
+            art = relacionalService.buscarPorIdRelacional(idBuscar);
+            if (art == null && !idBuscar.equals(idResguardo)) {
+                art = relacionalService.buscarPorIdRelacional(idResguardo);
+            }
+            if (art == null) {
+                art = relacionalService.sincronizarArticuloEnPanache(idBuscar, null);
             }
         }
+        if (resguardo == null && art == null) {
+            return Response.status(Response.Status.NOT_FOUND).build();
+        }
 
-        String nombreEmpleado = (resguardo.empleado != null && resguardo.empleado.nombre != null)
-                ? resguardo.empleado.nombre : "Servidor Publico SETAB";
-        String areaEmpleado = (resguardo.empleado != null && resguardo.empleado.area != null)
-                ? resguardo.empleado.area : "Centro Educativo";
-        String marcaArticulo = (resguardo.articulo != null && resguardo.articulo.marca != null)
-                ? resguardo.articulo.marca : "N/A";
-        String serieArticulo = (resguardo.articulo != null && resguardo.articulo.numeroSerie != null)
-                ? resguardo.articulo.numeroSerie : "N/A";
+        String cctClave = (art != null && art.centroTrabajo != null && !art.centroTrabajo.isBlank())
+                ? art.centroTrabajo
+                : ((resguardo != null && resguardo.empleado != null && resguardo.empleado.cct != null) ? resguardo.empleado.cct : "SIN-CCT");
+        String nombreEmpleado = (resguardo != null && resguardo.empleado != null && resguardo.empleado.nombre != null)
+                ? resguardo.empleado.nombre
+                : ((art != null && art.resguardanteActual != null) ? art.resguardanteActual : "Servidor Publico SETAB");
+        String areaEmpleado = (resguardo != null && resguardo.empleado != null && resguardo.empleado.area != null)
+                ? resguardo.empleado.area
+                : ((art != null && art.areaUbicacion != null) ? art.areaUbicacion : "Centro Educativo");
+        String marcaArticulo = (art != null && art.descripcion != null && !art.descripcion.isBlank())
+                ? (art.descripcion + " (" + (art.marca != null ? art.marca : "S/M") + ")")
+                : ((art != null && art.marca != null) ? art.marca : "N/A");
+        String serieArticulo = (art != null && art.numeroSerie != null) ? art.numeroSerie : "N/A";
+        String numInv = (art != null && art.numeroInventario != null) ? art.numeroInventario : String.valueOf(idResguardo);
 
-        long consecutivoActa = Math.max(1L, Resguardo.count("id <= ?1", resguardo.id));
-        String folioActa = String.format("%05d", consecutivoActa);
+        String folioActa = (art != null && art.oficioBaja != null && !art.oficioBaja.isBlank())
+                ? art.oficioBaja
+                : String.format("%05d", idResguardo != null ? idResguardo : 1L);
 
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd 'de' MMMM 'de' yyyy", Locale.forLanguageTag("es-MX"));
-        String fechaActa = (resguardo.fechaBaja != null) ? resguardo.fechaBaja.format(formatter) : LocalDate.now().format(formatter);
+        LocalDate fechaRef = (resguardo != null && resguardo.fechaBaja != null)
+                ? resguardo.fechaBaja
+                : ((art != null && art.fechaBaja != null) ? art.fechaBaja : LocalDate.now());
+        String fechaActa = fechaRef.format(formatter);
 
-        try (PDDocument document = new PDDocument(); 
+        try (PDDocument document = new PDDocument();
              ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
 
             PDPage page = new PDPage();
@@ -1290,114 +1550,125 @@ public class ResguardoResource {
             try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
 
                 contentStream.beginText();
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 16);
-                contentStream.newLineAtOffset(150, 720);
-                contentStream.showText("ACTA OFICIAL DE DEVOLUCION DE EQUIPO");
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 14);
+                contentStream.newLineAtOffset(120, 730);
+                contentStream.showText("ACTA OFICIAL DE BAJA / DEVOLUCION DE EQUIPO SETAB");
                 contentStream.endText();
 
                 contentStream.beginText();
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.newLineAtOffset(400, 680);
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
+                contentStream.newLineAtOffset(390, 690);
                 contentStream.showText("Folio: " + sanitizarTextoPdf(folioActa));
                 contentStream.newLineAtOffset(0, -15);
                 contentStream.showText("Fecha: " + sanitizarTextoPdf(fechaActa));
                 contentStream.endText();
 
                 contentStream.beginText();
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.setLeading(18f); 
-                contentStream.newLineAtOffset(50, 610);
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
+                contentStream.setLeading(18f);
+                contentStream.newLineAtOffset(50, 625);
 
                 contentStream.showText("A quien corresponda:");
                 contentStream.newLine();
                 contentStream.newLine();
                 contentStream.showText("Por medio de la presente, se hace constar oficialmente que el servidor publico");
                 contentStream.newLine();
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
-                contentStream.showText(sanitizarTextoPdf(nombreEmpleado) + ",");
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.showText(" adscrito al area de " + sanitizarTextoPdf(areaEmpleado) + ", hace entrega y ");
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
+                contentStream.showText(sanitizarTextoPdf(nombreEmpleado) + " (CCT: " + sanitizarTextoPdf(cctClave) + "),");
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
+                contentStream.showText(" adscrito a " + sanitizarTextoPdf(areaEmpleado) + ", hace entrega y ");
                 contentStream.newLine();
-                contentStream.showText("devuelve al almacen central el siguiente material/equipo institucional:");
+                contentStream.showText("devuelve al Almacen Central el siguiente material/equipo institucional:");
                 contentStream.newLine();
                 contentStream.newLine();
 
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
+                contentStream.showText("     - No. Inventario Oficial: ");
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
+                contentStream.showText(sanitizarTextoPdf(numInv));
+                contentStream.newLine();
+
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
                 contentStream.showText("     - Descripcion / Marca: ");
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
                 contentStream.showText(sanitizarTextoPdf(marcaArticulo));
                 contentStream.newLine();
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
+
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
                 contentStream.showText("     - Numero de Serie: ");
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
                 contentStream.showText(sanitizarTextoPdf(serieArticulo));
                 contentStream.newLine();
                 contentStream.newLine();
 
-                contentStream.showText("El equipo descrito ha sido recibido, verificado y liberado del resguardo de dicho");
-                contentStream.newLine();
-                contentStream.showText("servidor publico. El administrador ");
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 12);
-                contentStream.showText(sanitizarTextoPdf(adminNombre));
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 12);
-                contentStream.showText(" certifica");
-                contentStream.newLine();
-                contentStream.showText("la recepcion del mismo en el sistema.");
+                contentStream.showText("El equipo descrito ha sido verificado para su dictamen de baja o reintegro patrimonial.");
                 contentStream.endText();
 
-                int firmaY = 250; 
+                int firmaY = 230;
 
-                if (resguardo.firmaDirectorBajaBase64 != null && resguardo.firmaDirectorBajaBase64.contains(",")) {
+                if (resguardo != null && resguardo.firmaDirectorBajaBase64 != null && resguardo.firmaDirectorBajaBase64.contains(",")) {
                     try {
                         String base64Image = resguardo.firmaDirectorBajaBase64.split(",")[1];
                         byte[] imageBytes = Base64.getDecoder().decode(base64Image);
                         PDImageXObject pdImage = PDImageXObject.createFromByteArray(document, imageBytes, "firmaDirector");
-                        contentStream.drawImage(pdImage, 80, firmaY + 5, 120, 60); 
-                    } catch (Exception e) {}
+                        contentStream.drawImage(pdImage, 415, firmaY + 18, 110, 50);
+                    } catch (Exception ignored) { }
                 }
 
-                if (resguardo.firmaSuperAdminBajaBase64 != null && resguardo.firmaSuperAdminBajaBase64.contains(",")) {
+                if (resguardo != null && resguardo.firmaSuperAdminBajaBase64 != null && resguardo.firmaSuperAdminBajaBase64.contains(",")) {
                     try {
                         String base64Image = resguardo.firmaSuperAdminBajaBase64.split(",")[1];
                         byte[] imageBytes = Base64.getDecoder().decode(base64Image);
                         PDImageXObject pdImage = PDImageXObject.createFromByteArray(document, imageBytes, "firmaAdmin");
-                        contentStream.drawImage(pdImage, 340, firmaY + 5, 120, 60); 
-                    } catch (Exception e) {}
+                        contentStream.drawImage(pdImage, 45, firmaY + 18, 110, 50);
+                    } catch (Exception ignored) { }
                 }
 
                 contentStream.beginText();
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
-                contentStream.newLineAtOffset(70, firmaY);
-                contentStream.showText("___________________________________");
-                contentStream.newLineAtOffset(10, -15);
-                contentStream.showText("Entrego (Servidor Publico)");
-                contentStream.newLineAtOffset(-10, -15);
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
-                contentStream.showText(sanitizarTextoPdf(nombreEmpleado));
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 9);
+                contentStream.newLineAtOffset(42, firmaY + 68);
+                contentStream.showText("Vo.Bo.");
+                contentStream.newLineAtOffset(0, -68);
+                contentStream.showText("_____________________________");
+                contentStream.newLineAtOffset(0, -13);
+                contentStream.showText("LIC. JORGE VALENCIA GARCIA");
+                contentStream.newLineAtOffset(0, -11);
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 7.5f);
+                contentStream.showText("JEFE DEL DEPTO. DE ALMACEN GRAL.");
+                contentStream.newLineAtOffset(0, -10);
+                contentStream.showText("E INVENTARIOS DE BIENES MUEB.");
                 contentStream.endText();
 
                 contentStream.beginText();
-                contentStream.setFont(PDType1Font.TIMES_ROMAN, 11);
-                contentStream.newLineAtOffset(330, firmaY);
-                contentStream.showText("___________________________________");
-                contentStream.newLineAtOffset(10, -15);
-                contentStream.showText("Recibio (Administrador)");
-                contentStream.newLineAtOffset(-10, -15);
-                contentStream.setFont(PDType1Font.TIMES_BOLD, 11);
-                contentStream.showText(sanitizarTextoPdf(adminNombre));
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 9);
+                contentStream.newLineAtOffset(225, firmaY + 68);
+                contentStream.showText("FORMULO");
+                contentStream.newLineAtOffset(0, -68);
+                contentStream.showText("_____________________________");
+                contentStream.newLineAtOffset(0, -13);
+                contentStream.showText("BISMARCK CASTILLO ESPINOZA");
+                contentStream.newLineAtOffset(0, -11);
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 7.5f);
+                contentStream.showText("JEFE DEL AREA DE INVENTARIOS");
                 contentStream.endText();
 
-                if (resguardo.latitudGPS != null && resguardo.longitudGPS != null) {
-                    contentStream.beginText();
-                    contentStream.setFont(PDType1Font.TIMES_ROMAN, 9);
-                    contentStream.newLineAtOffset(50, 100);
-                    contentStream.showText(sanitizarTextoPdf("Ubicacion de firma del Servidor Publico (GPS): Latitud " + resguardo.latitudGPS + ", Longitud " + resguardo.longitudGPS));
-                    contentStream.endText();
-                }
+                String nombreReceptorCorto = nombreEmpleado.length() > 32 ? nombreEmpleado.substring(0, 32) : nombreEmpleado;
+                contentStream.beginText();
+                contentStream.setFont(PDType1Font.TIMES_BOLD, 9);
+                contentStream.newLineAtOffset(405, firmaY + 68);
+                contentStream.showText("ENTREGA FIRMA Y SELLO");
+                contentStream.newLineAtOffset(0, -68);
+                contentStream.showText("_____________________________");
+                contentStream.newLineAtOffset(0, -13);
+                contentStream.showText(sanitizarTextoPdf(nombreReceptorCorto));
+                contentStream.newLineAtOffset(0, -11);
+                contentStream.setFont(PDType1Font.TIMES_ROMAN, 7.5f);
+                contentStream.showText(sanitizarTextoPdf("CCT: " + cctClave));
+                contentStream.endText();
             }
 
             document.save(baos);
-            return Response.ok(baos.toByteArray()).header("Content-Disposition", "attachment; filename=\"Acta_Baja_" + folioActa + ".pdf\"").build();
+            return Response.ok(baos.toByteArray()).header("Content-Disposition", "attachment; filename=\"Acta_Baja_" + sanitizarTextoPdf(folioActa).replace(" ", "_") + ".pdf\"").build();
 
         } catch (Exception e) {
             return Response.serverError().entity("Error interno al generar el acta PDF de devolucion: " + e.getMessage()).build();

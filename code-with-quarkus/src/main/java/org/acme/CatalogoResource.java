@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -14,6 +15,7 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -28,6 +30,7 @@ public class CatalogoResource {
 
     @GET
     @Path("/todos")
+    @RolesAllowed({"SUPERADMIN", "admin", "Admin"})
     public Response listarTodos() {
         List<CatalogoGeneral> items = new ArrayList<>(CatalogoGeneral.find("upper(tipoCatalogo) <> ?1", "SISTEMA_CONFIG").list());
         if (relacionalService != null && relacionalService.resolverOrigenInventarioActivo(null) != null) {
@@ -48,10 +51,20 @@ public class CatalogoResource {
 
     @GET
     @Path("/{tipo}")
-    public Response listarPorTipo(@PathParam("tipo") String tipo) {
+    @RolesAllowed({"SUPERADMIN", "admin", "Admin"})
+    public Response listarPorTipo(
+            @PathParam("tipo") String tipo,
+            @QueryParam("q") String q,
+            @QueryParam("limit") Integer limit
+    ) {
         String tipoLimpio = tipo != null ? tipo.trim().toLowerCase() : "";
+        boolean usarFiltro = (q != null && !q.isBlank()) || (limit != null && limit > 0);
+        int lim = (limit != null && limit > 0) ? limit : 60;
         if (relacionalService != null && relacionalService.puedeOperarCatalogo(tipoLimpio)) {
             try {
+                if (usarFiltro) {
+                    return Response.ok(relacionalService.buscarEnCatalogoPorTipo(tipoLimpio, q, lim)).build();
+                }
                 return Response.ok(relacionalService.listarCatalogoPorTipo(tipoLimpio)).build();
             } catch (Exception e) {
                 return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
@@ -60,6 +73,18 @@ public class CatalogoResource {
             }
         }
         List<CatalogoGeneral> items = CatalogoGeneral.find("lower(tipoCatalogo) = ?1", tipoLimpio).list();
+        if (usarFiltro && q != null && !q.isBlank()) {
+            String term = q.trim().toLowerCase();
+            items = items.stream()
+                    .filter(c -> (c.clave != null && c.clave.toLowerCase().contains(term))
+                            || (c.descripcion != null && c.descripcion.toLowerCase().contains(term))
+                            || (c.nombre != null && c.nombre.toLowerCase().contains(term))
+                            || (c.rfc != null && c.rfc.toLowerCase().contains(term)))
+                    .limit(lim)
+                    .collect(Collectors.toList());
+        } else if (usarFiltro && items.size() > lim) {
+            items = items.subList(0, lim);
+        }
         return Response.ok(items).build();
     }
 

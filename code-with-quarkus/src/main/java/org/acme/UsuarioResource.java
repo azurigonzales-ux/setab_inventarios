@@ -201,16 +201,27 @@ public class UsuarioResource {
     @POST
     @Transactional
     public Response crearUsuario(NuevoUsuarioDTO dto) {
-        if (dto == null || dto.username == null || dto.username.trim().isEmpty()) {
+        if (dto == null || ((dto.username == null || dto.username.trim().isEmpty()) && (dto.cct == null || dto.cct.trim().isEmpty()))) {
             return Response.status(Response.Status.BAD_REQUEST)
-                    .entity("{\"error\": \"El nombre de usuario (RFC) es obligatorio.\"}").build();
+                    .entity("{\"error\": \"El nombre de usuario (Clave CCT o RFC) es obligatorio.\"}").build();
         }
 
-        String rawUsername = dto.username.trim();
-        String passwordFinal = (dto.password != null && !dto.password.trim().isEmpty()) ? dto.password.trim() : "Setab2026*";
+        String cctDto = dto.cct != null ? dto.cct.trim().toUpperCase() : "";
+        String claveRespDto = dto.claveResponsable != null ? dto.claveResponsable.trim().toUpperCase() : "";
+        String rawUsername = (dto.username != null && !dto.username.trim().isEmpty())
+                ? dto.username.trim().toUpperCase()
+                : (!cctDto.isEmpty() && !"CENTRAL".equalsIgnoreCase(cctDto) ? cctDto : claveRespDto);
+
+        String passwordFinal = (dto.password != null && !dto.password.trim().isEmpty())
+                ? dto.password.trim().toUpperCase()
+                : (!claveRespDto.isEmpty() ? claveRespDto : rawUsername);
+
         String firstName = (dto.nombre != null && !dto.nombre.trim().isEmpty()) ? dto.nombre.trim().toUpperCase() : rawUsername.toUpperCase();
         String lastName = (dto.apellidos != null && !dto.apellidos.trim().isEmpty()) ? dto.apellidos.trim().toUpperCase() : "SETAB";
-        String nombreCompleto = (firstName + " " + lastName).trim();
+        String nombreCompleto = (firstName + " " + lastName).replaceAll("\\s+SETAB$", "").trim();
+        if (nombreCompleto.isEmpty()) {
+            nombreCompleto = firstName;
+        }
         String emailFinal = (dto.email != null && !dto.email.trim().isEmpty())
                 ? dto.email.trim().toLowerCase()
                 : rawUsername.toLowerCase().replaceAll("[^a-z0-9]", "") + "@setab.gob.mx";
@@ -241,28 +252,42 @@ public class UsuarioResource {
                     .entity("{\"error\": \"" + motivo + "\"}").build();
         }
 
-        Empleado emp = Empleado.find("upper(usuario) = ?1", rawUsername.toUpperCase()).firstResult();
+        Empleado emp = null;
+        if (!cctDto.isEmpty() && !"CENTRAL".equalsIgnoreCase(cctDto) && !"SIN-CCT".equalsIgnoreCase(cctDto)) {
+            emp = Empleado.find("upper(cct) = ?1", cctDto).firstResult();
+        }
+        if (emp == null) {
+            emp = Empleado.find("upper(usuario) = ?1 or upper(rfc) = ?1", rawUsername.toUpperCase()).firstResult();
+        }
+        if (emp == null && !claveRespDto.isEmpty()) {
+            emp = Empleado.find("upper(rfc) = ?1 or upper(claveResponsable) = ?1", claveRespDto).firstResult();
+        }
         if (emp == null) {
             emp = new Empleado();
+            emp.idEmpleado = null;
         }
         emp.nombre = nombreCompleto;
-        emp.rfc = rawUsername.toUpperCase();
-        emp.usuario = rawUsername.toLowerCase();
-        emp.cct = dto.cct != null && !dto.cct.trim().isEmpty() ? dto.cct.trim().toUpperCase() : "CENTRAL";
+        emp.rfc = !claveRespDto.isEmpty() ? claveRespDto : ((emp.rfc != null && !emp.rfc.isBlank()) ? emp.rfc : passwordFinal);
+        emp.usuario = rawUsername.toUpperCase();
+        emp.cct = !cctDto.isEmpty() ? cctDto : "CENTRAL";
         emp.nombreEscuela = dto.nombreEscuela != null && !dto.nombreEscuela.trim().isEmpty() ? dto.nombreEscuela.trim().toUpperCase() : "ALMACÉN CENTRAL";
         emp.area = dto.nivelEducativo != null && !dto.nivelEducativo.trim().isEmpty() ? dto.nivelEducativo.trim() : "Primaria";
         emp.cargo = rolNormalizado.equals("SUPERADMIN") ? "Administrador de Almacén" : "Director de Escuela";
         if (dto.curp != null && !dto.curp.trim().isEmpty()) {
             emp.curp = dto.curp.trim().toUpperCase();
         }
-        if (dto.claveResponsable != null && !dto.claveResponsable.trim().isEmpty()) {
-            emp.claveResponsable = dto.claveResponsable.trim().toUpperCase();
+        if (!claveRespDto.isEmpty()) {
+            emp.claveResponsable = claveRespDto;
         }
         emp.persist();
 
         Usuario usuario = Usuario.find("upper(username) = ?1", rawUsername.toUpperCase()).firstResult();
+        if (usuario == null && !cctDto.isEmpty() && !"CENTRAL".equalsIgnoreCase(cctDto)) {
+            usuario = Usuario.find("upper(cct) = ?1 and upper(rol) <> 'SUPERADMIN'", cctDto).firstResult();
+        }
         if (usuario == null) {
             usuario = new Usuario();
+            usuario.id = null;
         }
         usuario.username = rawUsername;
         usuario.password = passwordFinal;
@@ -299,6 +324,81 @@ public class UsuarioResource {
         }
 
         return Response.status(Response.Status.CREATED).entity(usuario).build();
+    }
+
+    @Transactional
+    public Usuario sincronizarDirectorConKeycloak(Empleado emp, String keycloakUrl, String realm) {
+        if (emp == null) {
+            return null;
+        }
+        String cctLimpio = (emp.cct != null && !emp.cct.isBlank()) ? emp.cct.trim().toUpperCase() : "";
+        String rfcLimpio = (emp.rfc != null && !emp.rfc.isBlank())
+                ? emp.rfc.trim().toUpperCase()
+                : (emp.claveResponsable != null && !emp.claveResponsable.isBlank() ? emp.claveResponsable.trim().toUpperCase() : "");
+
+        boolean usarCct = !cctLimpio.isEmpty()
+                && !cctLimpio.startsWith("RESP-")
+                && !"CENTRAL".equalsIgnoreCase(cctLimpio)
+                && !"SIN-CCT".equalsIgnoreCase(cctLimpio)
+                && !"S/C".equalsIgnoreCase(cctLimpio);
+
+        String username = usarCct
+                ? cctLimpio
+                : (!rfcLimpio.isEmpty() ? rfcLimpio : ("DIR" + (emp.idEmpleado != null ? emp.idEmpleado : "1")));
+        String passwordInicial = (!rfcLimpio.isEmpty()) ? rfcLimpio : username;
+
+        String nombreCompleto = (emp.nombre != null && !emp.nombre.isBlank()) ? emp.nombre.trim().toUpperCase() : username;
+        String emailFinal = username.toLowerCase().replaceAll("[^a-z0-9]", "") + "@setab.gob.mx";
+
+        Usuario usuario = Usuario.find("upper(username) = ?1", username.toUpperCase()).firstResult();
+        if (usuario == null && usarCct) {
+            usuario = Usuario.find("upper(cct) = ?1 and upper(rol) <> 'SUPERADMIN'", cctLimpio).firstResult();
+        }
+        if (usuario == null) {
+            usuario = new Usuario();
+            usuario.id = null;
+        }
+        usuario.username = username;
+        usuario.password = passwordInicial;
+        usuario.nombreCompleto = nombreCompleto;
+        if (usuario.email == null || usuario.email.isBlank()) {
+            usuario.email = emailFinal;
+        }
+        usuario.cct = !cctLimpio.isEmpty() ? cctLimpio : username;
+        usuario.nivelEducativo = (emp.area != null && !emp.area.isBlank()) ? emp.area : "Educación Básica";
+        usuario.nombreEscuela = (emp.nombreEscuela != null && !emp.nombreEscuela.isBlank()) ? emp.nombreEscuela : "Centro Educativo SETAB";
+        usuario.rol = "Admin";
+        usuario.estado = "Activo";
+        usuario.idEmpleado = emp.idEmpleado;
+        usuario.persist();
+
+        Runnable syncKeycloakTask = () -> {
+            try {
+                String targetRealm = resolverTargetRealm(realm);
+                List<String> baseUrls = resolverCandidatosKeycloakBaseUrl(keycloakUrl);
+                SesionAdminKeycloak sesion = abrirSesionAdminKeycloak(baseUrls, targetRealm);
+                sincronizarCreacionKeycloak(
+                        sesion.baseUrl,
+                        sesion.realm,
+                        sesion.token,
+                        username,
+                        nombreCompleto,
+                        "SETAB",
+                        emailFinal,
+                        passwordInicial,
+                        "admin"
+                );
+            } catch (Exception ignored) {
+            }
+        };
+
+        if (keycloakUrl != null && !keycloakUrl.isBlank()) {
+            syncKeycloakTask.run();
+        } else {
+            java.util.concurrent.CompletableFuture.runAsync(syncKeycloakTask);
+        }
+
+        return usuario;
     }
 
     @PUT

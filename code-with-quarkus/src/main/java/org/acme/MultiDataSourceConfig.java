@@ -223,9 +223,21 @@ public class MultiDataSourceConfig {
     }
 
     private Connection abrirConexionConFallbackEsquemaInventario(String urlPrimaria, String user, String pass) throws SQLException {
-        DriverManager.setLoginTimeout(4);
-        boolean esServidorInventarioLocal = urlPrimaria != null && urlPrimaria.contains("192.168.13.100:5432");
+        boolean esServidorInventarioLocal = urlPrimaria == null || (urlPrimaria.contains("192.168.13.100:5432") && !urlPrimaria.contains("/estadisticas"));
 
+        if (esServidorInventarioLocal && defaultDataSource != null) {
+            try {
+                Connection connPool = defaultDataSource.getConnection();
+                try (Statement st = connPool.createStatement()) {
+                    st.execute("SET search_path TO inventario, \"Inventario\", public;");
+                } catch (SQLException ignored) {
+                }
+                return connPool;
+            } catch (SQLException ignored) {
+            }
+        }
+
+        DriverManager.setLoginTimeout(4);
         if (esServidorInventarioLocal && urlInventarioVerificada != null) {
             try {
                 Connection connRapida = DriverManager.getConnection(urlInventarioVerificada, user, pass);

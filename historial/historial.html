@@ -1,25 +1,17 @@
-<!-- ======================================================= -->
-<!-- VISTA: ACCESO DENEGADO -->
-<!-- ======================================================= -->
 <div x-show="!cargandoVista && rolUsuario !== 'SUPERADMIN'" x-cloak
     class="bg-red-50 text-red-700 p-6 rounded-xl border border-red-200 text-center shadow-sm">
     <h2 class="text-xl font-bold mb-2">Acceso Denegado</h2>
     <p>Solo el Almacén Central puede auditar el historial de los bienes.</p>
 </div>
 
-<!-- ======================================================= -->
-<!-- VISTA: HISTORIAL Y TRAZABILIDAD (SUPERADMIN)            -->
-<!-- ======================================================= -->
 <div x-show="rolUsuario === 'SUPERADMIN' && vistaActiva === 'historial'" x-cloak x-transition.opacity>
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">Trazabilidad y Auditoría</h1>
-            <p class="mt-1.5 text-sm text-gray-500">Consulta la línea de vida completa de cualquier activo
-                institucional.</p>
-        </div>
+    <div class="bg-guinda text-white px-5 py-3.5 rounded-xl shadow-sm border-b-4 border-dorado flex items-center justify-between mb-5">
+        <h1 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2.5">
+            <i class="fas fa-history text-dorado"></i>
+            <span>Trazabilidad y Auditoría</span>
+        </h1>
     </div>
 
-    <!-- Buscador de Expedientes -->
     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-dorado mb-6">
         <label class="block text-sm font-bold text-gray-700 mb-2">Buscar Equipo por Folio o Número de Serie</label>
         <div class="flex flex-col sm:flex-row gap-3">
@@ -36,18 +28,13 @@
         </div>
     </div>
 
-    <!-- Zona de Resultados -->
     <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-200 min-h-[400px]">
-
-        <!-- Estado Vacío -->
         <div x-show="!cargandoHistorial && historialArticulo.length === 0 && !equipoAuditado"
             class="flex flex-col items-center justify-center text-gray-400 py-12">
             <i class="fas fa-history text-6xl mb-4 opacity-30"></i>
             <p class="text-lg font-bold text-gray-500">Ingresa un folio para ver su historial</p>
-            <p class="text-sm mt-1">Podrás ver desde su alta, asignaciones a escuelas y reportes de estado.</p>
         </div>
 
-        <!-- Ficha del equipo encontrado -->
         <div x-show="equipoAuditado" x-cloak
             class="mb-6 pb-6 border-b border-gray-200 flex flex-col sm:flex-row justify-between items-start gap-4">
             <div>
@@ -74,7 +61,6 @@
             </div>
         </div>
 
-        <!-- Línea de tiempo -->
         <div x-show="historialArticulo.length > 0" class="relative border-l-2 border-dorado/50 ml-4 py-2">
             <template x-for="movimiento in historialArticulo"
                 :key="movimiento.idTrazabilidad || movimiento.id_trazabilidad || movimiento.fechaMovimiento">
@@ -100,12 +86,10 @@
             </template>
         </div>
 
-        <!-- Sin movimientos -->
         <div x-show="!cargandoHistorial && historialArticulo.length === 0 && equipoAuditado" x-cloak
             class="py-10 text-center text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
             <i class="fas fa-file-alt text-4xl text-gray-300 mb-3"></i>
             <p class="font-medium">El equipo existe en el catálogo, pero no tiene movimientos registrados.</p>
         </div>
-
     </div>
 </div>

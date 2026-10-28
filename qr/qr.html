@@ -5,22 +5,21 @@
 </div>
 
 <div x-show="rolUsuario === 'SUPERADMIN' && vistaActiva === 'qr'" x-cloak x-transition.opacity>
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900 sm:text-3xl">Control y Etiquetado QR</h1>
-            <p class="mt-1.5 text-sm text-gray-500">Genera etiquetas físicas institucionales o escanea equipos para
-                auditoría.</p>
-        </div>
+    <div class="bg-guinda text-white px-5 py-3.5 rounded-xl shadow-sm border-b-4 border-dorado flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        <h1 class="text-xl sm:text-2xl font-bold text-white flex items-center gap-2.5">
+            <i class="fas fa-qrcode text-dorado"></i>
+            <span>Control y Etiquetado QR</span>
+        </h1>
 
-        <div class="flex bg-gray-100 p-1 rounded-lg shadow-inner">
+        <div class="flex bg-guinda-dark/60 p-1 rounded-lg border border-dorado/40">
             <button @click="cambiarTabQR('generar')"
-                class="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-colors"
-                :class="tabQRActivo === 'generar' ? 'bg-white text-guinda shadow-sm' : 'text-gray-500 hover:text-gray-700'">
+                class="flex items-center gap-2 px-4 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-colors"
+                :class="tabQRActivo === 'generar' ? 'bg-dorado text-white shadow-sm' : 'text-white/80 hover:text-white'">
                 <i class="fas fa-print"></i> Generar Etiquetas
             </button>
             <button @click="cambiarTabQR('escanear')"
-                class="flex items-center gap-2 px-4 py-2 text-sm font-bold rounded-md transition-colors"
-                :class="tabQRActivo === 'escanear' ? 'bg-white text-guinda shadow-sm' : 'text-gray-500 hover:text-gray-700'">
+                class="flex items-center gap-2 px-4 py-1.5 text-xs sm:text-sm font-bold rounded-md transition-colors"
+                :class="tabQRActivo === 'escanear' ? 'bg-dorado text-white shadow-sm' : 'text-white/80 hover:text-white'">
                 <i class="fas fa-camera"></i> Escáner / Auditoría
             </button>
         </div>
@@ -30,7 +29,7 @@
         <div
             class="bg-white p-4 rounded-xl shadow-sm border border-gray-200 border-t-4 border-t-dorado mb-6 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="relative w-full md:w-1/2">
-                <input type="text" x-model="busquedaQR" placeholder="Buscar por Folio, Descripción, Serie o Marca..."
+                <input type="text" x-model="busquedaQR" @input.debounce.350ms="buscarArticulosQRRemoto()" placeholder="Buscar por Folio, Descripción, Serie o Marca..."
                     class="w-full rounded-md border-gray-200 bg-gray-50 py-2.5 px-4 shadow-sm sm:text-sm border focus:ring-guinda focus:border-guinda" />
             </div>
             <button @click="imprimirEtiquetasSeleccionadas()"
@@ -67,7 +66,7 @@
                         <td colspan="5" class="px-4 py-8 text-center text-gray-500">Cargando catálogo para etiquetas...
                         </td>
                     </tr>
-                    <template x-for="articulo in articulosQRFiltrados" :key="articulo.id">
+                    <template x-for="articulo in articulosQRFiltrados.slice(0, 100)" :key="articulo.id">
                         <tr class="hover:bg-gray-50 transition-colors"
                             :class="itemsSeleccionadosQR.some(idSel => String(idSel) === String(articulo.id)) ? 'bg-guinda/5' : ''">
                             <td class="px-4 py-3 text-center">
@@ -128,7 +127,7 @@
                     <label class="block text-xs font-bold text-gray-500 uppercase text-center mb-2">Ingresar Folio
                         Manualmente</label>
                     <div class="flex gap-2">
-                        <input type="text" x-model="folioManual" placeholder="SE-AG-26-00001"
+                        <input type="text" x-model="folioManual" placeholder="SE-AG-26-00001 o 1451000258"
                             class="flex-1 rounded-md border-gray-300 shadow-sm text-sm font-mono uppercase focus:ring-guinda focus:border-guinda py-2 px-3 border">
                         <button @click="buscarFolioManual()"
                             class="bg-dorado text-white px-4 py-2 rounded-md shadow hover:bg-opacity-90 font-bold"><i
@@ -143,17 +142,23 @@
                     <i class="fas fa-expand text-6xl mb-4 opacity-50"></i>
                     <p class="text-lg font-bold text-gray-500">Esperando Código QR...</p>
                     <p class="text-sm mt-2">Apunta la cámara a la etiqueta institucional del bien para cargar su
-                        expediente técnico.</p>
+                        expediente técnico vivo desde la base de datos.</p>
                 </div>
 
                 <div x-show="resultadoEscaneo" x-cloak x-transition.scale class="h-full flex flex-col">
                     <div class="flex justify-between items-start border-b border-dorado/30 pb-4 mb-4">
                         <div>
-                            <span
-                                class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest"><i
-                                    class="fas fa-check-circle"></i> Equipo Identificado</span>
+                            <div class="flex items-center gap-2">
+                                <span
+                                    class="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-1 rounded uppercase tracking-widest"><i
+                                        class="fas fa-check-circle"></i> Expediente Vivo en Tiempo Real</span>
+                                <span class="bg-caqui text-guinda border border-dorado/40 text-[10px] font-bold px-2 py-1 rounded uppercase"
+                                    x-text="resultadoEscaneo?.fondoOrigen || 'OFICIAL'"></span>
+                            </div>
                             <h3 class="text-2xl font-bold text-guinda font-mono mt-2"
-                                x-text="resultadoEscaneo?.numeroInventario"></h3>
+                                x-text="resultadoEscaneo?.numeroInventario || ('ID-' + resultadoEscaneo?.id)"></h3>
+                            <p x-show="resultadoEscaneo?.numeroInventarioAnterior" class="text-xs font-mono text-gray-500"
+                                x-text="'Inv. Anterior: ' + resultadoEscaneo?.numeroInventarioAnterior"></p>
                         </div>
                         <button @click="resultadoEscaneo = null"
                             class="text-gray-400 hover:text-gray-700 bg-white p-2 rounded-full shadow-sm"><i
@@ -162,42 +167,79 @@
 
                     <div class="bg-white rounded-lg p-5 border border-gray-200 shadow-sm flex-1 space-y-4">
                         <div>
-                            <p class="text-xs text-gray-500 uppercase font-bold">Descripción del Bien</p>
-                            <p class="text-gray-900 font-semibold uppercase" x-text="resultadoEscaneo?.descripcion"></p>
+                            <p class="text-[10px] text-gray-500 uppercase font-bold">Descripción Oficial del Bien</p>
+                            <p class="text-gray-900 font-bold uppercase text-sm" x-text="resultadoEscaneo?.descripcion || resultadoEscaneo?.marca || 'S/D'"></p>
+                            <p x-show="resultadoEscaneo?.descripcionSecundaria" class="text-xs text-gray-500 uppercase mt-0.5"
+                                x-text="resultadoEscaneo?.descripcionSecundaria"></p>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-4 bg-gray-50 p-3 rounded-md border border-gray-100">
+                        <div class="grid grid-cols-2 sm:grid-cols-3 gap-3 bg-gray-50 p-3 rounded-md border border-gray-100 text-xs">
                             <div>
-                                <p class="text-[10px] text-gray-500 uppercase font-bold">Marca / Modelo</p>
-                                <p class="text-sm font-medium text-gray-800"
-                                    x-text="(resultadoEscaneo?.marca || 'S/N') + ' / ' + (resultadoEscaneo?.modelo || 'S/N')">
-                                </p>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold">Marca / Modelo</p>
+                                <p class="font-semibold text-gray-800"
+                                    x-text="(resultadoEscaneo?.marca || 'S/N') + ' / ' + (resultadoEscaneo?.modelo || 'S/N')"></p>
                             </div>
                             <div>
-                                <p class="text-[10px] text-gray-500 uppercase font-bold">Número de Serie</p>
-                                <p class="text-sm font-mono font-medium text-gray-800"
+                                <p class="text-[10px] text-gray-400 uppercase font-bold">Número de Serie</p>
+                                <p class="font-mono font-bold text-gray-800"
                                     x-text="resultadoEscaneo?.numeroSerie || resultadoEscaneo?.serie || 'S/N'"></p>
                             </div>
+                            <div>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold">Color / Estado Físico</p>
+                                <p class="font-semibold text-gray-800"
+                                    x-text="(resultadoEscaneo?.color || 'S/C') + ' · ' + (resultadoEscaneo?.estadoFisico || 'BUENO')"></p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold">Factura / Fecha</p>
+                                <p class="font-mono font-semibold text-gray-800"
+                                    x-text="(resultadoEscaneo?.factura || 'S/F') + (resultadoEscaneo?.fechaFactura ? ' (' + resultadoEscaneo.fechaFactura + ')' : '')"></p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold">Valor Adquisición</p>
+                                <p class="font-mono font-bold text-guinda"
+                                    x-text="'$ ' + Number(resultadoEscaneo?.valorInicial || resultadoEscaneo?.precioSinIva || 0).toLocaleString('es-MX', { minimumFractionDigits: 2, maximumFractionDigits: 2 })"></p>
+                            </div>
+                            <div>
+                                <p class="text-[10px] text-gray-400 uppercase font-bold">Partida / Proveedor</p>
+                                <p class="font-semibold text-gray-800 truncate"
+                                    x-text="(resultadoEscaneo?.partida || 'S/P') + (resultadoEscaneo?.proveedor ? ' · ' + resultadoEscaneo.proveedor : '')"></p>
+                            </div>
                         </div>
 
-                        <div>
-                            <p class="text-xs text-gray-500 uppercase font-bold">Ubicación y Estatus Actual</p>
-                            <p class="text-sm font-medium text-gray-800 flex items-center gap-2 mt-1">
-                                <i class="fas fa-map-marker-alt text-dorado"></i>
-                                <span x-text="resultadoEscaneo?.areaUbicacion || 'Almacén Central'"></span>
+                        <div class="bg-caqui/50 p-3.5 rounded-lg border border-dorado/30 space-y-1.5">
+                            <p class="text-[10px] text-guinda uppercase font-extrabold tracking-wider">Adscripción y Resguardo Actual (En Vivo)</p>
+                            <p class="text-xs font-bold text-gray-900 flex items-center gap-2">
+                                <i class="fas fa-school text-guinda"></i>
+                                <span x-text="(resultadoEscaneo?.centroTrabajo ? resultadoEscaneo.centroTrabajo + ' — ' : '') + (resultadoEscaneo?.areaUbicacion || 'Almacén General')"></span>
                             </p>
-                            <span
-                                class="inline-flex mt-2 items-center px-2.5 py-0.5 rounded-full text-xs font-medium border"
-                                :class="resultadoEscaneo?.estado === 'Activo' ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'"
-                                x-text="'Estado Operativo: ' + (resultadoEscaneo?.estado || 'Activo')">
-                            </span>
+                            <p class="text-xs font-semibold text-gray-700 flex items-center gap-2">
+                                <i class="fas fa-user-tie text-dorado"></i>
+                                <span x-text="'Director / Custodio: ' + (resultadoEscaneo?.resguardanteActual || 'Sin Asignar (Stock Libre en Almacén)')"></span>
+                            </p>
+                            <div class="flex flex-wrap items-center gap-2 pt-1">
+                                <span
+                                    class="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border"
+                                    :class="resultadoEscaneo?.estado === 'Baja' ? 'bg-red-50 text-red-700 border-red-200' : (resultadoEscaneo?.cantidadStock > 0 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-blue-50 text-blue-800 border-blue-200')"
+                                    x-text="resultadoEscaneo?.estado === 'Baja' ? 'Baja' : (resultadoEscaneo?.cantidadStock > 0 ? 'Disponible en Almacén' : 'En Resguardo CCT')">
+                                </span>
+                                <span x-show="resultadoEscaneo?.folioResguardo" class="text-[11px] font-mono font-bold text-gray-600"
+                                    x-text="'Folio Resg: ' + resultadoEscaneo?.folioResguardo"></span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="mt-4 pt-4 border-t border-gray-200 flex gap-3">
+                    <div class="mt-4 pt-4 border-t border-gray-200 flex flex-wrap gap-2">
+                        <button @click="abrirModal(resultadoEscaneo)"
+                            class="flex-1 bg-guinda text-white py-2.5 px-3 rounded-lg font-bold hover:bg-guinda-dark transition-colors flex justify-center items-center gap-2 text-xs shadow-sm">
+                            <i class="fas fa-edit"></i> Abrir Ficha / Editar
+                        </button>
+                        <button @click="imprimirResguardoLoteMNREPINV(resultadoEscaneo)"
+                            class="flex-1 bg-blue-800 text-white py-2.5 px-3 rounded-lg font-bold hover:bg-blue-900 transition-colors flex justify-center items-center gap-2 text-xs shadow-sm">
+                            <i class="fas fa-file-contract"></i> Descargar Resguardo
+                        </button>
                         <button @click="abrirModalHistorial(resultadoEscaneo)"
-                            class="flex-1 bg-white border border-guinda text-guinda py-2.5 rounded-lg font-bold hover:bg-guinda hover:text-white transition-colors flex justify-center items-center gap-2 text-sm shadow-sm">
-                            <i class="fas fa-history"></i> Ver Historial Auditable
+                            class="flex-1 bg-white border border-guinda text-guinda py-2.5 px-3 rounded-lg font-bold hover:bg-guinda hover:text-white transition-colors flex justify-center items-center gap-2 text-xs shadow-sm">
+                            <i class="fas fa-history"></i> Historial Auditable
                         </button>
                     </div>
                 </div>
